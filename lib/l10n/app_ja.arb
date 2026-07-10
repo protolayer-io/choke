@@ -73,6 +73,7 @@
   "undoLastAction": "最後の操作を元に戻す",
   "startMatch": "試合開始",
   "finish": "終了",
+  "holdHint": "長押し",
   "matchFinished": "試合終了",
   "matchCanceled": "試合キャンセル",
   "finishMatchQuestion": "試合を終了しますか？",

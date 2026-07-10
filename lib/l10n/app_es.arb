@@ -73,6 +73,7 @@
   "undoLastAction": "Deshacer última acción",
   "startMatch": "Iniciar combate",
   "finish": "Finalizar",
+  "holdHint": "mantener",
   "matchFinished": "Combate finalizado",
   "matchCanceled": "Combate cancelado",
   "finishMatchQuestion": "¿Finalizar combate?",

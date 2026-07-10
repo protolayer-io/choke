@@ -299,6 +299,10 @@
     "description": "Start match button label"
   },
   "finish": "Finish",
+  "holdHint": "hold",
+  "@holdHint": {
+    "description": "Suffix hint on hold-to-confirm buttons, e.g. 'Finish · hold'"
+  },
   "@finish": {
     "description": "Finish match button label"
   },

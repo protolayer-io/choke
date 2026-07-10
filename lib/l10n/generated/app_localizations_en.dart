@@ -240,6 +240,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get finish => 'Finish';
 
   @override
+  String get holdHint => 'hold';
+
+  @override
   String get matchFinished => 'Match Finished';
 
   @override

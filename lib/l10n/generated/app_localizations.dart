@@ -540,6 +540,12 @@ abstract class AppLocalizations {
   /// **'Finish'**
   String get finish;
 
+  /// Suffix hint on hold-to-confirm buttons, e.g. 'Finish · hold'
+  ///
+  /// In en, this message translates to:
+  /// **'hold'**
+  String get holdHint;
+
   /// Status text when match is finished
   ///
   /// In en, this message translates to:

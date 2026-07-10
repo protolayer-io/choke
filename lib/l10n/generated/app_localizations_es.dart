@@ -242,6 +242,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get finish => 'Finalizar';
 
   @override
+  String get holdHint => 'mantener';
+
+  @override
   String get matchFinished => 'Combate finalizado';
 
   @override

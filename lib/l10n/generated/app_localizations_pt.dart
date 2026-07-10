@@ -241,6 +241,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get finish => 'Finalizar';
 
   @override
+  String get holdHint => 'segurar';
+
+  @override
   String get matchFinished => 'Luta finalizada';
 
   @override

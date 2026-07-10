@@ -49,7 +49,10 @@ class _UndoEntry {
   /// Field name: 'pt2', 'pt3', 'pt4', 'adv', 'pen'
   final String field;
 
-  _UndoEntry(this.fighter, this.field);
+  /// Applied change: +1 for an add, -1 for a subtract
+  final int delta;
+
+  _UndoEntry(this.fighter, this.field, [this.delta = 1]);
 }
 
 /// Manages match control: timer, scoring, publishing
@@ -116,71 +119,100 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
   /// Add penalty
   void scorePen(int fighter) => _score(fighter, 'pen');
 
+  /// Subtract: -2 (takedown/sweep count)
+  void subtractPt2(int fighter) => _subtract(fighter, 'pt2');
+
+  /// Subtract: -3 (guard pass count)
+  void subtractPt3(int fighter) => _subtract(fighter, 'pt3');
+
+  /// Subtract: -4 (mount/back take count)
+  void subtractPt4(int fighter) => _subtract(fighter, 'pt4');
+
+  /// Remove advantage
+  void subtractAdv(int fighter) => _subtract(fighter, 'adv');
+
+  /// Remove penalty
+  void subtractPen(int fighter) => _subtract(fighter, 'pen');
+
   void _score(int fighter, String field) {
     if (!state.isRunning) return;
 
-    final m = state.match;
-    Match updated;
-
-    if (fighter == 1) {
-      updated = switch (field) {
-        'pt2' => m.copyWith(f1Pt2: m.f1Pt2 + 1),
-        'pt3' => m.copyWith(f1Pt3: m.f1Pt3 + 1),
-        'pt4' => m.copyWith(f1Pt4: m.f1Pt4 + 1),
-        'adv' => m.copyWith(f1Adv: m.f1Adv + 1),
-        'pen' => m.copyWith(f1Pen: m.f1Pen + 1),
-        _ => m,
-      };
-    } else {
-      updated = switch (field) {
-        'pt2' => m.copyWith(f2Pt2: m.f2Pt2 + 1),
-        'pt3' => m.copyWith(f2Pt3: m.f2Pt3 + 1),
-        'pt4' => m.copyWith(f2Pt4: m.f2Pt4 + 1),
-        'adv' => m.copyWith(f2Adv: m.f2Adv + 1),
-        'pen' => m.copyWith(f2Pen: m.f2Pen + 1),
-        _ => m,
-      };
-    }
-
     state = state.copyWith(
-      match: updated,
-      undoStack: [...state.undoStack, _UndoEntry(fighter, field)],
+      match: _applyDelta(state.match, fighter, field, 1),
+      undoStack: [...state.undoStack, _UndoEntry(fighter, field, 1)],
     );
 
     _publishState();
   }
 
-  /// Undo last scoring action
+  void _subtract(int fighter, String field) {
+    if (!state.isRunning) return;
+    if (_count(state.match, fighter, field) <= 0) return;
+
+    state = state.copyWith(
+      match: _applyDelta(state.match, fighter, field, -1),
+      undoStack: [...state.undoStack, _UndoEntry(fighter, field, -1)],
+    );
+
+    _publishState();
+  }
+
+  /// Undo last scoring action (reverts adds and subtracts alike)
   void undo() {
     if (!state.canUndo) return;
 
     final stack = List<_UndoEntry>.from(state.undoStack);
     final entry = stack.removeLast();
-    final m = state.match;
 
-    Match updated;
-    if (entry.fighter == 1) {
-      updated = switch (entry.field) {
-        'pt2' => m.copyWith(f1Pt2: (m.f1Pt2 - 1).clamp(0, 999)),
-        'pt3' => m.copyWith(f1Pt3: (m.f1Pt3 - 1).clamp(0, 999)),
-        'pt4' => m.copyWith(f1Pt4: (m.f1Pt4 - 1).clamp(0, 999)),
-        'adv' => m.copyWith(f1Adv: (m.f1Adv - 1).clamp(0, 999)),
-        'pen' => m.copyWith(f1Pen: (m.f1Pen - 1).clamp(0, 999)),
-        _ => m,
+    state = state.copyWith(
+      match: _applyDelta(state.match, entry.fighter, entry.field, -entry.delta),
+      undoStack: stack,
+    );
+    _publishState();
+  }
+
+  static int _count(Match m, int fighter, String field) {
+    if (fighter == 1) {
+      return switch (field) {
+        'pt2' => m.f1Pt2,
+        'pt3' => m.f1Pt3,
+        'pt4' => m.f1Pt4,
+        'adv' => m.f1Adv,
+        'pen' => m.f1Pen,
+        _ => 0,
       };
-    } else {
-      updated = switch (entry.field) {
-        'pt2' => m.copyWith(f2Pt2: (m.f2Pt2 - 1).clamp(0, 999)),
-        'pt3' => m.copyWith(f2Pt3: (m.f2Pt3 - 1).clamp(0, 999)),
-        'pt4' => m.copyWith(f2Pt4: (m.f2Pt4 - 1).clamp(0, 999)),
-        'adv' => m.copyWith(f2Adv: (m.f2Adv - 1).clamp(0, 999)),
-        'pen' => m.copyWith(f2Pen: (m.f2Pen - 1).clamp(0, 999)),
+    }
+    return switch (field) {
+      'pt2' => m.f2Pt2,
+      'pt3' => m.f2Pt3,
+      'pt4' => m.f2Pt4,
+      'adv' => m.f2Adv,
+      'pen' => m.f2Pen,
+      _ => 0,
+    };
+  }
+
+  static Match _applyDelta(Match m, int fighter, String field, int delta) {
+    int next(int v) => (v + delta).clamp(0, 999);
+
+    if (fighter == 1) {
+      return switch (field) {
+        'pt2' => m.copyWith(f1Pt2: next(m.f1Pt2)),
+        'pt3' => m.copyWith(f1Pt3: next(m.f1Pt3)),
+        'pt4' => m.copyWith(f1Pt4: next(m.f1Pt4)),
+        'adv' => m.copyWith(f1Adv: next(m.f1Adv)),
+        'pen' => m.copyWith(f1Pen: next(m.f1Pen)),
         _ => m,
       };
     }
-
-    state = state.copyWith(match: updated, undoStack: stack);
-    _publishState();
+    return switch (field) {
+      'pt2' => m.copyWith(f2Pt2: next(m.f2Pt2)),
+      'pt3' => m.copyWith(f2Pt3: next(m.f2Pt3)),
+      'pt4' => m.copyWith(f2Pt4: next(m.f2Pt4)),
+      'adv' => m.copyWith(f2Adv: next(m.f2Adv)),
+      'pen' => m.copyWith(f2Pen: next(m.f2Pen)),
+      _ => m,
+    };
   }
 
   /// Finish the match

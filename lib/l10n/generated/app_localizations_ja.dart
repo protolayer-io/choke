@@ -232,6 +232,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get finish => '終了';
 
   @override
+  String get holdHint => '長押し';
+
+  @override
   String get matchFinished => '試合終了';
 
   @override

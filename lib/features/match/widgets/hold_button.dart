@@ -58,6 +58,14 @@ class _HoldButtonState extends State<HoldButton>
       ..addStatusListener(_onStatus);
   }
 
+  @override
+  void didUpdateWidget(HoldButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the button is disabled mid-hold (e.g. the match ends), abort the
+    // hold so it can't complete with stray haptics or a lingering fill.
+    if (!widget.enabled && oldWidget.enabled) _cancelHold();
+  }
+
   void _onStatus(AnimationStatus status) {
     if (status != AnimationStatus.completed) return;
     _holdFired = true;
@@ -105,9 +113,6 @@ class _HoldButtonState extends State<HoldButton>
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,
       onTapCancel: _onTapCancel,
-      // Fallback for buttons without a hold action: plain tap
-      onTap:
-          widget.onHoldComplete == null && widget.enabled ? widget.onTap : null,
       child: ClipRRect(
         borderRadius: widget.borderRadius,
         child: Container(

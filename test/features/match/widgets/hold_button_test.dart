@@ -124,4 +124,52 @@ void main() {
     // Assert
     expect(holds, 0);
   });
+
+  testWidgets('hold-only button fires onHoldComplete after 1 second',
+      (tester) async {
+    // Arrange
+    var holds = 0;
+    await tester.pumpWidget(_wrap(HoldButton(
+      onHoldComplete: () => holds++,
+      accentColor: Colors.red,
+      child: const Text('Cancelar'),
+    )));
+
+    // Act
+    final gesture =
+        await tester.startGesture(tester.getCenter(find.text('Cancelar')));
+    await tester.pump(); // first ticker frame (t = 0)
+    await tester.pump(const Duration(milliseconds: 1100));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // Assert
+    expect(holds, 1);
+  });
+
+  testWidgets('button disabled mid-hold does not fire onHoldComplete',
+      (tester) async {
+    // Arrange
+    var holds = 0;
+    Widget build(bool enabled) => _wrap(HoldButton(
+          enabled: enabled,
+          onHoldComplete: () => holds++,
+          accentColor: Colors.red,
+          child: const Text('Cancelar'),
+        ));
+    await tester.pumpWidget(build(true));
+
+    // Act: start holding, then disable before the hold completes
+    final gesture =
+        await tester.startGesture(tester.getCenter(find.text('Cancelar')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpWidget(build(false));
+    await tester.pump(const Duration(milliseconds: 1100));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // Assert
+    expect(holds, 0);
+  });
 }

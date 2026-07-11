@@ -12,13 +12,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get appTitle => 'Choke';
 
   @override
-  String get homeSubtitle => 'Puntúa tus combates de BJJ';
+  String get homeSubtitle => 'Puntúa tus luchas de BJJ';
 
   @override
   String get navHome => 'Inicio';
 
   @override
-  String get navMatch => 'Combate';
+  String get navMatch => 'Lucha';
 
   @override
   String get navAccount => 'Cuenta';
@@ -28,10 +28,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get matchListPlaceholder =>
-      'Crea un combate desde la pantalla de inicio';
+      'Crea una lucha desde la pantalla de inicio';
 
   @override
-  String get noMatchesYet => 'Aún no hay combates';
+  String get noMatchesYet => 'Aún no hay luchas';
 
   @override
   String get createNewOne => '¡Crea uno nuevo!';
@@ -170,7 +170,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'Las claves se almacenan de forma segura en tu dispositivo.';
 
   @override
-  String get newMatch => 'Nuevo combate';
+  String get newMatch => 'Nueva lucha';
 
   @override
   String get fighter1 => 'Luchador 1';
@@ -194,21 +194,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get fighter2Color => 'Color del luchador 2';
 
   @override
-  String get matchDuration => 'Duración del combate';
+  String get matchDuration => 'Duración de la lucha';
 
   @override
-  String get createMatch => 'Crear combate';
+  String get createMatch => 'Crear lucha';
 
   @override
   String get couldNotPublishMatch =>
-      'No se pudo publicar el combate. Verifica tu conexión e intenta de nuevo.';
+      'No se pudo publicar la lucha. Verifica tu conexión e intenta de nuevo.';
 
   @override
   String get retry => 'Reintentar';
 
   @override
   String matchId(String id) {
-    return 'Combate #$id';
+    return 'Lucha #$id';
   }
 
   @override
@@ -236,7 +236,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get undoLastAction => 'Deshacer última acción';
 
   @override
-  String get startMatch => 'Iniciar combate';
+  String get startMatch => 'Iniciar lucha';
 
   @override
   String get finish => 'Finalizar';
@@ -245,37 +245,37 @@ class AppLocalizationsEs extends AppLocalizations {
   String get holdHint => 'mantener';
 
   @override
-  String get matchFinished => 'Combate finalizado';
+  String get matchFinished => 'Lucha finalizada';
 
   @override
-  String get matchCanceled => 'Combate cancelado';
+  String get matchCanceled => 'Lucha cancelada';
 
   @override
-  String get finishMatchQuestion => '¿Finalizar combate?';
+  String get finishMatchQuestion => '¿Finalizar lucha?';
 
   @override
   String get finishMatchDescription =>
-      'Esto finalizará el combate y publicará el puntaje final.';
+      'Esto finalizará la lucha y publicará el puntaje final.';
 
   @override
-  String get cancelMatchQuestion => '¿Cancelar combate?';
+  String get cancelMatchQuestion => '¿Cancelar lucha?';
 
   @override
   String get cancelMatchDescription =>
-      'Esto cancelará el combate. Los puntajes no se guardarán.';
+      'Esto cancelará la lucha. Los puntajes no se guardarán.';
 
   @override
   String get goBack => 'Volver';
 
   @override
-  String get cancelMatch => 'Cancelar combate';
+  String get cancelMatch => 'Cancelar lucha';
 
   @override
-  String get leaveMatchQuestion => '¿Salir del combate?';
+  String get leaveMatchQuestion => '¿Salir de la lucha?';
 
   @override
   String get leaveMatchDescription =>
-      'El combate aún está en curso. ¿Estás seguro de que quieres salir?';
+      'La lucha aún está en curso. ¿Estás seguro de que quieres salir?';
 
   @override
   String get stay => 'Quedarse';
@@ -299,7 +299,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get manageRelayConnections => 'Administrar conexiones de relays';
 
   @override
-  String get sectionMatch => 'Combate';
+  String get sectionMatch => 'Lucha';
 
   @override
   String get defaultMatchDuration => 'Duración predeterminada';

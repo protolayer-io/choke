@@ -558,6 +558,12 @@ abstract class AppLocalizations {
   /// **'Match Canceled'**
   String get matchCanceled;
 
+  /// Read-only indicator shown when viewing a finished or canceled match
+  ///
+  /// In en, this message translates to:
+  /// **'View only'**
+  String get matchReadOnly;
+
   /// Finish match dialog title
   ///
   /// In en, this message translates to:

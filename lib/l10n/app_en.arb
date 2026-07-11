@@ -314,6 +314,10 @@
   "@matchCanceled": {
     "description": "Status text when match is canceled"
   },
+  "matchReadOnly": "View only",
+  "@matchReadOnly": {
+    "description": "Read-only indicator shown when viewing a finished or canceled match"
+  },
   "finishMatchQuestion": "Finish Match?",
   "@finishMatchQuestion": {
     "description": "Finish match dialog title"

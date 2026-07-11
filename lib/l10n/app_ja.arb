@@ -76,6 +76,7 @@
   "holdHint": "長押し",
   "matchFinished": "試合終了",
   "matchCanceled": "試合キャンセル",
+  "matchReadOnly": "閲覧のみ",
   "finishMatchQuestion": "試合を終了しますか？",
   "finishMatchDescription": "試合が終了し、最終スコアが公開されます。",
   "cancelMatchQuestion": "試合をキャンセルしますか？",

@@ -251,6 +251,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get matchCanceled => 'Lucha cancelada';
 
   @override
+  String get matchReadOnly => 'Solo lectura';
+
+  @override
   String get finishMatchQuestion => '¿Finalizar lucha?';
 
   @override

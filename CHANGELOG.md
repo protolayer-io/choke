@@ -1,5 +1,24 @@
 # Changelog
 
+## [v1.2.0] - 2026-07-11
+
+### Added
+- feat: app-wide redesign (turn 2) with light/dark theme support (d3f42d0)
+- feat: horizontal thumb-rail scoring with hold-to-subtract (0957c7d)
+
+### Fixed
+- fix: address PR review — chip counts, brand gradient tokens, withValues (9aef05d)
+- fix: address CodeRabbit review on HoldButton (2191770)
+- fix: gate signing on keystore file existence, add secrets preflight (ca8eb78)
+- fix: sign release APK with persistent upload keystore (1c64c1c)
+
+### Documentation
+- docs: add horizontal scoring mode specification (f1e5803)
+
+### Changed
+- chore: update changelog and version for v1.1.4 (95f5262)
+
+
 ## [v1.1.4] - 2026-03-07
 
 ### Added

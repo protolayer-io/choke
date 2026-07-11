@@ -25,30 +25,46 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filteredMatches = ref.watch(filteredMatchListProvider);
+    final allMatches = ref.watch(matchFeedProvider);
     final statusFilter = ref.watch(statusFilterProvider);
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final tk = ChokeTokens.of(context);
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const CreateMatchScreen()),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _buildFab(context, tk),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Header: logo mark + title + subtitle
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF17B85A), Color(0xFFC6E23F)],
+                      ),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'C',
+                        style: TextStyle(
+                          color: BJJColors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -56,12 +72,13 @@ class HomeScreen extends ConsumerWidget {
                         l10n.appTitle,
                         style: theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
+                          letterSpacing: -.5,
+                          height: 1.05,
                         ),
                       ),
-                      const SizedBox(height: 4),
                       Text(
                         l10n.homeSubtitle,
-                        style: theme.textTheme.bodyMedium,
+                        style: TextStyle(fontSize: 12.5, color: tk.muted),
                       ),
                     ],
                   ),
@@ -69,38 +86,28 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
 
-            // Filter chips
+            // Filter chips with counts
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: _buildFilterChips(context, ref, statusFilter),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              child:
+                  _buildFilterChips(context, ref, statusFilter, allMatches, tk),
             ),
-
-            const SizedBox(height: 16),
 
             // Match list
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(32),
-                    topRight: Radius.circular(32),
-                  ),
-                ),
-                child: filteredMatches.isEmpty
-                    ? _buildEmptyState(context)
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(20),
-                        itemCount: filteredMatches.length,
-                        itemBuilder: (context, index) {
-                          final match = filteredMatches[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _buildMatchCard(context, ref, match),
-                          );
-                        },
-                      ),
-              ),
+              child: filteredMatches.isEmpty
+                  ? _buildEmptyState(context)
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(20, 2, 20, 80),
+                      itemCount: filteredMatches.length,
+                      itemBuilder: (context, index) {
+                        final match = filteredMatches[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 11),
+                          child: _buildMatchCard(context, ref, match, tk),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -108,46 +115,91 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildFab(BuildContext context, ChokeTokens tk) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const CreateMatchScreen()),
+        );
+      },
+      child: Container(
+        width: 58,
+        height: 58,
+        decoration: BoxDecoration(
+          gradient: tk.gradient,
+          borderRadius: BorderRadius.circular(19),
+          boxShadow: [
+            BoxShadow(
+              color: tk.gradTop.withOpacity(.4),
+              blurRadius: 22,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Icon(Icons.add, color: tk.onGrad, size: 28),
+      ),
+    );
+  }
+
   Widget _buildFilterChips(
-      BuildContext context, WidgetRef ref, Set<MatchStatus> selected) {
+    BuildContext context,
+    WidgetRef ref,
+    Set<MatchStatus> selected,
+    List<Match> allMatches,
+    ChokeTokens tk,
+  ) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
 
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: MatchStatus.values.map((status) {
         final isSelected = selected.contains(status);
-        return FilterChip(
-          label: Text(_statusLabel(l10n, status)),
-          selected: isSelected,
-          onSelected: (value) {
+        final count = allMatches.where((m) => m.status == status).length;
+        final color = _statusAccent(tk, status);
+
+        return GestureDetector(
+          onTap: () {
             final current =
                 Set<MatchStatus>.from(ref.read(statusFilterProvider));
-            if (value) {
-              current.add(status);
-            } else {
+            if (isSelected) {
               current.remove(status);
+            } else {
+              current.add(status);
             }
             ref.read(statusFilterProvider.notifier).state = current;
           },
-          selectedColor: _statusColor(status).withOpacity(0.2),
-          checkmarkColor: _statusColor(status),
-          labelStyle: TextStyle(
-            color: isSelected
-                ? _statusColor(status)
-                : theme.textTheme.bodyMedium?.color,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            fontSize: 12,
-          ),
-          backgroundColor: theme.colorScheme.surface,
-          side: BorderSide(
-            color: isSelected
-                ? _statusColor(status).withOpacity(0.5)
-                : theme.colorScheme.outline.withOpacity(0.3),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+            decoration: BoxDecoration(
+              color: isSelected ? color.withOpacity(.16) : null,
+              borderRadius: BorderRadius.circular(99),
+              border: Border.all(
+                color: isSelected ? color.withOpacity(.4) : tk.cardBorder,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (status == MatchStatus.inProgress) ...[
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration:
+                        BoxDecoration(color: color, shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  '${_statusLabel(l10n, status)} · $count',
+                  style: TextStyle(
+                    color: isSelected ? color : tk.muted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       }).toList(),
@@ -183,12 +235,162 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMatchCard(BuildContext context, WidgetRef ref, Match match) {
+  Widget _buildMatchCard(
+      BuildContext context, WidgetRef ref, Match match, ChokeTokens tk) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final colors = Theme.of(context).colorScheme;
     final f1Color = _hexToColor(match.f1Color, colors.outline);
     final f2Color = _hexToColor(match.f2Color, colors.outline);
+    final isLive = match.status == MatchStatus.inProgress;
+    final isCanceled = match.status == MatchStatus.canceled;
+
+    final card = Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        gradient: isLive
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  tk.accent.withOpacity(.12),
+                  tk.accent.withOpacity(.03),
+                ],
+              )
+            : null,
+        color: isLive ? null : tk.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isLive ? tk.accent.withOpacity(.45) : tk.cardBorder,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Top row: match ID + status chip
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '#${match.id}',
+                style: TextStyle(
+                  color: tk.faint,
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              _buildStatusChip(context, match.status, tk),
+            ],
+          ),
+          const SizedBox(height: 11),
+          // Fighters + score row
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration:
+                          BoxDecoration(color: f1Color, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 9),
+                    Flexible(
+                      child: Text(
+                        match.f1Name,
+                        style: TextStyle(
+                          color: colors.onSurface,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (match.f1Adv > 0) ...[
+                      const SizedBox(width: 6),
+                      _buildSmallBadge('A:${match.f1Adv}', tk.goldFg),
+                    ],
+                    if (match.f1Pen > 0) ...[
+                      const SizedBox(width: 4),
+                      _buildSmallBadge('P:${match.f1Pen}', tk.dangerFg),
+                    ],
+                  ],
+                ),
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '${match.f1Score}',
+                    style: TextStyle(
+                      color: match.f1Score > match.f2Score && !isCanceled
+                          ? tk.accent
+                          : tk.muted,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 27,
+                      height: 1,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 9),
+                    child: Text(
+                      l10n.vs,
+                      style: TextStyle(fontSize: 12, color: tk.faint),
+                    ),
+                  ),
+                  Text(
+                    '${match.f2Score}',
+                    style: TextStyle(
+                      color: match.f2Score > match.f1Score && !isCanceled
+                          ? tk.accent
+                          : tk.muted,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 27,
+                      height: 1,
+                    ),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (match.f2Adv > 0) ...[
+                      _buildSmallBadge('A:${match.f2Adv}', tk.goldFg),
+                      const SizedBox(width: 6),
+                    ],
+                    if (match.f2Pen > 0) ...[
+                      _buildSmallBadge('P:${match.f2Pen}', tk.dangerFg),
+                      const SizedBox(width: 4),
+                    ],
+                    Flexible(
+                      child: Text(
+                        match.f2Name,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          color: colors.onSurface,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 9),
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration:
+                          BoxDecoration(color: f2Color, shape: BoxShape.circle),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
 
     return InkWell(
       onTap: () {
@@ -200,165 +402,47 @@ class HomeScreen extends ConsumerWidget {
           ),
         );
       },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: colors.shadow.withOpacity(0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+      borderRadius: BorderRadius.circular(18),
+      child: isCanceled ? Opacity(opacity: .72, child: card) : card,
+    );
+  }
+
+  Widget _buildStatusChip(
+      BuildContext context, MatchStatus status, ChokeTokens tk) {
+    final l10n = AppLocalizations.of(context);
+    final (fg, bg) = switch (status) {
+      MatchStatus.waiting => (tk.goldFg, tk.goldFg.withOpacity(.14)),
+      MatchStatus.inProgress => (tk.accent, tk.accent.withOpacity(.2)),
+      MatchStatus.finished => (tk.statusFinishedFg, tk.statusFinishedBg),
+      MatchStatus.canceled => (tk.statusCanceledFg, tk.statusCanceledBg),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (status == MatchStatus.inProgress) ...[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: fg, shape: BoxShape.circle),
             ),
+            const SizedBox(width: 6),
           ],
-        ),
-        child: Column(
-          children: [
-            // Top row: match ID + status badge
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '#${match.id}',
-                  style: TextStyle(
-                    color: theme.textTheme.bodyMedium?.color,
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _statusColor(match.status).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    _statusLabel(l10n, match.status),
-                    style: TextStyle(
-                      color: _statusColor(match.status),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
+          Text(
+            _statusLabel(l10n, status),
+            style: TextStyle(
+              color: fg,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
             ),
-
-            const SizedBox(height: 12),
-
-            // Score row
-            Row(
-              children: [
-                // Fighter 1
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: f1Color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    match.f1Name,
-                    style: TextStyle(
-                      color: colors.onSurface,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Text(
-                  '${match.f1Score}',
-                  style: TextStyle(
-                    color: match.f1Score > match.f2Score
-                        ? colors.primary
-                        : colors.onSurface,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    l10n.vs,
-                    style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
-                  ),
-                ),
-                Text(
-                  '${match.f2Score}',
-                  style: TextStyle(
-                    color: match.f2Score > match.f1Score
-                        ? colors.primary
-                        : colors.onSurface,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    match.f2Name,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      color: colors.onSurface,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: f2Color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ],
-            ),
-
-            // Advantages/Penalties row
-            if (match.f1Adv > 0 ||
-                match.f2Adv > 0 ||
-                match.f1Pen > 0 ||
-                match.f2Pen > 0) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      if (match.f1Adv > 0)
-                        _buildSmallBadge('A:${match.f1Adv}', BJJColors.gold),
-                      if (match.f1Pen > 0) ...[
-                        const SizedBox(width: 4),
-                        _buildSmallBadge('P:${match.f1Pen}', BJJColors.error),
-                      ],
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      if (match.f2Adv > 0)
-                        _buildSmallBadge('A:${match.f2Adv}', BJJColors.gold),
-                      if (match.f2Pen > 0) ...[
-                        const SizedBox(width: 4),
-                        _buildSmallBadge('P:${match.f2Pen}', BJJColors.error),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -367,26 +451,26 @@ class HomeScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withOpacity(0.14),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         text,
         style: TextStyle(
           color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
   }
 
-  Color _statusColor(MatchStatus status) {
+  Color _statusAccent(ChokeTokens tk, MatchStatus status) {
     return switch (status) {
-      MatchStatus.waiting => BJJColors.gold,
-      MatchStatus.inProgress => BJJColors.green,
-      MatchStatus.finished => BJJColors.info,
-      MatchStatus.canceled => BJJColors.error,
+      MatchStatus.waiting => tk.goldFg,
+      MatchStatus.inProgress => tk.accent,
+      MatchStatus.finished => tk.statusFinishedFg,
+      MatchStatus.canceled => tk.statusCanceledFg,
     };
   }
 

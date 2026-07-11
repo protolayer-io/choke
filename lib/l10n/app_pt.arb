@@ -76,6 +76,7 @@
   "holdHint": "segurar",
   "matchFinished": "Luta finalizada",
   "matchCanceled": "Luta cancelada",
+  "matchReadOnly": "Somente leitura",
   "finishMatchQuestion": "Finalizar luta?",
   "finishMatchDescription": "Isso encerrará a luta e publicará a pontuação final.",
   "cancelMatchQuestion": "Cancelar luta?",

@@ -111,8 +111,6 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
                     ),
                   ),
                   if (state.isWaiting) _buildWaitingOverlay(context, notifier),
-                  if (state.isFinished)
-                    _buildFinishedOverlay(context, state, f1Color, f2Color),
                 ],
               );
             },
@@ -485,6 +483,10 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
     final l10n = AppLocalizations.of(context);
     final colors = Theme.of(context).colorScheme;
 
+    // A finished or canceled match is read-only: replace the scoring controls
+    // with a status indicator instead of showing disabled buttons.
+    if (state.isFinished) return _buildReadOnlyFooter(context, state);
+
     return SizedBox(
       height: 44,
       child: Row(
@@ -590,50 +592,46 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
     );
   }
 
-  Widget _buildFinishedOverlay(
-    BuildContext context,
-    MatchControlState state,
-    Color f1Color,
-    Color f2Color,
-  ) {
+  /// Read-only footer shown in place of the scoring controls once a match is
+  /// finished or canceled. The match detail stays fully visible above it.
+  Widget _buildReadOnlyFooter(BuildContext context, MatchControlState state) {
     final l10n = AppLocalizations.of(context);
-    final colors = Theme.of(context).colorScheme;
-    final match = state.match;
+    final finished = state.match.status == MatchStatus.finished;
+    final accent = finished ? BJJColors.info : BJJColors.error;
+    final label = finished ? l10n.matchFinished : l10n.matchCanceled;
 
-    return _overlay(
-      context,
-      children: [
-        Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+    return SizedBox(
+      height: 44,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: accent.withOpacity(.12),
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(color: accent.withOpacity(.4)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                match.status == MatchStatus.finished
-                    ? l10n.matchFinished
-                    : l10n.matchCanceled,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
+              Icon(
+                finished ? Icons.emoji_events_outlined : Icons.cancel_outlined,
+                size: 16,
+                color: accent,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(width: 8),
               Text(
-                '${match.f1Name} ${match.f1Score} — '
-                '${match.f2Score} ${match.f2Name}',
+                '$label · ${l10n.matchReadOnly}',
                 style: TextStyle(
-                  fontSize: 14,
-                  color: colors.onSurface.withOpacity(.6),
+                  color: accent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: .5,
                 ),
-              ),
-              const SizedBox(height: 18),
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(l10n.goBack),
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 

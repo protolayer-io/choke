@@ -249,6 +249,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get matchCanceled => 'Match Canceled';
 
   @override
+  String get matchReadOnly => 'View only';
+
+  @override
   String get finishMatchQuestion => 'Finish Match?';
 
   @override

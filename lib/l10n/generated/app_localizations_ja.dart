@@ -241,6 +241,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get matchCanceled => '試合キャンセル';
 
   @override
+  String get matchReadOnly => '閲覧のみ';
+
+  @override
   String get finishMatchQuestion => '試合を終了しますか？';
 
   @override

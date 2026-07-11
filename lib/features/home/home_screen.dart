@@ -25,7 +25,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filteredMatches = ref.watch(filteredMatchListProvider);
-    final allMatches = ref.watch(matchFeedProvider);
+    final allMatches = ref.watch(recentMatchListProvider);
     final statusFilter = ref.watch(statusFilterProvider);
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
@@ -49,7 +49,10 @@ class HomeScreen extends ConsumerWidget {
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color(0xFF17B85A), Color(0xFFC6E23F)],
+                        colors: [
+                          BJJColors.brandGradStart,
+                          BJJColors.brandGradEnd,
+                        ],
                       ),
                       borderRadius: BorderRadius.circular(13),
                     ),

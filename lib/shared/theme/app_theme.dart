@@ -38,6 +38,10 @@ class BJJColors {
   /// Text/icon color on top of the green gradient
   static const Color onGreenGrad = Color(0xFF062012);
 
+  /// Brand mark gradient (home logo, account identity avatar)
+  static const Color brandGradStart = Color(0xFF17B85A);
+  static const Color brandGradEnd = Color(0xFFC6E23F);
+
   // Championship Gold - The Achievement
   /// Bold gold representing achievement, excellence, and championship spirit.
   /// Usage: Accents, badges, awards, special highlights

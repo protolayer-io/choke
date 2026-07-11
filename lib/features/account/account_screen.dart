@@ -205,7 +205,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                             gradient: const LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [Color(0xFF17B85A), Color(0xFFC6E23F)],
+                              colors: [
+                                BJJColors.brandGradStart,
+                                BJJColors.brandGradEnd,
+                              ],
                             ),
                             borderRadius: BorderRadius.circular(17),
                           ),

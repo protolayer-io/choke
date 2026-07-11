@@ -218,7 +218,7 @@ class SettingsScreen extends ConsumerWidget {
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: tk.accent.withOpacity(.14),
+        color: tk.accent.withValues(alpha: .14),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Icon(icon, color: tk.accent, size: 20),

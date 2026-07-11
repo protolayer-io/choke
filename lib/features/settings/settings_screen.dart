@@ -6,6 +6,7 @@ import 'package:choke/l10n/generated/app_localizations.dart';
 import '../../shared/providers/locale_provider.dart';
 import '../../shared/providers/theme_provider.dart';
 import '../../shared/providers/match_duration_provider.dart';
+import '../../shared/theme/app_theme.dart';
 import 'screens/relay_management_screen.dart';
 
 /// Provider for package info
@@ -31,94 +32,83 @@ class SettingsScreen extends ConsumerWidget {
     final currentThemeMode = ref.watch(themeModeProvider);
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final tk = ChokeTokens.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.settingsTitle)),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          // Language
-          _buildSectionTitle(context, l10n.sectionLanguage),
-          Card(
-            child: ListTile(
-              leading: Icon(Icons.language, color: colors.primary),
-              title: Text(l10n.language),
-              subtitle: Text(
-                currentLocale != null
-                    ? _localeNames[currentLocale.languageCode] ??
-                        currentLocale.languageCode
-                    : l10n.systemDefault,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(2, 6, 2, 14),
+              child: Text(
+                l10n.settingsTitle,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            ),
+
+            // Language
+            _buildSectionTitle(context, l10n.sectionLanguage, tk),
+            _buildListRow(
+              context: context,
+              tk: tk,
+              icon: Icons.language,
+              title: l10n.language,
+              subtitle: currentLocale != null
+                  ? _localeNames[currentLocale.languageCode] ??
+                      currentLocale.languageCode
+                  : l10n.systemDefault,
               onTap: () => _showLanguagePicker(context, ref),
             ),
-          ),
-          const SizedBox(height: 16),
-          // Appearance
-          _buildSectionTitle(context, l10n.sectionAppearance),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
+            const SizedBox(height: 18),
+
+            // Appearance — 3-segment theme selector, single line
+            _buildSectionTitle(context, l10n.sectionAppearance, tk),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: tk.card,
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: tk.cardBorder),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.palette, color: colors.primary),
-                      const SizedBox(width: 12),
+                      _buildIconTile(tk, Icons.contrast),
+                      const SizedBox(width: 11),
                       Text(
                         l10n.themeMode,
-                        style: theme.textTheme.titleMedium,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: SegmentedButton<ThemeMode>(
-                      segments: [
-                        ButtonSegment<ThemeMode>(
-                          value: ThemeMode.system,
-                          icon: const Icon(Icons.brightness_auto),
-                          label: Text(l10n.systemDefault),
-                        ),
-                        ButtonSegment<ThemeMode>(
-                          value: ThemeMode.dark,
-                          icon: const Icon(Icons.dark_mode),
-                          label: Text(l10n.dark),
-                        ),
-                        ButtonSegment<ThemeMode>(
-                          value: ThemeMode.light,
-                          icon: const Icon(Icons.light_mode),
-                          label: Text(l10n.light),
-                        ),
-                      ],
-                      selected: {currentThemeMode},
-                      onSelectionChanged: (Set<ThemeMode> selected) {
-                        ref
-                            .read(themeModeProvider.notifier)
-                            .setThemeMode(selected.first);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 13),
+                  _buildThemeSegments(context, ref, currentThemeMode, tk),
+                  const SizedBox(height: 11),
                   Text(
                     l10n.followSystemTheme,
-                    style: theme.textTheme.bodySmall,
+                    style: TextStyle(fontSize: 12, color: tk.faint),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          // Nostr
-          _buildSectionTitle(context, l10n.sectionNostr),
-          Card(
-            child: ListTile(
-              leading: Icon(Icons.dns, color: colors.primary),
-              title: Text(l10n.relays),
-              subtitle: Text(l10n.manageRelayConnections),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            const SizedBox(height: 18),
+
+            // Nostr
+            _buildSectionTitle(context, l10n.sectionNostr, tk),
+            _buildListRow(
+              context: context,
+              tk: tk,
+              icon: Icons.dns_outlined,
+              title: l10n.relays,
+              subtitle: l10n.manageRelayConnections,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -127,93 +117,233 @@ class SettingsScreen extends ConsumerWidget {
                 );
               },
             ),
-          ),
-          const SizedBox(height: 16),
-          // Match
-          _buildSectionTitle(context, l10n.sectionMatch),
-          Card(
-            child: Consumer(
+            const SizedBox(height: 18),
+
+            // Match
+            _buildSectionTitle(context, l10n.sectionMatch, tk),
+            Consumer(
               builder: (context, ref, _) {
                 final duration = ref.watch(matchDurationProvider);
-                return ListTile(
-                  leading: Icon(Icons.timer, color: colors.primary),
-                  title: Text(l10n.defaultMatchDuration),
-                  subtitle: Text(formatDuration(duration)),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                return _buildListRow(
+                  context: context,
+                  tk: tk,
+                  icon: Icons.timer_outlined,
+                  title: l10n.defaultMatchDuration,
+                  subtitle: formatDuration(duration),
+                  subtitleStyle: TextStyle(
+                    color: tk.accent,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'monospace',
+                  ),
                   onTap: () => _showDurationPicker(context, ref, duration),
                 );
               },
             ),
-          ),
-          const SizedBox(height: 16),
-          // About
-          _buildSectionTitle(context, l10n.sectionAbout),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: Icon(Icons.code, color: colors.primary),
-                  title: Text(l10n.sourceCode),
-                  subtitle: const Text('github.com/grunch/choke'),
-                  trailing: const Icon(Icons.open_in_new, size: 16),
-                  onTap: () => launchUrl(
-                    Uri.parse('https://github.com/grunch/choke'),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: Icon(Icons.description, color: colors.primary),
-                  title: Text(l10n.licenseLabel),
-                  subtitle: Text(l10n.licenseSubtitle),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () => _showLicenseScreen(context),
-                ),
-              ],
+            const SizedBox(height: 18),
+
+            // About
+            _buildSectionTitle(context, l10n.sectionAbout, tk),
+            _buildListRow(
+              context: context,
+              tk: tk,
+              icon: Icons.code,
+              title: l10n.sourceCode,
+              subtitle: 'github.com/grunch/choke',
+              trailingIcon: Icons.open_in_new,
+              onTap: () => launchUrl(
+                Uri.parse('https://github.com/grunch/choke'),
+                mode: LaunchMode.externalApplication,
+              ),
             ),
-          ),
-          const SizedBox(height: 32),
-          // Built by Pana footer
-          Consumer(
-            builder: (context, ref, child) {
-              final packageInfo = ref.watch(packageInfoProvider);
-              final versionText = packageInfo.when(
-                data: (info) => 'v${info.version}',
-                loading: () => '...',
-                error: (error, stackTrace) {
-                  debugPrint('Failed to load package info: $error');
-                  return '—';
-                },
-              );
-              return Center(
-                child: Column(
-                  children: [
-                    const Text(
-                      '⬛⬛⬛🟥⬛',
-                      style: TextStyle(fontSize: 12, letterSpacing: 2),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.builtBy('Pana'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurface.withValues(alpha: 0.5),
+            const SizedBox(height: 8),
+            _buildListRow(
+              context: context,
+              tk: tk,
+              icon: Icons.description_outlined,
+              title: l10n.licenseLabel,
+              subtitle: l10n.licenseSubtitle,
+              onTap: () => _showLicenseScreen(context),
+            ),
+            const SizedBox(height: 32),
+
+            // Built by Pana footer
+            Consumer(
+              builder: (context, ref, child) {
+                final packageInfo = ref.watch(packageInfoProvider);
+                final versionText = packageInfo.when(
+                  data: (info) => 'v${info.version}',
+                  loading: () => '...',
+                  error: (error, stackTrace) {
+                    debugPrint('Failed to load package info: $error');
+                    return '—';
+                  },
+                );
+                return Center(
+                  child: Column(
+                    children: [
+                      const Text(
+                        '⬛⬛⬛🟥⬛',
+                        style: TextStyle(fontSize: 12, letterSpacing: 2),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        l10n.builtBy('Pana'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        versionText,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurface.withValues(alpha: 0.35),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIconTile(ChokeTokens tk, IconData icon) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: tk.accent.withValues(alpha: .14),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(icon, color: tk.accent, size: 20),
+    );
+  }
+
+  Widget _buildListRow({
+    required BuildContext context,
+    required ChokeTokens tk,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    TextStyle? subtitleStyle,
+    IconData trailingIcon = Icons.chevron_right,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
+        decoration: BoxDecoration(
+          color: tk.card,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: tk.cardBorder),
+        ),
+        child: Row(
+          children: [
+            _buildIconTile(tk, icon),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      versionText,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurface.withValues(alpha: 0.35),
-                        fontSize: 11,
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    style: subtitleStyle ??
+                        TextStyle(fontSize: 12.5, color: tk.muted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Icon(trailingIcon, color: tk.faint, size: 19),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Custom 3-segment theme selector — always a single line
+  Widget _buildThemeSegments(
+    BuildContext context,
+    WidgetRef ref,
+    ThemeMode current,
+    ChokeTokens tk,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    final segments = [
+      (ThemeMode.system, Icons.brightness_auto_outlined, l10n.systemDefault),
+      (ThemeMode.dark, Icons.dark_mode_outlined, l10n.dark),
+      (ThemeMode.light, Icons.light_mode_outlined, l10n.light),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: tk.field,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: tk.cardBorder),
+      ),
+      child: Row(
+        children: segments.map((seg) {
+          final (mode, icon, label) = seg;
+          final isSelected = current == mode;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () =>
+                  ref.read(themeModeProvider.notifier).setThemeMode(mode),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                decoration: BoxDecoration(
+                  gradient: isSelected ? tk.gradient : null,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isSelected ? Icons.check : icon,
+                      size: 15,
+                      color: isSelected ? tk.onGrad : tk.muted,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected ? tk.onGrad : tk.muted,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-        ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -338,14 +468,18 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSectionTitle(BuildContext context, String title) {
+  Widget _buildSectionTitle(
+      BuildContext context, String title, ChokeTokens tk) {
     return Padding(
-      padding: const EdgeInsets.only(left: 16, bottom: 8),
+      padding: const EdgeInsets.only(left: 2, bottom: 9),
       child: Text(
         title.toUpperCase(),
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              letterSpacing: 1.5,
-            ),
+        style: TextStyle(
+          color: tk.sectionTint,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.4,
+        ),
       ),
     );
   }

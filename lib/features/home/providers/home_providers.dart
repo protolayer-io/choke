@@ -87,22 +87,25 @@ final matchFeedProvider =
   return MatchFeedNotifier(nostrService);
 });
 
-/// Filtered match list based on status filter and 24h window.
+/// Matches from the last 24 hours regardless of status.
 /// Uses the Nostr event created_at (not match.startAt) for the time filter.
-final filteredMatchListProvider = Provider<List<Match>>((ref) {
+/// This is the base set the home screen displays and counts from.
+final recentMatchListProvider = Provider<List<Match>>((ref) {
   final feedNotifier = ref.watch(matchFeedProvider.notifier);
   final matches = ref.watch(matchFeedProvider);
-  final statusFilter = ref.watch(statusFilterProvider);
 
   final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final cutoff = now - 86400; // 24 hours ago
 
   return matches.where((m) {
-    // Filter by status
-    if (!statusFilter.contains(m.status)) return false;
-    // Filter by event created_at within last 24 hours
     final createdAt = feedNotifier.getCreatedAt(m.id);
-    if (createdAt != null && createdAt < cutoff) return false;
-    return true;
+    return createdAt == null || createdAt >= cutoff;
   }).toList();
+});
+
+/// Recent matches narrowed by the selected status filter.
+final filteredMatchListProvider = Provider<List<Match>>((ref) {
+  final matches = ref.watch(recentMatchListProvider);
+  final statusFilter = ref.watch(statusFilterProvider);
+  return matches.where((m) => statusFilter.contains(m.status)).toList();
 });

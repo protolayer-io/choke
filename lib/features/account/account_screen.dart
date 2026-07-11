@@ -162,265 +162,309 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final tk = ChokeTokens.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.accountTitle),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: l10n.importChangeKey,
-            onPressed: _showImportDialog,
-          ),
-        ],
-      ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Profile Header
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [colors.primary, colors.secondary],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: Icon(
-                        Icons.shield,
-                        size: 40,
-                        color: colors.onPrimary,
-                      ),
+        child: Column(
+          children: [
+            // Header: title + import/change key action
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 10, 14, 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    l10n.accountTitle,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      l10n.yourNostrIdentity,
-                      style: theme.textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.keypairDescription,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Public Key Section (npub)
-              _buildSectionTitle(context, l10n.publicKeyNpub),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: colors.primary.withValues(alpha: 0.3),
                   ),
-                ),
-                child: Column(
-                  children: [
-                    npubAsync.when(
-                      data: (npub) => Column(
-                        children: [
-                          Text(
-                            npub ?? l10n.generating,
-                            style: TextStyle(
-                              color: colors.onSurface,
-                              fontFamily: 'monospace',
-                              fontSize: 13,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              if (npub != null) ...[
-                                _buildActionButton(
-                                  context: context,
-                                  icon: Icons.copy,
-                                  label: l10n.copy,
-                                  onTap: () =>
-                                      _copyToClipboard(npub, l10n.publicKey),
-                                ),
-                                _buildActionButton(
-                                  context: context,
-                                  icon: Icons.qr_code,
-                                  label: l10n.showQr,
-                                  onTap: () => _showQRCode(context, npub),
-                                ),
-                              ] else
-                                Text(
-                                  l10n.keyUnavailable,
-                                  style: theme.textTheme.bodyMedium,
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      loading: () => const CircularProgressIndicator(),
-                      error: (_, __) => Text(
-                        l10n.errorLoadingKey,
-                        style: TextStyle(color: colors.error),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Private Key Section (nsec)
-              _buildSectionTitle(context, l10n.privateKeyNsec),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: colors.error.withValues(alpha: 0.3),
+                  IconButton(
+                    icon: Icon(Icons.logout, color: tk.muted, size: 21),
+                    tooltip: l10n.importChangeKey,
+                    onPressed: _showImportDialog,
                   ),
-                ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Identity header
                     Row(
                       children: [
-                        Icon(
-                          Icons.warning_amber,
-                          color: colors.error.withValues(alpha: 0.8),
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l10n.neverSharePrivateKey,
-                            style: TextStyle(
-                              color: colors.error.withValues(alpha: 0.8),
-                              fontSize: 12,
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                BJJColors.brandGradStart,
+                                BJJColors.brandGradEnd,
+                              ],
                             ),
+                            borderRadius: BorderRadius.circular(17),
+                          ),
+                          child: const Icon(
+                            Icons.shield,
+                            size: 28,
+                            color: BJJColors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 13),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.yourNostrIdentity,
+                                style: const TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.1,
+                                ),
+                              ),
+                              Text(
+                                l10n.keypairDescription,
+                                style:
+                                    TextStyle(fontSize: 12.5, color: tk.muted),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    nsecAsync.when(
-                      data: (nsec) => Column(
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              setState(() => _isNsecVisible = !_isNsecVisible);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: theme.scaffoldBackgroundColor,
-                                borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 18),
+
+                    // Public Key (npub)
+                    _buildSectionTitle(context, l10n.publicKeyNpub, tk),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: tk.card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: tk.cardBorder),
+                      ),
+                      child: npubAsync.when(
+                        data: (npub) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              npub ?? l10n.generating,
+                              style: TextStyle(
+                                color: tk.accent.withOpacity(.85),
+                                fontFamily: 'monospace',
+                                fontSize: 12.5,
+                                height: 1.5,
                               ),
-                              child: Row(
+                            ),
+                            const SizedBox(height: 12),
+                            if (npub != null)
+                              Row(
                                 children: [
                                   Expanded(
-                                    child: Text(
-                                      _isNsecVisible
-                                          ? (nsec ?? l10n.generating)
-                                          : '••••••••••••••••••••••••••••••••••••••••••••••••••',
-                                      style: TextStyle(
-                                        color: _isNsecVisible
-                                            ? colors.onSurface
-                                            : theme.textTheme.bodyMedium?.color,
-                                        fontFamily: 'monospace',
-                                        fontSize: 13,
-                                      ),
+                                    child: _buildActionButton(
+                                      context: context,
+                                      icon: Icons.copy,
+                                      label: l10n.copy,
+                                      onTap: () => _copyToClipboard(
+                                          npub, l10n.publicKey),
                                     ),
                                   ),
-                                  Icon(
-                                    _isNsecVisible
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
-                                    color: theme.textTheme.bodyMedium?.color,
+                                  const SizedBox(width: 9),
+                                  Expanded(
+                                    child: _buildActionButton(
+                                      context: context,
+                                      icon: Icons.qr_code,
+                                      label: l10n.showQr,
+                                      onTap: () => _showQRCode(context, npub),
+                                    ),
                                   ),
                                 ],
+                              )
+                            else
+                              Text(
+                                l10n.keyUnavailable,
+                                style: theme.textTheme.bodyMedium,
                               ),
+                          ],
+                        ),
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (_, __) => Text(
+                          l10n.errorLoadingKey,
+                          style: TextStyle(color: colors.error),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Private Key (nsec)
+                    _buildSectionTitle(context, l10n.privateKeyNsec, tk),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: tk.dangerFg.withOpacity(.07),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: tk.dangerFg.withOpacity(.35)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.warning_amber,
+                                color: tk.dangerFg,
+                                size: 17,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  l10n.neverSharePrivateKey,
+                                  style: TextStyle(
+                                    color: tk.dangerFg,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 11),
+                          nsecAsync.when(
+                            data: (nsec) => Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(
+                                        () => _isNsecVisible = !_isNsecVisible);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: tk.field,
+                                      borderRadius: BorderRadius.circular(11),
+                                      border: Border.all(
+                                        color: tk.dangerFg.withOpacity(.2),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            _isNsecVisible
+                                                ? (nsec ?? l10n.generating)
+                                                : '••••••••••••••••••••',
+                                            style: TextStyle(
+                                              color: _isNsecVisible
+                                                  ? colors.onSurface
+                                                  : tk.muted,
+                                              fontFamily: 'monospace',
+                                              fontSize:
+                                                  _isNsecVisible ? 12.5 : 15,
+                                              letterSpacing:
+                                                  _isNsecVisible ? 0 : 3,
+                                            ),
+                                          ),
+                                        ),
+                                        Icon(
+                                          _isNsecVisible
+                                              ? Icons.visibility_off
+                                              : Icons.visibility,
+                                          color: tk.muted,
+                                          size: 19,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 9),
+                                Text(
+                                  l10n.tapToReveal,
+                                  style: TextStyle(
+                                      fontSize: 11.5, color: tk.faint),
+                                ),
+                                if (_isNsecVisible) ...[
+                                  const SizedBox(height: 11),
+                                  _buildActionButton(
+                                    context: context,
+                                    icon: Icons.copy,
+                                    label: l10n.copyToClipboard,
+                                    onTap: () => _copyToClipboard(
+                                        nsec ?? '', l10n.privateKey),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            loading: () => const Center(
+                                child: CircularProgressIndicator()),
+                            error: (_, __) => Text(
+                              l10n.errorLoadingKey,
+                              style: TextStyle(color: colors.error),
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            l10n.tapToReveal,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          if (_isNsecVisible)
-                            _buildActionButton(
-                              context: context,
-                              icon: Icons.copy,
-                              label: l10n.copyToClipboard,
-                              onTap: () =>
-                                  _copyToClipboard(nsec ?? '', l10n.privateKey),
-                            ),
                         ],
                       ),
-                      loading: () => const CircularProgressIndicator(),
-                      error: (_, __) => Text(
-                        l10n.errorLoadingKey,
-                        style: TextStyle(color: colors.error),
-                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Security Tips
+                    _buildSectionTitle(context, l10n.securityTips, tk),
+                    const SizedBox(height: 8),
+                    _buildTipCard(
+                      context: context,
+                      icon: Icons.cloud_upload_outlined,
+                      iconColor: tk.accent,
+                      title: l10n.tipBackupTitle,
+                      description: l10n.tipBackupDescription,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildTipCard(
+                      context: context,
+                      icon: Icons.block,
+                      iconColor: tk.goldFg,
+                      title: l10n.tipNeverShareTitle,
+                      description: l10n.tipNeverShareDescription,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildTipCard(
+                      context: context,
+                      icon: Icons.phone_android,
+                      iconColor: tk.statusFinishedFg,
+                      title: l10n.tipSecureStorageTitle,
+                      description: l10n.tipSecureStorageDescription,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
-
-              // Security Tips
-              _buildSectionTitle(context, l10n.securityTips),
-              const SizedBox(height: 8),
-              _buildTipCard(
-                context: context,
-                icon: Icons.backup,
-                title: l10n.tipBackupTitle,
-                description: l10n.tipBackupDescription,
-              ),
-              const SizedBox(height: 8),
-              _buildTipCard(
-                context: context,
-                icon: Icons.no_accounts,
-                title: l10n.tipNeverShareTitle,
-                description: l10n.tipNeverShareDescription,
-              ),
-              const SizedBox(height: 8),
-              _buildTipCard(
-                context: context,
-                icon: Icons.phone_android,
-                title: l10n.tipSecureStorageTitle,
-                description: l10n.tipSecureStorageDescription,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildSectionTitle(BuildContext context, String title) {
-    final theme = Theme.of(context);
+  Widget _buildSectionTitle(
+      BuildContext context, String title, ChokeTokens tk) {
     return Text(
       title.toUpperCase(),
       style: TextStyle(
-        color: theme.textTheme.bodyMedium?.color,
-        fontSize: 12,
+        color: tk.muted,
+        fontSize: 11,
         fontWeight: FontWeight.w600,
-        letterSpacing: 1.5,
+        letterSpacing: 1.4,
       ),
     );
   }
@@ -431,26 +475,33 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     required String label,
     required VoidCallback onTap,
   }) {
-    final colors = Theme.of(context).colorScheme;
+    final tk = ChokeTokens.of(context);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(11),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: colors.primary.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(12),
+          color: tk.accent.withOpacity(.1),
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: tk.accent.withOpacity(.4)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: colors.primary, size: 18),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: colors.primary,
-                fontWeight: FontWeight.w500,
+            Icon(icon, color: tk.accent, size: 16),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tk.accent,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -462,20 +513,30 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   Widget _buildTipCard({
     required BuildContext context,
     required IconData icon,
+    required Color iconColor,
     required String title,
     required String description,
   }) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final colors = Theme.of(context).colorScheme;
+    final tk = ChokeTokens.of(context);
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(12),
+        color: tk.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: tk.cardBorder),
       ),
       child: Row(
         children: [
-          Icon(icon, color: colors.secondary, size: 20),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 19),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -485,14 +546,14 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   title,
                   style: TextStyle(
                     color: colors.onSurface,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   description,
-                  style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
+                  style: TextStyle(fontSize: 12, color: tk.muted),
                 ),
               ],
             ),

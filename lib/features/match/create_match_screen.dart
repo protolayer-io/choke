@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:choke/l10n/generated/app_localizations.dart';
@@ -127,224 +126,344 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
       _durationInitialized = true;
     }
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final tk = ChokeTokens.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.newMatch),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header: back button + title
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
+              child: Row(
+                children: [
+                  _buildBackButton(context, tk),
+                  const SizedBox(width: 12),
+                  Text(
+                    l10n.newMatch,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Fighter cards with VS circle in between
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Column(
+                            children: [
+                              _buildFighterCard(
+                                context: context,
+                                label: l10n.fighter1,
+                                controller: _f1NameController,
+                                selectedColor: _f1Color,
+                                onColorSelected: (c) =>
+                                    setState(() => _f1Color = c),
+                                validatorMessage: l10n.fighter1NameRequired,
+                              ),
+                              const SizedBox(height: 12),
+                              _buildFighterCard(
+                                context: context,
+                                label: l10n.fighter2,
+                                controller: _f2NameController,
+                                selectedColor: _f2Color,
+                                onColorSelected: (c) =>
+                                    setState(() => _f2Color = c),
+                                validatorMessage: l10n.fighter2NameRequired,
+                              ),
+                            ],
+                          ),
+                          _buildVsBadge(context, tk),
+                        ],
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // Duration
+                      _buildSectionLabel(context, l10n.matchDuration, tk),
+                      const SizedBox(height: 10),
+                      _buildDurationSelector(context, tk),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Fixed bottom create button
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: tk.cardBorder)),
+              ),
+              child: _buildGradientButton(
+                context: context,
+                tk: tk,
+                enabled: !_isPublishing,
+                onTap: _createMatch,
+                child: _isPublishing
+                    ? SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: tk.onGrad,
+                        ),
+                      )
+                    : Text(
+                        l10n.createMatch,
+                        style: TextStyle(
+                          color: tk.onGrad,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ),
+          ],
         ),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Fighter 1
-                _buildSectionLabel(context, l10n.fighter1),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _f1NameController,
-                  style: TextStyle(color: colors.onSurface),
-                  decoration: InputDecoration(
-                    hintText: l10n.enterFighterName,
-                    prefixIcon: Icon(Icons.person, color: colors.primary),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return l10n.fighter1NameRequired;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                _buildColorPicker(
-                  context: context,
-                  label: l10n.fighter1Color,
-                  selectedColor: _f1Color,
-                  onColorSelected: (color) => setState(() => _f1Color = color),
-                ),
+    );
+  }
 
-                const SizedBox(height: 32),
+  Widget _buildBackButton(BuildContext context, ChokeTokens tk) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pop(),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: tk.field,
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: tk.cardBorder),
+        ),
+        child: const Icon(Icons.arrow_back_ios_new, size: 17),
+      ),
+    );
+  }
 
-                // Fighter 2
-                _buildSectionLabel(context, l10n.fighter2),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _f2NameController,
-                  style: TextStyle(color: colors.onSurface),
-                  decoration: InputDecoration(
-                    hintText: l10n.enterFighterName,
-                    prefixIcon: Icon(Icons.person, color: colors.secondary),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return l10n.fighter2NameRequired;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                _buildColorPicker(
-                  context: context,
-                  label: l10n.fighter2Color,
-                  selectedColor: _f2Color,
-                  onColorSelected: (color) => setState(() => _f2Color = color),
-                ),
-
-                const SizedBox(height: 32),
-
-                // Duration
-                _buildSectionLabel(context, l10n.matchDuration),
-                const SizedBox(height: 12),
-                _buildDurationSelector(context),
-
-                const SizedBox(height: 48),
-
-                // Create button
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _isPublishing ? null : _createMatch,
-                    child: _isPublishing
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            l10n.createMatch,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                  ),
-                ),
-              ],
-            ),
+  Widget _buildVsBadge(BuildContext context, ChokeTokens tk) {
+    final theme = Theme.of(context);
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        shape: BoxShape.circle,
+        border: Border.all(color: tk.cardBorder, width: 1.5),
+      ),
+      child: Center(
+        child: Text(
+          AppLocalizations.of(context).vs.toUpperCase(),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: tk.muted,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSectionLabel(BuildContext context, String label) {
+  Widget _buildSectionLabel(
+      BuildContext context, String label, ChokeTokens tk) {
     return Text(
       label.toUpperCase(),
       style: TextStyle(
-        color: Theme.of(context).textTheme.bodyMedium?.color,
-        fontSize: 12,
+        color: tk.muted,
+        fontSize: 11,
         fontWeight: FontWeight.w600,
-        letterSpacing: 1.5,
+        letterSpacing: 1.4,
       ),
     );
   }
 
-  Widget _buildColorPicker({
+  Widget _buildFighterCard({
     required BuildContext context,
     required String label,
+    required TextEditingController controller,
+    required Color selectedColor,
+    required ValueChanged<Color> onColorSelected,
+    required String validatorMessage,
+  }) {
+    final l10n = AppLocalizations.of(context);
+    final tk = ChokeTokens.of(context);
+    final colors = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: tk.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: selectedColor.withOpacity(.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionLabel(context, label, tk),
+          const SizedBox(height: 10),
+          TextFormField(
+            controller: controller,
+            style: TextStyle(
+              color: colors.onSurface,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              hintText: l10n.enterFighterName,
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 13, vertical: 13),
+              prefixIcon: Icon(Icons.person_outline,
+                  color: selectedColor == BJJColors.white
+                      ? tk.muted
+                      : selectedColor,
+                  size: 20),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return validatorMessage;
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          _buildColorDots(
+            context: context,
+            selectedColor: selectedColor,
+            onColorSelected: onColorSelected,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColorDots({
+    required BuildContext context,
     required Color selectedColor,
     required ValueChanged<Color> onColorSelected,
   }) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: BJJColors.fighterPalette.map((color) {
-            final isSelected = color == selectedColor;
-            return GestureDetector(
-              onTap: () => onColorSelected(color),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected
-                        ? colors.onSurface
-                        : colors.outline.withValues(alpha: 0.5),
-                    width: isSelected ? 3 : 1,
-                  ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: color.withValues(alpha: 0.4),
-                            blurRadius: 8,
-                            spreadRadius: 2,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: isSelected
-                    ? Icon(
-                        Icons.check,
-                        color: color == BJJColors.white
-                            ? BJJColors.navy
-                            : BJJColors.white,
-                        size: 18,
-                      )
-                    : null,
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
+    final tk = ChokeTokens.of(context);
 
-  Widget _buildDurationSelector(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: defaultDurationOptions.map((seconds) {
-        final isSelected = seconds == _duration;
+      spacing: 9,
+      runSpacing: 9,
+      children: BJJColors.fighterPalette.map((color) {
+        final isSelected = color == selectedColor;
         return GestureDetector(
-          onTap: () => setState(() => _duration = seconds),
+          onTap: () => onColorSelected(color),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            width: 26,
+            height: 26,
             decoration: BoxDecoration(
-              color: isSelected ? colors.primary : colors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected
-                    ? colors.primary
-                    : colors.outline.withValues(alpha: 0.5),
-              ),
-            ),
-            child: Text(
-              _formatDuration(seconds),
-              style: TextStyle(
-                color: isSelected
-                    ? colors.onPrimary
-                    : theme.textTheme.bodyMedium?.color,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 16,
-                fontFamily: 'monospace',
-              ),
+              color: color,
+              shape: BoxShape.circle,
+              border: color == BJJColors.white || color == BJJColors.navy
+                  ? Border.all(color: tk.cardBorder)
+                  : null,
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: theme.scaffoldBackgroundColor,
+                        spreadRadius: 2,
+                      ),
+                      BoxShadow(
+                        color: color == BJJColors.white ? tk.muted : color,
+                        spreadRadius: 3.5,
+                      ),
+                    ]
+                  : null,
             ),
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildDurationSelector(BuildContext context, ChokeTokens tk) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: defaultDurationOptions.map((seconds) {
+          final isSelected = seconds == _duration;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => setState(() => _duration = seconds),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+                decoration: BoxDecoration(
+                  gradient: isSelected ? tk.gradient : null,
+                  borderRadius: BorderRadius.circular(12),
+                  border: isSelected
+                      ? null
+                      : Border.all(color: tk.cardBorder, width: 1),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: tk.gradTop.withOpacity(.3),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  _formatDuration(seconds),
+                  style: TextStyle(
+                    color: isSelected ? tk.onGrad : tk.muted,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                    fontSize: 15,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildGradientButton({
+    required BuildContext context,
+    required ChokeTokens tk,
+    required bool enabled,
+    required VoidCallback onTap,
+    required Widget child,
+  }) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: enabled ? 1 : .6,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            gradient: tk.gradient,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: tk.gradTop.withOpacity(.35),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Center(child: child),
+        ),
+      ),
     );
   }
 }

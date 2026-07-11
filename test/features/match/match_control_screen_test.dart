@@ -122,7 +122,10 @@ void main() {
 
     // Assert
     expect(notifier.state.match.status, MatchStatus.finished);
-    expect(find.text(l10n.matchFinished), findsOneWidget);
+    expect(
+      find.text('${l10n.matchFinished} · ${l10n.matchReadOnly}'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('waiting match shows start overlay', (tester) async {

@@ -166,6 +166,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
 
     return Scaffold(
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             // Header: title + import/change key action
@@ -191,7 +192,12 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  6,
+                  20,
+                  MediaQuery.of(context).padding.bottom + 24,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -260,9 +266,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                             Text(
                               npub ?? l10n.generating,
                               style: TextStyle(
-                                color: tk.accent.withOpacity(.85),
+                                color: tk.keyFg,
                                 fontFamily: 'monospace',
                                 fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
                                 height: 1.5,
                               ),
                             ),

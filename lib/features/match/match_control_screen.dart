@@ -131,6 +131,7 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
   }) {
     final l10n = AppLocalizations.of(context);
     final colors = Theme.of(context).colorScheme;
+    final tk = ChokeTokens.of(context);
     final enabled = state.isRunning;
 
     return Column(
@@ -182,7 +183,7 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
           child: _railButton(
             context,
             fighter: fighter,
-            accent: BJJColors.gold,
+            accent: tk.goldFg,
             enabled: enabled,
             label: l10n.advantage,
             onTap: () => notifier.scoreAdv(fighter),
@@ -450,9 +451,9 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildBadge('A:$advantages', BJJColors.gold),
+              _buildBadge('A:$advantages', ChokeTokens.of(context).goldFg),
               const SizedBox(width: 6),
-              _buildBadge('P:$penalties', BJJColors.error),
+              _buildBadge('P:$penalties', ChokeTokens.of(context).dangerFg),
             ],
           ),
         ],
@@ -563,6 +564,7 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
   Widget _buildWaitingOverlay(
       BuildContext context, MatchControlNotifier notifier) {
     final l10n = AppLocalizations.of(context);
+    final tk = ChokeTokens.of(context);
 
     return _overlay(
       context,
@@ -575,11 +577,30 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
           ),
         ),
         Center(
-          child: SizedBox(
+          child: Container(
             height: 56,
+            decoration: BoxDecoration(
+              gradient: tk.gradient,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: tk.gradTop.withValues(alpha: .35),
+                  blurRadius: 22,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
             child: ElevatedButton.icon(
               onPressed: notifier.startMatch,
-              icon: const Icon(Icons.play_arrow),
+              icon: Icon(Icons.play_arrow, color: tk.onGrad),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                foregroundColor: tk.onGrad,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
               label: Text(
                 l10n.startMatch,
                 style:
@@ -596,8 +617,9 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
   /// finished or canceled. The match detail stays fully visible above it.
   Widget _buildReadOnlyFooter(BuildContext context, MatchControlState state) {
     final l10n = AppLocalizations.of(context);
+    final tk = ChokeTokens.of(context);
     final finished = state.match.status == MatchStatus.finished;
-    final accent = finished ? BJJColors.info : BJJColors.error;
+    final accent = finished ? tk.statusFinishedFg : tk.dangerFg;
     final label = finished ? l10n.matchFinished : l10n.matchCanceled;
 
     return SizedBox(
@@ -685,11 +707,12 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
   }
 
   Color _statusColor(MatchStatus status) {
+    final tk = ChokeTokens.of(context);
     return switch (status) {
-      MatchStatus.waiting => BJJColors.gold,
-      MatchStatus.inProgress => BJJColors.green,
-      MatchStatus.finished => BJJColors.info,
-      MatchStatus.canceled => BJJColors.error,
+      MatchStatus.waiting => tk.goldFg,
+      MatchStatus.inProgress => tk.accent,
+      MatchStatus.finished => tk.statusFinishedFg,
+      MatchStatus.canceled => tk.dangerFg,
     };
   }
 

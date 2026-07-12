@@ -32,8 +32,17 @@ class HomeScreen extends ConsumerWidget {
     final tk = ChokeTokens.of(context);
 
     return Scaffold(
-      floatingActionButton: _buildFab(context, tk),
+      // Lift the FAB above the translucent nav bar (extendBody lets the
+      // body — and this inner Scaffold — extend beneath it).
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom + 9,
+          right: 4,
+        ),
+        child: _buildFab(context, tk),
+      ),
       body: SafeArea(
+        bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -46,6 +55,7 @@ class HomeScreen extends ConsumerWidget {
                   Text(
                     l10n.appTitle,
                     style: theme.textTheme.headlineMedium?.copyWith(
+                      fontSize: 25,
                       fontWeight: FontWeight.bold,
                       letterSpacing: -.5,
                       height: 1.05,
@@ -71,7 +81,12 @@ class HomeScreen extends ConsumerWidget {
               child: filteredMatches.isEmpty
                   ? _buildEmptyState(context)
                   : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(20, 2, 20, 80),
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        2,
+                        20,
+                        MediaQuery.of(context).padding.bottom + 80,
+                      ),
                       itemCount: filteredMatches.length,
                       itemBuilder: (context, index) {
                         final match = filteredMatches[index];
@@ -215,7 +230,7 @@ class HomeScreen extends ConsumerWidget {
                 style: TextStyle(
                   color: count > 0 ? color : tk.faint,
                   fontSize: 30,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   height: 1,
                 ),
               ),

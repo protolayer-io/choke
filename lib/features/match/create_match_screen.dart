@@ -203,6 +203,9 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
             Container(
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
               decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .scaffoldBackgroundColor
+                    .withValues(alpha: .6),
                 border: Border(top: BorderSide(color: tk.cardBorder)),
               ),
               child: _buildGradientButton(
@@ -259,7 +262,7 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
         shape: BoxShape.circle,
-        border: Border.all(color: tk.cardBorder, width: 1.5),
+        border: Border.all(color: tk.strongBorder),
       ),
       child: Center(
         child: Text(
@@ -371,15 +374,17 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
               border: color == BJJColors.white || color == BJJColors.navy
                   ? Border.all(color: tk.cardBorder)
                   : null,
+              // Painted in list order (bottom first): outer color ring,
+              // then a background-colored gap ring on top of it.
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: theme.scaffoldBackgroundColor,
-                        spreadRadius: 2,
-                      ),
-                      BoxShadow(
                         color: color == BJJColors.white ? tk.muted : color,
                         spreadRadius: 3.5,
+                      ),
+                      BoxShadow(
+                        color: theme.scaffoldBackgroundColor,
+                        spreadRadius: 2,
                       ),
                     ]
                   : null,

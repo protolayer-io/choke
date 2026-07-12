@@ -36,8 +36,14 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       body: SafeArea(
+        bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            4,
+            20,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
           children: [
             // Header
             Padding(

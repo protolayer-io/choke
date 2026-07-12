@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:choke/l10n/generated/app_localizations.dart';
@@ -119,56 +121,90 @@ class _MainNavigationState extends State<MainNavigation> {
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
+      extendBody: true,
       body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: _ChokeNavBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         items: [
-          BottomNavigationBarItem(
-            icon: const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Icon(Icons.home_outlined),
-            ),
-            activeIcon: const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Icon(Icons.home),
-            ),
-            label: l10n.navHome,
-          ),
-          BottomNavigationBarItem(
-            icon: const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Icon(Icons.sports_martial_arts_outlined),
-            ),
-            activeIcon: const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Icon(Icons.sports_martial_arts),
-            ),
-            label: l10n.navMatch,
-          ),
-          BottomNavigationBarItem(
-            icon: const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Icon(Icons.person_outline),
-            ),
-            activeIcon: const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Icon(Icons.person),
-            ),
-            label: l10n.navAccount,
-          ),
-          BottomNavigationBarItem(
-            icon: const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Icon(Icons.settings_outlined),
-            ),
-            activeIcon: const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Icon(Icons.settings),
-            ),
-            label: l10n.navSettings,
-          ),
+          (Icons.home_outlined, l10n.navHome),
+          (Icons.sports_martial_arts, l10n.navMatch),
+          (Icons.person_outline, l10n.navAccount),
+          (Icons.settings_outlined, l10n.navSettings),
         ],
+      ),
+    );
+  }
+}
+
+/// Bottom navigation styled after the ChokeNav design component:
+/// translucent scaffold-colored bar with backdrop blur, hairline top
+/// border, 23px stroke icons and 11px labels. Active item tints green;
+/// the icon shape never changes, only its color.
+class _ChokeNavBar extends StatelessWidget {
+  const _ChokeNavBar({
+    required this.currentIndex,
+    required this.onTap,
+    required this.items,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final List<(IconData, String)> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tk = ChokeTokens.of(context);
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(6, 10, 6, 16 + bottomInset),
+          decoration: BoxDecoration(
+            color: theme.scaffoldBackgroundColor.withValues(alpha: .92),
+            border: Border(top: BorderSide(color: tk.cardBorder)),
+          ),
+          child: Row(
+            children: [
+              for (var i = 0; i < items.length; i++)
+                Expanded(child: _buildItem(context, tk, i)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItem(BuildContext context, ChokeTokens tk, int index) {
+    final (icon, label) = items[index];
+    final isActive = index == currentIndex;
+    final color = isActive ? tk.accent : tk.faint;
+
+    return Semantics(
+      button: true,
+      selected: isActive,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => onTap(index),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 23, color: color),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -136,6 +136,12 @@ class ChokeTokens extends ThemeExtension<ChokeTokens> {
   /// Danger/red accent readable on this theme's card
   final Color dangerFg;
 
+  /// Monospace key text (npub) — pale mint in dark mode per design
+  final Color keyFg;
+
+  /// Stronger hairline border (VS badge, borders that must read)
+  final Color strongBorder;
+
   const ChokeTokens({
     required this.card,
     required this.cardBorder,
@@ -153,6 +159,8 @@ class ChokeTokens extends ThemeExtension<ChokeTokens> {
     required this.statusCanceledBg,
     required this.goldFg,
     required this.dangerFg,
+    required this.keyFg,
+    required this.strongBorder,
   });
 
   /// Primary button gradient
@@ -185,6 +193,8 @@ class ChokeTokens extends ThemeExtension<ChokeTokens> {
     statusCanceledBg: Color(0x26F0554E),
     goldFg: BJJColors.goldBright,
     dangerFg: BJJColors.redBright,
+    keyFg: Color(0xFFB9E7CB),
+    strongBorder: Color(0x24FFFFFF),
   );
 
   static const light = ChokeTokens(
@@ -204,6 +214,8 @@ class ChokeTokens extends ThemeExtension<ChokeTokens> {
     statusCanceledBg: Color(0x1FF0554E),
     goldFg: Color(0xFFA07E00),
     dangerFg: Color(0xFFC2423B),
+    keyFg: Color(0xFF1E7A48),
+    strongBorder: Color(0x24121A2E),
   );
 
   @override
@@ -224,6 +236,8 @@ class ChokeTokens extends ThemeExtension<ChokeTokens> {
     Color? statusCanceledBg,
     Color? goldFg,
     Color? dangerFg,
+    Color? keyFg,
+    Color? strongBorder,
   }) {
     return ChokeTokens(
       card: card ?? this.card,
@@ -242,6 +256,8 @@ class ChokeTokens extends ThemeExtension<ChokeTokens> {
       statusCanceledBg: statusCanceledBg ?? this.statusCanceledBg,
       goldFg: goldFg ?? this.goldFg,
       dangerFg: dangerFg ?? this.dangerFg,
+      keyFg: keyFg ?? this.keyFg,
+      strongBorder: strongBorder ?? this.strongBorder,
     );
   }
 
@@ -269,6 +285,8 @@ class ChokeTokens extends ThemeExtension<ChokeTokens> {
           Color.lerp(statusCanceledBg, other.statusCanceledBg, t)!,
       goldFg: Color.lerp(goldFg, other.goldFg, t)!,
       dangerFg: Color.lerp(dangerFg, other.dangerFg, t)!,
+      keyFg: Color.lerp(keyFg, other.keyFg, t)!,
+      strongBorder: Color.lerp(strongBorder, other.strongBorder, t)!,
     );
   }
 }
@@ -279,6 +297,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      fontFamily: 'Space Grotesk',
       scaffoldBackgroundColor: BJJColors.ink,
       extensions: const [ChokeTokens.dark],
       colorScheme: const ColorScheme.dark(
@@ -391,6 +410,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: 'Space Grotesk',
       scaffoldBackgroundColor: const Color(0xFFF3F5F8),
       extensions: const [ChokeTokens.light],
       colorScheme: const ColorScheme.light(

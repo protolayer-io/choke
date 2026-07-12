@@ -34,7 +34,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get noMatchesYet => 'Aún no hay luchas';
 
   @override
-  String get createNewOne => '¡Crea uno nuevo!';
+  String get createNewOne => '¡Crea una nueva!';
 
   @override
   String get statusWaiting => 'Esperando';

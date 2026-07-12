@@ -37,53 +37,23 @@ class HomeScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: logo mark + title + subtitle
+            // Header: title + subtitle
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          BJJColors.brandGradStart,
-                          BJJColors.brandGradEnd,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'C',
-                        style: TextStyle(
-                          color: BJJColors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                  Text(
+                    l10n.appTitle,
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -.5,
+                      height: 1.05,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.appTitle,
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -.5,
-                          height: 1.05,
-                        ),
-                      ),
-                      Text(
-                        l10n.homeSubtitle,
-                        style: TextStyle(fontSize: 12.5, color: tk.muted),
-                      ),
-                    ],
+                  Text(
+                    l10n.homeSubtitle,
+                    style: TextStyle(fontSize: 12.5, color: tk.muted),
                   ),
                 ],
               ),
@@ -151,61 +121,103 @@ class HomeScreen extends ConsumerWidget {
     List<Match> allMatches,
     ChokeTokens tk,
   ) {
-    final l10n = AppLocalizations.of(context);
+    final statuses = MatchStatus.values;
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: MatchStatus.values.map((status) {
-        final isSelected = selected.contains(status);
-        final count = allMatches.where((m) => m.status == status).length;
-        final color = _statusAccent(tk, status);
-
-        return GestureDetector(
-          onTap: () {
-            final current =
-                Set<MatchStatus>.from(ref.read(statusFilterProvider));
-            if (isSelected) {
-              current.remove(status);
-            } else {
-              current.add(status);
-            }
-            ref.read(statusFilterProvider.notifier).state = current;
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-            decoration: BoxDecoration(
-              color: isSelected ? color.withOpacity(.16) : null,
-              borderRadius: BorderRadius.circular(99),
-              border: Border.all(
-                color: isSelected ? color.withOpacity(.4) : tk.cardBorder,
+    return Column(
+      children: [
+        for (var row = 0; row < statuses.length; row += 2) ...[
+          if (row > 0) const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatusCard(
+                    context, ref, statuses[row], selected, allMatches, tk),
               ),
-            ),
-            child: Row(
+              if (row + 1 < statuses.length) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatusCard(context, ref, statuses[row + 1],
+                      selected, allMatches, tk),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildStatusCard(
+    BuildContext context,
+    WidgetRef ref,
+    MatchStatus status,
+    Set<MatchStatus> selected,
+    List<Match> allMatches,
+    ChokeTokens tk,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    final isSelected = selected.contains(status);
+    final count = allMatches.where((m) => m.status == status).length;
+    final color = _statusAccent(tk, status);
+
+    return GestureDetector(
+      onTap: () {
+        final current = Set<MatchStatus>.from(ref.read(statusFilterProvider));
+        if (isSelected) {
+          current.remove(status);
+        } else {
+          current.add(status);
+        }
+        ref.read(statusFilterProvider.notifier).state = current;
+      },
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(.12) : tk.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isSelected ? color.withOpacity(.5) : tk.cardBorder,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (status == MatchStatus.inProgress) ...[
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration:
-                        BoxDecoration(color: color, shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  '${_statusLabel(l10n, status)} · $count',
-                  style: TextStyle(
-                    color: isSelected ? color : tk.muted,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration:
+                      BoxDecoration(color: color, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    _statusLabel(l10n, status),
+                    style: TextStyle(
+                      color: isSelected ? color : tk.muted,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
-          ),
-        );
-      }).toList(),
+            const SizedBox(height: 8),
+            Text(
+              '$count',
+              style: TextStyle(
+                color: count > 0 ? color : tk.faint,
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

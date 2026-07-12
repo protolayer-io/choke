@@ -1,5 +1,21 @@
 # Changelog
 
+## [v1.3.0] - 2026-07-12
+
+### Added
+- feat: pause and resume the match clock (58dc913)
+
+### Fixed
+- fix: local match updates always supersede stale feed timestamps (17a4f81)
+- fix: make match publishing to Nostr reliable (72c39eb)
+- fix: freeze the paused clock at the real time, not the last tick (347f013)
+- fix: finish a match automatically when the clock reaches zero (dcfebb3)
+
+### Changed
+- Improve design (7dbb6ea)
+- chore: update changelog and version for v1.2.1 (8d1c11b)
+
+
 ## [v1.2.1] - 2026-07-12
 
 ### Added

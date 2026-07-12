@@ -1,0 +1,101 @@
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:choke/features/home/providers/home_providers.dart';
+import 'package:choke/features/match/models/match.dart';
+import 'package:choke/services/key_management/key_manager.dart';
+import 'package:choke/services/nostr/nostr_service.dart';
+
+/// NostrService whose event stream can be fed from the test (relay echoes).
+class _StreamNostrService extends NostrService {
+  _StreamNostrService() : super(KeyManager());
+
+  final controller = StreamController<NostrEvent>.broadcast();
+
+  @override
+  Stream<NostrEvent> get eventStream => controller.stream;
+}
+
+Match _match({int f1Pt2 = 0, MatchStatus status = MatchStatus.inProgress}) {
+  return Match(
+    id: 'abcd',
+    status: status,
+    startAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    duration: 300,
+    f1Name: 'Pana',
+    f2Name: 'Buchecha',
+    f1Color: '#1BA34E',
+    f2Color: '#F5B800',
+    f1Pt2: f1Pt2,
+  );
+}
+
+NostrEvent _echoOf(Match match, int createdAt) {
+  return NostrEvent(
+    id: 'e1',
+    pubkey: 'pk',
+    createdAt: createdAt,
+    kind: 31415,
+    tags: [
+      ['d', match.id],
+    ],
+    content: match.toJsonString(),
+    sig: '',
+  );
+}
+
+void main() {
+  late _StreamNostrService nostr;
+  late MatchFeedNotifier feed;
+
+  setUp(() {
+    nostr = _StreamNostrService();
+    feed = MatchFeedNotifier(nostr);
+  });
+
+  tearDown(() async {
+    feed.dispose();
+    await nostr.controller.close();
+  });
+
+  group('MatchFeedNotifier', () {
+    test('a local update supersedes a relay echo with a future timestamp',
+        () async {
+      // Arrange — published events carry a per-match monotonic created_at
+      // that can run ahead of the wall clock; the relay echoes one back
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      nostr.controller.add(_echoOf(_match(f1Pt2: 1), now + 5));
+      await Future<void>.delayed(Duration.zero);
+      expect(feed.state.single.f1Pt2, 1);
+
+      // Act — the operator keeps scoring on this device
+      feed.addLocal(_match(f1Pt2: 2));
+
+      // Assert — the home feed always shows what the operator just did
+      expect(feed.state.single.f1Pt2, 2);
+    });
+
+    test('two local updates within the same second: the newest wins', () {
+      // Arrange + Act
+      feed.addLocal(_match(f1Pt2: 1));
+      feed.addLocal(_match(f1Pt2: 2));
+
+      // Assert
+      expect(feed.state.single.f1Pt2, 2);
+    });
+
+    test('an older relay event does not override newer local state',
+        () async {
+      // Arrange
+      feed.addLocal(_match(f1Pt2: 3));
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+      // Act — a stale echo arrives late
+      nostr.controller.add(_echoOf(_match(f1Pt2: 1), now - 60));
+      await Future<void>.delayed(Duration.zero);
+
+      // Assert
+      expect(feed.state.single.f1Pt2, 3);
+    });
+  });
+}

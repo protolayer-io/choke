@@ -534,6 +534,24 @@ abstract class AppLocalizations {
   /// **'Start Match'**
   String get startMatch;
 
+  /// Pause the match clock (accessibility label / tooltip)
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get pause;
+
+  /// Resume the match clock (accessibility label / tooltip)
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get resume;
+
+  /// Clock status shown while the match is paused
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get statusPaused;
+
   /// Finish match button label
   ///
   /// In en, this message translates to:

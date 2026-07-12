@@ -44,6 +44,7 @@ enum MatchStatus {
 ///   "id": "abcd",
 ///   "status": "waiting | in-progress | finished | canceled",
 ///   "start_at": 123456789,
+///   "paused_at": 123456889,
 ///   "duration": 300,
 ///   "f1_name": "string",
 ///   "f2_name": "string",
@@ -65,6 +66,15 @@ class Match {
 
   /// Unix timestamp when the match started (seconds since epoch)
   final int? startAt;
+
+  /// Unix timestamp when the clock was stopped (seconds since epoch), or null
+  /// when the clock is running.
+  ///
+  /// A paused match is still [MatchStatus.inProgress]: the fighters are off
+  /// the mat, not done. While this is set the clock reads as it did at this
+  /// instant, so paused seconds never come off the match time. Resuming moves
+  /// [startAt] forward by the length of the stoppage and clears this.
+  final int? pausedAt;
 
   /// Match duration in seconds
   final int duration;
@@ -118,6 +128,7 @@ class Match {
     required this.id,
     required this.status,
     this.startAt,
+    this.pausedAt,
     required this.duration,
     required this.f1Name,
     required this.f2Name,
@@ -220,6 +231,20 @@ class Match {
         'startAt must be non-negative if provided, got: $startAt',
       );
     }
+
+    // A clock can only be stopped after it started
+    if (pausedAt != null) {
+      if (pausedAt! < 0) {
+        throw FormatException(
+          'pausedAt must be non-negative if provided, got: $pausedAt',
+        );
+      }
+      if (startAt == null || pausedAt! < startAt!) {
+        throw FormatException(
+          'pausedAt ($pausedAt) cannot precede startAt ($startAt)',
+        );
+      }
+    }
   }
 
   /// Calculate total score for fighter 1
@@ -249,6 +274,7 @@ class Match {
       'id': id,
       'status': status.toJson(),
       if (startAt != null) 'start_at': startAt,
+      if (pausedAt != null) 'paused_at': pausedAt,
       'duration': duration,
       'f1_name': f1Name,
       'f2_name': f2Name,
@@ -273,6 +299,7 @@ class Match {
       id: json['id'] as String,
       status: MatchStatus.fromJson(json['status'] as String),
       startAt: json['start_at'] as int?,
+      pausedAt: json['paused_at'] as int?,
       duration: json['duration'] as int,
       f1Name: json['f1_name'] as String,
       f2Name: json['f2_name'] as String,
@@ -377,12 +404,13 @@ class Match {
 
   /// Create a copy of this match with updated fields
   ///
-  /// To clear [startAt] to null, pass [startAt] as null explicitly.
-  /// Omitting [startAt] preserves the current value.
+  /// To clear [startAt] or [pausedAt] to null, pass them as null explicitly.
+  /// Omitting them preserves the current value.
   Match copyWith({
     String? id,
     MatchStatus? status,
     dynamic startAt = _sentinel,
+    dynamic pausedAt = _sentinel,
     int? duration,
     String? f1Name,
     String? f2Name,
@@ -403,6 +431,7 @@ class Match {
       id: id ?? this.id,
       status: status ?? this.status,
       startAt: startAt == _sentinel ? this.startAt : startAt as int?,
+      pausedAt: pausedAt == _sentinel ? this.pausedAt : pausedAt as int?,
       duration: duration ?? this.duration,
       f1Name: f1Name ?? this.f1Name,
       f2Name: f2Name ?? this.f2Name,

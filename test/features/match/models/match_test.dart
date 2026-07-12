@@ -424,6 +424,77 @@ void main() {
       });
     });
 
+    group('pause', () {
+      test('round-trips paused_at through JSON', () {
+        final match = Match(
+          id: 'abcd',
+          status: MatchStatus.inProgress,
+          startAt: 123456789,
+          pausedAt: 123456889,
+          duration: 300,
+          f1Name: 'Roger Gracie',
+          f2Name: 'Buchecha',
+          f1Color: '#aabbcc',
+          f2Color: '#ccddee',
+        );
+
+        final restored = Match.fromJsonString(match.toJsonString());
+
+        expect(match.toJson()['paused_at'], equals(123456889));
+        expect(restored.pausedAt, equals(123456889));
+      });
+
+      test('omits paused_at from JSON when the match is not paused', () {
+        final match = Match(
+          id: 'abcd',
+          status: MatchStatus.inProgress,
+          startAt: 123456789,
+          duration: 300,
+          f1Name: 'Roger Gracie',
+          f2Name: 'Buchecha',
+          f1Color: '#aabbcc',
+          f2Color: '#ccddee',
+        );
+
+        expect(match.toJson().containsKey('paused_at'), isFalse);
+        expect(match.pausedAt, isNull);
+      });
+
+      test('copyWith clears pausedAt when passed null', () {
+        final paused = Match(
+          id: 'abcd',
+          status: MatchStatus.inProgress,
+          startAt: 123456789,
+          pausedAt: 123456889,
+          duration: 300,
+          f1Name: 'Roger Gracie',
+          f2Name: 'Buchecha',
+          f1Color: '#aabbcc',
+          f2Color: '#ccddee',
+        );
+
+        expect(paused.copyWith(pausedAt: null).pausedAt, isNull);
+        expect(paused.copyWith(f1Pt2: 1).pausedAt, equals(123456889));
+      });
+
+      test('rejects a pausedAt that precedes startAt', () {
+        expect(
+          () => Match(
+            id: 'abcd',
+            status: MatchStatus.inProgress,
+            startAt: 123456789,
+            pausedAt: 123456700,
+            duration: 300,
+            f1Name: 'Roger Gracie',
+            f2Name: 'Buchecha',
+            f1Color: '#aabbcc',
+            f2Color: '#ccddee',
+          ),
+          throwsFormatException,
+        );
+      });
+    });
+
     group('JSON serialization', () {
       test('serializes to JSON correctly', () {
         final match = Match(

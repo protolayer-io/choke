@@ -298,6 +298,18 @@
   "@startMatch": {
     "description": "Start match button label"
   },
+  "pause": "Pause",
+  "@pause": {
+    "description": "Pause the match clock (accessibility label / tooltip)"
+  },
+  "resume": "Resume",
+  "@resume": {
+    "description": "Resume the match clock (accessibility label / tooltip)"
+  },
+  "statusPaused": "Paused",
+  "@statusPaused": {
+    "description": "Clock status shown while the match is paused"
+  },
   "finish": "Finish",
   "holdHint": "hold",
   "@holdHint": {

@@ -229,6 +229,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get startMatch => '試合開始';
 
   @override
+  String get pause => '一時停止';
+
+  @override
+  String get resume => '再開';
+
+  @override
+  String get statusPaused => '一時停止中';
+
+  @override
   String get finish => '終了';
 
   @override

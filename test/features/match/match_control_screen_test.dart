@@ -142,4 +142,73 @@ void main() {
     // Assert
     expect(find.text(l10n.startMatch), findsOneWidget);
   });
+
+  testWidgets('running match offers a pause button next to the clock',
+      (tester) async {
+    // Arrange + Act
+    await pumpScreen(tester, _runningMatch());
+
+    // Assert
+    expect(find.byIcon(Icons.pause), findsOneWidget);
+    expect(find.byIcon(Icons.play_arrow), findsNothing);
+  });
+
+  testWidgets('tapping pause stops the clock and offers resume',
+      (tester) async {
+    // Arrange
+    await pumpScreen(tester, _runningMatch());
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Act
+    await tester.tap(find.byIcon(Icons.pause));
+    await tester.pump();
+
+    // Assert
+    expect(notifier.state.isPaused, isTrue);
+    expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+    expect(find.text(l10n.statusPaused), findsOneWidget);
+  });
+
+  testWidgets('tapping resume restarts the clock', (tester) async {
+    // Arrange
+    await pumpScreen(tester, _runningMatch());
+    await tester.tap(find.byIcon(Icons.pause));
+    await tester.pump();
+
+    // Act
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await tester.pump();
+
+    // Assert
+    expect(notifier.state.isPaused, isFalse);
+    expect(find.byIcon(Icons.pause), findsOneWidget);
+  });
+
+  testWidgets('a waiting match has no pause button', (tester) async {
+    // Arrange
+    final waiting = _runningMatch().copyWith(
+      status: MatchStatus.waiting,
+      startAt: null,
+    );
+
+    // Act
+    await pumpScreen(tester, waiting);
+
+    // Assert
+    expect(find.byIcon(Icons.pause), findsNothing);
+  });
+
+  testWidgets('scoring rails stay live while paused', (tester) async {
+    // Arrange
+    await pumpScreen(tester, _runningMatch());
+    await tester.tap(find.byIcon(Icons.pause));
+    await tester.pump();
+
+    // Act — the referee awards a takedown during the stoppage
+    await tester.tap(find.text('+2').first);
+    await tester.pump();
+
+    // Assert
+    expect(notifier.state.match.f1Score, 2);
+  });
 }

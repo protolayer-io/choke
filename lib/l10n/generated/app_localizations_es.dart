@@ -239,6 +239,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get startMatch => 'Iniciar lucha';
 
   @override
+  String get pause => 'Pausar';
+
+  @override
+  String get resume => 'Reanudar';
+
+  @override
+  String get statusPaused => 'En pausa';
+
+  @override
   String get finish => 'Finalizar';
 
   @override

@@ -238,6 +238,15 @@ class AppLocalizationsPt extends AppLocalizations {
   String get startMatch => 'Iniciar luta';
 
   @override
+  String get pause => 'Pausar';
+
+  @override
+  String get resume => 'Retomar';
+
+  @override
+  String get statusPaused => 'Em pausa';
+
+  @override
   String get finish => 'Finalizar';
 
   @override

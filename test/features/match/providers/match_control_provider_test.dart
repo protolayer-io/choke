@@ -252,4 +252,178 @@ void main() {
       expect(notifier.state.match.f1Score, 4);
     });
   });
+
+  group('pause and resume', () {
+    test('pausing freezes the clock', () async {
+      // Arrange
+      nostr = _FakeNostrService();
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+
+      // Act
+      notifier.pauseMatch();
+      final frozen = notifier.state.remainingSeconds;
+      await Future<void>.delayed(const Duration(milliseconds: 1600));
+
+      // Assert
+      expect(notifier.state.isPaused, isTrue);
+      expect(notifier.state.remainingSeconds, frozen);
+    });
+
+    test('a paused match is still in progress', () {
+      // Arrange
+      nostr = _FakeNostrService();
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+
+      // Act
+      notifier.pauseMatch();
+
+      // Assert
+      expect(notifier.state.match.status, MatchStatus.inProgress);
+    });
+
+    test('resuming does not charge the paused seconds to the clock', () async {
+      // Arrange — pause, then let real time pass as fighters reset on the mat
+      nostr = _FakeNostrService();
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+      notifier.pauseMatch();
+      final frozen = notifier.state.remainingSeconds;
+      await Future<void>.delayed(const Duration(milliseconds: 1600));
+
+      // Act
+      notifier.resumeMatch();
+
+      // Assert
+      expect(notifier.state.isPaused, isFalse);
+      expect(notifier.state.remainingSeconds, frozen);
+    });
+
+    test('the clock ticks down again after resuming', () async {
+      // Arrange
+      nostr = _FakeNostrService();
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+      notifier.pauseMatch();
+      final frozen = notifier.state.remainingSeconds;
+
+      // Act
+      notifier.resumeMatch();
+      await Future<void>.delayed(const Duration(milliseconds: 1600));
+
+      // Assert
+      expect(notifier.state.remainingSeconds, lessThan(frozen));
+    });
+
+    test('a paused match does not finish itself', () async {
+      // Arrange — one second left, then paused before it can expire
+      nostr = _FakeNostrService();
+      final almostOver = _runningMatch().copyWith(
+        duration: 1,
+        startAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+      notifier = MatchControlNotifier(almostOver, nostr);
+
+      // Act
+      notifier.pauseMatch();
+      await Future<void>.delayed(const Duration(milliseconds: 2000));
+
+      // Assert
+      expect(notifier.state.match.status, MatchStatus.inProgress);
+    });
+
+    test('reopening a paused match keeps it paused with its clock intact', () {
+      // Arrange — paused with 200s left; wall-clock time kept running while
+      // the app was closed, but a paused clock does not drain.
+      nostr = _FakeNostrService();
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final paused = _runningMatch().copyWith(
+        duration: 300,
+        startAt: now - 700,
+        pausedAt: now - 600,
+      );
+
+      // Act
+      notifier = MatchControlNotifier(paused, nostr);
+
+      // Assert
+      expect(notifier.state.isPaused, isTrue);
+      expect(notifier.state.remainingSeconds, 200);
+      expect(notifier.state.match.status, MatchStatus.inProgress);
+    });
+
+    test('pausing freezes the clock at what it reads now, not at the last tick',
+        () async {
+      // Arrange — a match already 10 seconds in
+      nostr = _FakeNostrService();
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      notifier = MatchControlNotifier(
+        _runningMatch().copyWith(duration: 300, startAt: now - 10),
+        nostr,
+      );
+
+      // Act
+      notifier.pauseMatch();
+
+      // Assert — the frozen clock agrees with the timestamp that was stored,
+      // so a stalled timer cannot put seconds back on it.
+      final m = notifier.state.match;
+      expect(
+        notifier.state.remainingSeconds,
+        m.duration - (m.pausedAt! - m.startAt!),
+      );
+    });
+
+    test('pausing publishes the paused state', () async {
+      // Arrange
+      nostr = _FakeNostrService();
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+      await Future<void>.delayed(Duration.zero);
+      final publishesBefore = nostr.publishCount;
+
+      // Act
+      notifier.pauseMatch();
+      await Future<void>.delayed(Duration.zero);
+
+      // Assert
+      expect(nostr.publishCount, greaterThan(publishesBefore));
+    });
+
+    test('pause is ignored when the match has not started', () {
+      // Arrange
+      nostr = _FakeNostrService();
+      final waiting = _runningMatch().copyWith(status: MatchStatus.waiting);
+      notifier = MatchControlNotifier(waiting, nostr);
+
+      // Act
+      notifier.pauseMatch();
+
+      // Assert
+      expect(notifier.state.isPaused, isFalse);
+    });
+
+    test('scoring still works while paused', () {
+      // Arrange — the referee awards points during a stoppage
+      nostr = _FakeNostrService();
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+
+      // Act
+      notifier.pauseMatch();
+      notifier.scorePt2(1);
+
+      // Assert
+      expect(notifier.state.match.f1Score, 2);
+    });
+
+    test('finishing a paused match clears the pause', () {
+      // Arrange
+      nostr = _FakeNostrService();
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+      notifier.pauseMatch();
+
+      // Act
+      notifier.finishMatch();
+
+      // Assert
+      expect(notifier.state.match.status, MatchStatus.finished);
+      expect(notifier.state.isPaused, isFalse);
+    });
+  });
 }

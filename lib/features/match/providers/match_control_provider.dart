@@ -26,6 +26,9 @@ class MatchControlState {
       match.status == MatchStatus.canceled;
   bool get canUndo => undoStack.isNotEmpty && isRunning;
 
+  /// The match is under way but its clock is stopped (fighters off the mat).
+  bool get isPaused => isRunning && match.pausedAt != null;
+
   MatchControlState copyWith({
     Match? match,
     int? remainingSeconds,
@@ -68,6 +71,10 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
           remainingSeconds: _calculateRemaining(match),
         )) {
     if (match.status == MatchStatus.inProgress) {
+      if (match.pausedAt != null) {
+        // A paused clock stays paused, however long the app was away.
+        return;
+      }
       // The clock may have run out while the app was closed — a match is
       // never left in progress past its own duration.
       if (state.remainingSeconds <= 0) {
@@ -85,8 +92,9 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
     if (match.startAt == null || match.startAt == 0) {
       return match.duration;
     }
+    // While paused the clock reads as it did at the moment it was stopped.
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final elapsed = now - match.startAt!;
+    final elapsed = (match.pausedAt ?? now) - match.startAt!;
     return (match.duration - elapsed).clamp(0, match.duration);
   }
 
@@ -103,6 +111,40 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
     state = state.copyWith(
       match: updated,
       remainingSeconds: updated.duration,
+    );
+
+    _startTimer();
+    _publishState();
+  }
+
+  /// Stop the clock without ending the match — fighters left the mat, a
+  /// grip needs resetting, the referee is conferring. Scoring stays open.
+  void pauseMatch() {
+    if (!state.isRunning || state.isPaused) return;
+
+    _timer?.cancel();
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    state = state.copyWith(match: state.match.copyWith(pausedAt: now));
+    _publishState();
+  }
+
+  /// Restart the clock with the time that was left when it stopped.
+  ///
+  /// The stoppage is charged to [Match.startAt], not to the fighters: moving
+  /// the start forward by the length of the pause leaves the remaining time
+  /// exactly where it was.
+  void resumeMatch() {
+    if (!state.isPaused) return;
+
+    final match = state.match;
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final stoppage = now - match.pausedAt!;
+
+    state = state.copyWith(
+      match: match.copyWith(
+        startAt: match.startAt! + stoppage,
+        pausedAt: null,
+      ),
     );
 
     _startTimer();
@@ -227,7 +269,10 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
     if (state.isFinished) return;
 
     _timer?.cancel();
-    final updated = state.match.copyWith(status: MatchStatus.finished);
+    final updated = state.match.copyWith(
+      status: MatchStatus.finished,
+      pausedAt: null,
+    );
     state = state.copyWith(match: updated, remainingSeconds: 0);
     _publishState();
   }
@@ -237,7 +282,10 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
     if (state.isFinished) return;
 
     _timer?.cancel();
-    final updated = state.match.copyWith(status: MatchStatus.canceled);
+    final updated = state.match.copyWith(
+      status: MatchStatus.canceled,
+      pausedAt: null,
+    );
     state = state.copyWith(match: updated);
     _publishState();
   }

@@ -237,6 +237,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get startMatch => 'Start Match';
 
   @override
+  String get pause => 'Pause';
+
+  @override
+  String get resume => 'Resume';
+
+  @override
+  String get statusPaused => 'Paused';
+
+  @override
   String get finish => 'Finish';
 
   @override

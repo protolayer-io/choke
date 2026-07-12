@@ -277,7 +277,7 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
 
     return Column(
       children: [
-        _buildHeader(context, state),
+        _buildHeader(context, state, notifier),
         const SizedBox(height: 8),
         Expanded(
           child: Row(
@@ -312,10 +312,24 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, MatchControlState state) {
+  Widget _buildHeader(
+    BuildContext context,
+    MatchControlState state,
+    MatchControlNotifier notifier,
+  ) {
     final l10n = AppLocalizations.of(context);
     final colors = Theme.of(context).colorScheme;
-    final isLow = state.remainingSeconds <= 30 && state.isRunning;
+    final tk = ChokeTokens.of(context);
+    final paused = state.isPaused;
+    final isLow = state.remainingSeconds <= 30 && state.isRunning && !paused;
+
+    // A stopped clock reads gold, so a glance at the time says whether it is
+    // running — the scoring rails stay live either way.
+    final clockColor =
+        paused ? tk.goldFg : (isLow ? colors.error : colors.onSurface);
+    final statusColor = paused ? tk.goldFg : _statusColor(state.match.status);
+    final statusText =
+        paused ? l10n.statusPaused : _statusLabel(l10n, state.match.status);
 
     return SizedBox(
       height: 44,
@@ -327,51 +341,60 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
             onPressed: () => _onBack(context, state),
           ),
           Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _formatTime(state.remainingSeconds),
-                    style: TextStyle(
-                      color: isLow ? colors.error : colors.onSurface,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: _statusColor(state.match.status).withOpacity(.15),
-                      borderRadius: BorderRadius.circular(99),
-                      border: Border.all(
-                        color: _statusColor(state.match.status).withOpacity(.4),
-                      ),
-                    ),
-                    child: Text(
-                      _statusLabel(l10n, state.match.status),
-                      style: TextStyle(
-                        color: _statusColor(state.match.status),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    l10n.matchId(state.match.id),
-                    style: TextStyle(
-                      color: colors.onSurface.withOpacity(.4),
-                      fontSize: 10,
-                    ),
-                  ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (state.isRunning) ...[
+                  _buildClockButton(context, state, notifier),
+                  const SizedBox(width: 10),
                 ],
-              ),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      children: [
+                        Text(
+                          _formatTime(state.remainingSeconds),
+                          style: TextStyle(
+                            color: clockColor,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: statusColor.withOpacity(.15),
+                            borderRadius: BorderRadius.circular(99),
+                            border:
+                                Border.all(color: statusColor.withOpacity(.4)),
+                          ),
+                          child: Text(
+                            statusText,
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          l10n.matchId(state.match.id),
+                          style: TextStyle(
+                            color: colors.onSurface.withOpacity(.4),
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           SizedBox(
@@ -390,6 +413,46 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
                 : null,
           ),
         ],
+      ),
+    );
+  }
+
+  /// Pause/resume control, sitting next to the clock it stops — fighters go
+  /// off the mat, the referee stops the time and restarts it on the reset.
+  Widget _buildClockButton(
+    BuildContext context,
+    MatchControlState state,
+    MatchControlNotifier notifier,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    final tk = ChokeTokens.of(context);
+    final paused = state.isPaused;
+    final accent = paused ? tk.goldFg : tk.accent;
+    final label = paused ? l10n.resume : l10n.pause;
+
+    return Semantics(
+      button: true,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: InkWell(
+          onTap: paused ? notifier.resumeMatch : notifier.pauseMatch,
+          borderRadius: BorderRadius.circular(11),
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: accent.withOpacity(.14),
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(color: accent.withOpacity(.45)),
+            ),
+            child: Icon(
+              paused ? Icons.play_arrow : Icons.pause,
+              color: accent,
+              size: 22,
+            ),
+          ),
+        ),
       ),
     );
   }

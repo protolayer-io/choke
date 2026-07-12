@@ -67,9 +67,14 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
           match: match,
           remainingSeconds: _calculateRemaining(match),
         )) {
-    // If match is already in progress, resume timer
     if (match.status == MatchStatus.inProgress) {
-      _startTimer();
+      // The clock may have run out while the app was closed — a match is
+      // never left in progress past its own duration.
+      if (state.remainingSeconds <= 0) {
+        _finish();
+      } else {
+        _startTimer();
+      }
     }
   }
 
@@ -216,7 +221,9 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
   }
 
   /// Finish the match
-  void finishMatch() {
+  void finishMatch() => _finish();
+
+  void _finish() {
     if (state.isFinished) return;
 
     _timer?.cancel();
@@ -241,8 +248,9 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
       final remaining = _calculateRemaining(state.match);
       state = state.copyWith(remainingSeconds: remaining);
 
+      // Regulation time is over: the match finishes on its own.
       if (remaining <= 0) {
-        _timer?.cancel();
+        _finish();
       }
     });
   }

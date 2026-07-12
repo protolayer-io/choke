@@ -68,9 +68,17 @@ class MatchFeedNotifier extends StateNotifier<List<Match>> {
   /// Get the event created_at for a match ID
   int? getCreatedAt(String matchId) => _createdAtMap[matchId];
 
-  /// Add a locally created match (from CreateMatchScreen)
+  /// Add or update a locally-authored match (creation or control screen).
+  ///
+  /// The local state is authoritative on this device: it is at least as new
+  /// as anything published or echoed back so far. Published events carry a
+  /// per-match monotonic created_at that can run ahead of the wall clock
+  /// (rapid same-second actions), so stamping with the clock alone could
+  /// lose against the echo of our own earlier publish.
   void addLocal(Match match) {
-    _upsert(match, DateTime.now().millisecondsSinceEpoch ~/ 1000);
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final existing = _createdAtMap[match.id] ?? 0;
+    _upsert(match, now > existing ? now : existing + 1);
   }
 
   @override

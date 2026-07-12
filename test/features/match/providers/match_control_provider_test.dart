@@ -349,6 +349,28 @@ void main() {
       expect(notifier.state.match.status, MatchStatus.inProgress);
     });
 
+    test('pausing freezes the clock at what it reads now, not at the last tick',
+        () async {
+      // Arrange — a match already 10 seconds in
+      nostr = _FakeNostrService();
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      notifier = MatchControlNotifier(
+        _runningMatch().copyWith(duration: 300, startAt: now - 10),
+        nostr,
+      );
+
+      // Act
+      notifier.pauseMatch();
+
+      // Assert — the frozen clock agrees with the timestamp that was stored,
+      // so a stalled timer cannot put seconds back on it.
+      final m = notifier.state.match;
+      expect(
+        notifier.state.remainingSeconds,
+        m.duration - (m.pausedAt! - m.startAt!),
+      );
+    });
+
     test('pausing publishes the paused state', () async {
       // Arrange
       nostr = _FakeNostrService();

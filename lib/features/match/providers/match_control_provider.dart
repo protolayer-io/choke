@@ -124,7 +124,20 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
 
     _timer?.cancel();
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    state = state.copyWith(match: state.match.copyWith(pausedAt: now));
+    final paused = state.match.copyWith(pausedAt: now);
+
+    // Freeze the clock at what it actually reads now, not at the last tick:
+    // the timer may have been throttled (app backgrounded, busy UI thread),
+    // and a stale value would put seconds back on the clock.
+    final remaining = _calculateRemaining(paused);
+    if (remaining <= 0) {
+      // Time ran out while the timer was stalled — the match is over, and a
+      // finished match cannot be paused.
+      _finish();
+      return;
+    }
+
+    state = state.copyWith(match: paused, remainingSeconds: remaining);
     _publishState();
   }
 
@@ -140,11 +153,14 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final stoppage = now - match.pausedAt!;
 
+    final resumed = match.copyWith(
+      startAt: match.startAt! + stoppage,
+      pausedAt: null,
+    );
+
     state = state.copyWith(
-      match: match.copyWith(
-        startAt: match.startAt! + stoppage,
-        pausedAt: null,
-      ),
+      match: resumed,
+      remainingSeconds: _calculateRemaining(resumed),
     );
 
     _startTimer();

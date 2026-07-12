@@ -59,11 +59,11 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
 
-            // Filter chips with counts
+            // Status filter cards
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
               child:
-                  _buildFilterChips(context, ref, statusFilter, allMatches, tk),
+                  _buildStatusCards(context, ref, statusFilter, allMatches, tk),
             ),
 
             // Match list
@@ -114,7 +114,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildFilterChips(
+  Widget _buildStatusCards(
     BuildContext context,
     WidgetRef ref,
     Set<MatchStatus> selected,
@@ -160,62 +160,67 @@ class HomeScreen extends ConsumerWidget {
     final count = allMatches.where((m) => m.status == status).length;
     final color = _statusAccent(tk, status);
 
-    return GestureDetector(
-      onTap: () {
-        final current = Set<MatchStatus>.from(ref.read(statusFilterProvider));
-        if (isSelected) {
-          current.remove(status);
-        } else {
-          current.add(status);
-        }
-        ref.read(statusFilterProvider.notifier).state = current;
-      },
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(.12) : tk.card,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isSelected ? color.withOpacity(.5) : tk.cardBorder,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: '${_statusLabel(l10n, status)}: $count',
+      child: GestureDetector(
+        onTap: () {
+          final current = Set<MatchStatus>.from(ref.read(statusFilterProvider));
+          if (isSelected) {
+            current.remove(status);
+          } else {
+            current.add(status);
+          }
+          ref.read(statusFilterProvider.notifier).state = current;
+        },
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withOpacity(.12) : tk.card,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isSelected ? color.withOpacity(.5) : tk.cardBorder,
+            ),
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration:
-                      BoxDecoration(color: color, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    _statusLabel(l10n, status),
-                    style: TextStyle(
-                      color: isSelected ? color : tk.muted,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration:
+                        BoxDecoration(color: color, shape: BoxShape.circle),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$count',
-              style: TextStyle(
-                color: count > 0 ? color : tk.faint,
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
-                height: 1,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      _statusLabel(l10n, status),
+                      style: TextStyle(
+                        color: isSelected ? color : tk.muted,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                '$count',
+                style: TextStyle(
+                  color: count > 0 ? color : tk.faint,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

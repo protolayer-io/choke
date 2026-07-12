@@ -40,13 +40,22 @@ void main() {
 
       // Scroll to the bottom to find the footer
       await tester.scrollUntilVisible(
-        find.text('⬛⬛⬛🟥⬛'),
+        find.text('Built by Pana'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
 
-      // Black belt badge
-      expect(find.text('⬛⬛⬛🟥⬛'), findsOneWidget);
+      // Black belt badge image
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is AssetImage &&
+              (widget.image as AssetImage).assetName ==
+                  'assets/branding/bjj_black_belt.webp',
+        ),
+        findsOneWidget,
+      );
 
       // Creator credit (localized)
       expect(find.text('Built by Pana'), findsOneWidget);
@@ -80,13 +89,22 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.scrollUntilVisible(
-        find.text('⬛⬛⬛🟥⬛'),
+        find.text('Built by Pana'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
 
       // Belt badge and credit still show
-      expect(find.text('⬛⬛⬛🟥⬛'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is AssetImage &&
+              (widget.image as AssetImage).assetName ==
+                  'assets/branding/bjj_black_belt.webp',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Built by Pana'), findsOneWidget);
 
       // Error fallback

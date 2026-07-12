@@ -179,21 +179,38 @@ class SettingsScreen extends ConsumerWidget {
                     return '—';
                   },
                 );
+                final isDark = theme.brightness == Brightness.dark;
                 return Center(
                   child: Column(
                     children: [
-                      const Text(
-                        '⬛⬛⬛🟥⬛',
-                        style: TextStyle(fontSize: 12, letterSpacing: 2),
-                      ),
-                      const SizedBox(height: 4),
                       Text(
                         l10n.builtBy('Pana'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.onSurface.withValues(alpha: 0.5),
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: isDark
+                            ? BoxDecoration(
+                                // Subtle lighter backdrop so the black belt
+                                // stays visible against the dark theme.
+                                color: colors.onSurface.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(16),
+                              )
+                            : null,
+                        child: Image.asset(
+                          'assets/branding/bjj_black_belt.webp',
+                          width: 120,
+                          fit: BoxFit.contain,
+                          semanticLabel: l10n.bjjBlackBelt,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
                       Text(
                         versionText,
                         style: theme.textTheme.bodySmall?.copyWith(

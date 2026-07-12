@@ -139,5 +139,6 @@
   "relayErrorCannotRemoveLast": "Não é possível remover o último relay ativo",
   "relayErrorToggleFailed": "Falha ao atualizar o relay",
   "relayErrorCannotDisableLast": "Pelo menos um relay deve permanecer ativo",
-  "builtBy": "Feito por {name}"
+  "builtBy": "Feito por {name}",
+  "bjjBlackBelt": "Faixa preta de BJJ"
 }

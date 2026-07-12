@@ -455,4 +455,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String builtBy(String name) {
     return 'Feito por $name';
   }
+
+  @override
+  String get bjjBlackBelt => 'Faixa preta de BJJ';
 }

@@ -179,4 +179,77 @@ void main() {
       expect(nostr.publishCount, greaterThan(publishesBefore));
     });
   });
+
+  group('time expiry', () {
+    test('match finishes when the timer reaches zero', () async {
+      // Arrange — a running match with one second left on the clock
+      nostr = _FakeNostrService();
+      final almostOver = _runningMatch().copyWith(
+        duration: 1,
+        startAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+      notifier = MatchControlNotifier(almostOver, nostr);
+      expect(notifier.state.match.status, MatchStatus.inProgress);
+
+      // Act — let the clock run out
+      await Future<void>.delayed(const Duration(milliseconds: 1600));
+
+      // Assert
+      expect(notifier.state.remainingSeconds, 0);
+      expect(notifier.state.match.status, MatchStatus.finished);
+      expect(notifier.state.isRunning, isFalse);
+    });
+
+    test('reopening a match whose time already elapsed finishes it', () {
+      // Arrange — started 10 minutes ago with a 5 minute duration
+      nostr = _FakeNostrService();
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final expired = _runningMatch().copyWith(
+        duration: 300,
+        startAt: now - 600,
+      );
+
+      // Act
+      notifier = MatchControlNotifier(expired, nostr);
+
+      // Assert
+      expect(notifier.state.remainingSeconds, 0);
+      expect(notifier.state.match.status, MatchStatus.finished);
+    });
+
+    test('expiring the clock publishes the finished match', () async {
+      // Arrange
+      nostr = _FakeNostrService();
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final expired = _runningMatch().copyWith(
+        duration: 300,
+        startAt: now - 600,
+      );
+
+      // Act
+      notifier = MatchControlNotifier(expired, nostr);
+      await Future<void>.delayed(Duration.zero);
+
+      // Assert
+      expect(nostr.publishCount, greaterThan(0));
+    });
+
+    test('a match finished by the clock keeps its score', () async {
+      // Arrange
+      nostr = _FakeNostrService();
+      final almostOver = _runningMatch().copyWith(
+        duration: 1,
+        startAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+      notifier = MatchControlNotifier(almostOver, nostr);
+      notifier.scorePt4(1);
+
+      // Act
+      await Future<void>.delayed(const Duration(milliseconds: 1600));
+
+      // Assert
+      expect(notifier.state.match.status, MatchStatus.finished);
+      expect(notifier.state.match.f1Score, 4);
+    });
+  });
 }

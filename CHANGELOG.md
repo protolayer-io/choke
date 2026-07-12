@@ -1,5 +1,21 @@
 # Changelog
 
+## [v1.2.1] - 2026-07-12
+
+### Added
+- feat: replace belt emoji footer with black belt image (a14a019)
+
+### Changed
+- Aplica sugerencias de revisión en tarjetas de estado (8865470)
+- Rediseña pantalla de inicio: quita logo C y agranda badges de estado (f1a6e82)
+- i18n: localize black belt image semanticLabel (8bd1a72)
+- test: actualiza aserción del footer de solo lectura al texto combinado (6f43608)
+- Permite ver el detalle de luchas finalizadas o canceladas en solo lectura (de64e77)
+- Update lib/l10n/app_es.arb (798b080)
+- Reemplaza 'combate' por 'lucha' en las traducciones al español (cac7beb)
+- chore: update changelog and version for v1.2.0 (f67cc53)
+
+
 ## [v1.2.0] - 2026-07-11
 
 ### Added

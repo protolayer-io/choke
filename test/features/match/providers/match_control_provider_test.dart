@@ -1,14 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:choke/features/match/models/match.dart';
 import 'package:choke/features/match/providers/match_control_provider.dart';
 import 'package:choke/services/key_management/key_manager.dart';
 import 'package:choke/services/nostr/nostr_service.dart';
 
-/// Fake NostrService that skips relay publishing entirely
+/// Fake NostrService that skips relay publishing entirely.
+///
+/// [failuresRemaining] makes the next N publishes throw (relay down).
+/// [gate] holds a publish in flight until completed (slow relay).
 class _FakeNostrService extends NostrService {
   _FakeNostrService() : super(KeyManager());
 
   int publishCount = 0;
+  final List<String> publishedContents = [];
+  int failuresRemaining = 0;
+  Completer<void>? gate;
+
+  Match get lastPublishedMatch =>
+      Match.fromJsonString(publishedContents.last);
 
   @override
   Future<void> publishAddressableEvent({
@@ -16,7 +27,14 @@ class _FakeNostrService extends NostrService {
     required String content,
     List<List<String>> additionalTags = const [],
   }) async {
+    final g = gate;
+    if (g != null) await g.future;
+    if (failuresRemaining > 0) {
+      failuresRemaining--;
+      throw Exception('relay down');
+    }
     publishCount++;
+    publishedContents.add(content);
   }
 }
 
@@ -424,6 +442,93 @@ void main() {
       // Assert
       expect(notifier.state.match.status, MatchStatus.finished);
       expect(notifier.state.isPaused, isFalse);
+    });
+  });
+
+  group('publish reliability', () {
+    test('a failed publish is retried until the relay has the latest state',
+        () async {
+      // Arrange — the relay rejects the first attempt
+      nostr = _FakeNostrService()..failuresRemaining = 1;
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+
+      // Act
+      notifier.scorePt2(1);
+      await Future<void>.delayed(Duration.zero);
+      expect(nostr.publishCount, 0, reason: 'first attempt must have failed');
+
+      // Assert — the retry lands on its own, no user action needed
+      await Future<void>.delayed(const Duration(milliseconds: 2400));
+      expect(nostr.publishCount, greaterThan(0));
+      expect(nostr.lastPublishedMatch.f1Score, 2);
+    });
+
+    test('actions during an in-flight publish are sent right after it',
+        () async {
+      // Arrange — a slow relay holds the first publish in flight
+      nostr = _FakeNostrService()..gate = Completer();
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+      notifier.scorePt2(1);
+      await Future<void>.delayed(Duration.zero);
+
+      // Act — two more scores land while the first publish hangs
+      notifier.scorePt2(1);
+      notifier.scorePt3(1);
+      nostr.gate!.complete();
+      nostr.gate = null;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // Assert — the final published event carries the full 2+2+3
+      expect(nostr.lastPublishedMatch.f1Score, 7);
+    });
+
+    test('finishing during an in-flight publish still lands as finished',
+        () async {
+      // Arrange
+      nostr = _FakeNostrService()..gate = Completer();
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+      notifier.scorePt2(1);
+      await Future<void>.delayed(Duration.zero);
+
+      // Act
+      notifier.finishMatch();
+      nostr.gate!.complete();
+      nostr.gate = null;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // Assert — the relay must never be left believing in-progress
+      expect(nostr.lastPublishedMatch.status, MatchStatus.finished);
+    });
+
+    test('a finish whose publish fails is retried until it lands', () async {
+      // Arrange
+      nostr = _FakeNostrService()..failuresRemaining = 1;
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+
+      // Act
+      notifier.finishMatch();
+      await Future<void>.delayed(Duration.zero);
+      expect(nostr.publishedContents, isEmpty);
+      await Future<void>.delayed(const Duration(milliseconds: 2400));
+
+      // Assert
+      expect(nostr.lastPublishedMatch.status, MatchStatus.finished);
+    });
+
+    test('a new action supersedes a scheduled retry with the newer state',
+        () async {
+      // Arrange — first publish fails, a retry gets scheduled
+      nostr = _FakeNostrService()..failuresRemaining = 1;
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+      notifier.scorePt2(1);
+      await Future<void>.delayed(Duration.zero);
+
+      // Act — before the retry fires, another score arrives
+      notifier.scorePt3(1);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // Assert — publishes immediately with the combined state
+      expect(nostr.lastPublishedMatch.f1Score, 5);
     });
   });
 }

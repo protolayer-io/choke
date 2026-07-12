@@ -60,10 +60,20 @@ class _UndoEntry {
 
 /// Manages match control: timer, scoring, publishing
 class MatchControlNotifier extends StateNotifier<MatchControlState> {
+  static const _retryBaseDelay = Duration(seconds: 2);
+  static const _retryMaxDelay = Duration(seconds: 30);
+
   final NostrService _nostrService;
   final MatchFeedNotifier? _feedNotifier;
   Timer? _timer;
-  bool _pendingPublish = false;
+
+  /// Latest match state no relay has confirmed yet. Rapid actions coalesce
+  /// here: the event is addressable (one per match), so only the newest
+  /// state matters and anything older is superseded before it is sent.
+  Match? _outbox;
+  bool _sending = false;
+  Timer? _retryTimer;
+  int _retryAttempt = 0;
 
   MatchControlNotifier(Match match, this._nostrService, [this._feedNotifier])
       : super(MatchControlState(
@@ -319,49 +329,70 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
     });
   }
 
-  /// Publish current match state to Nostr
-  Future<void> _publishState() async {
-    if (state.isPublishing) {
-      _pendingPublish = true;
-      return;
-    }
+  /// Queue the current match state for publishing to Nostr.
+  ///
+  /// The remote board must always converge to what this screen shows, so
+  /// this never drops a state: it lands in the outbox (superseding anything
+  /// older, which no longer matters) and stays there until a relay accepts
+  /// it — failures are retried with backoff, on their own.
+  void _publishState() {
+    _outbox = state.match;
 
-    state = state.copyWith(isPublishing: true);
+    // Update home feed immediately (don't wait for relay round-trip)
+    _feedNotifier?.addLocal(state.match);
 
-    try {
-      final match = state.match;
-      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    // A fresh action beats waiting out a backoff — try again right away.
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _retryAttempt = 0;
 
-      // Update home feed immediately (don't wait for relay round-trip)
-      _feedNotifier?.addLocal(match);
-      final expiration = now + 604800; // 1 week
+    _drainOutbox();
+  }
 
-      await _nostrService.publishAddressableEvent(
-        dTag: match.id,
-        content: match.toJsonString(),
-        additionalTags: [
-          ['expiration', expiration.toString()],
-        ],
-      );
+  Future<void> _drainOutbox() async {
+    if (_sending) return;
+    _sending = true;
+    if (mounted) state = state.copyWith(isPublishing: true);
 
-      debugPrint(
-          'MatchControl: published match ${match.id} (${match.status.name})');
-    } catch (e) {
-      debugPrint('MatchControl: publish failed: $e');
-    } finally {
-      state = state.copyWith(isPublishing: false);
+    while (_outbox != null) {
+      final match = _outbox!;
+      try {
+        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        await _nostrService.publishAddressableEvent(
+          dTag: match.id,
+          content: match.toJsonString(),
+          additionalTags: [
+            ['expiration', '${now + 604800}'], // 1 week
+          ],
+        );
 
-      // If there was a queued publish, do it now
-      if (_pendingPublish) {
-        _pendingPublish = false;
-        _publishState();
+        _retryAttempt = 0;
+        // A newer state may have landed while this one was in flight; if
+        // so, loop and send it too. Otherwise the outbox is drained.
+        if (identical(_outbox, match)) _outbox = null;
+        debugPrint(
+            'MatchControl: published match ${match.id} (${match.status.name})');
+      } catch (e) {
+        debugPrint(
+            'MatchControl: publish failed (attempt ${_retryAttempt + 1}): $e');
+        _retryAttempt++;
+        final delay = _retryBaseDelay * (1 << (_retryAttempt - 1).clamp(0, 4));
+        _retryTimer = Timer(
+          delay > _retryMaxDelay ? _retryMaxDelay : delay,
+          _drainOutbox,
+        );
+        break;
       }
     }
+
+    _sending = false;
+    if (mounted) state = state.copyWith(isPublishing: false);
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _retryTimer?.cancel();
     super.dispose();
   }
 }

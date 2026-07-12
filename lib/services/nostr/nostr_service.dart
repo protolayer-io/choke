@@ -309,6 +309,7 @@ class NostrService {
   final Map<String, StreamSubscription<NostrEvent>> _relaySubscriptions = {};
   final _eventController = StreamController<NostrEvent>.broadcast();
   final Map<String, NostrEvent> _addressableEvents = {};
+  final Map<String, int> _lastCreatedAt = {};
 
   NostrService(this._keyManager);
 
@@ -491,8 +492,7 @@ class NostrService {
       ...additionalTags,
     ];
 
-    // Create event
-    final createdAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final createdAt = nextCreatedAt(dTag);
 
     // Build nostr_tools Event
     final nostrEvent = nostr.Event(
@@ -521,6 +521,23 @@ class NostrService {
     final event = NostrEvent.fromNostrToolsEvent(finishedEvent);
 
     await publishEvent(event);
+  }
+
+  /// Timestamp for the next addressable event of [dTag], strictly greater
+  /// than any this session has used for it.
+  ///
+  /// Relays keep a single event per (kind, pubkey, d) and, per NIP-01, a
+  /// replacement must have a strictly newer created_at — on a tie the old
+  /// event wins. Two publishes within the same wall-clock second would
+  /// otherwise leave the relay holding the stale state, which is how a
+  /// final score or a "finished" status used to go missing remotely.
+  @visibleForTesting
+  int nextCreatedAt(String dTag) {
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final last = _lastCreatedAt[dTag];
+    final createdAt = (last != null && now <= last) ? last + 1 : now;
+    _lastCreatedAt[dTag] = createdAt;
+    return createdAt;
   }
 
   /// Get the latest addressable event for a given key

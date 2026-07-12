@@ -553,5 +553,9 @@
         "example": "Pana"
       }
     }
+  },
+  "bjjBlackBelt": "BJJ black belt",
+  "@bjjBlackBelt": {
+    "description": "Accessibility label for the black belt image in the settings footer"
   }
 }

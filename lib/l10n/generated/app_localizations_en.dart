@@ -451,4 +451,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String builtBy(String name) {
     return 'Built by $name';
   }
+
+  @override
+  String get bjjBlackBelt => 'BJJ black belt';
 }

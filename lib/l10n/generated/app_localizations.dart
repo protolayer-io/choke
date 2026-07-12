@@ -941,6 +941,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Built by {name}'**
   String builtBy(String name);
+
+  /// Accessibility label for the black belt image in the settings footer
+  ///
+  /// In en, this message translates to:
+  /// **'BJJ black belt'**
+  String get bjjBlackBelt;
 }
 
 class _AppLocalizationsDelegate

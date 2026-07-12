@@ -207,7 +207,7 @@ class SettingsScreen extends ConsumerWidget {
                           'assets/branding/bjj_black_belt.webp',
                           width: 120,
                           fit: BoxFit.contain,
-                          semanticLabel: 'BJJ black belt',
+                          semanticLabel: l10n.bjjBlackBelt,
                         ),
                       ),
                       const SizedBox(height: 10),

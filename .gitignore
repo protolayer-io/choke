@@ -86,3 +86,9 @@ lib/generated/
 
 # Mutation testing reports
 mutation-test-report/
+
+# Rust (flutter_rust_bridge)
+rust/target/
+# The blanket *.lock rule above would swallow this, but an application's
+# lockfile belongs in the repo: it is what makes the build reproducible.
+!rust/Cargo.lock

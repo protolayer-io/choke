@@ -155,6 +155,23 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # The APK now contains a Rust library (Nostr cryptography), which
+      # Cargokit cross-compiles during `flutter build apk`. Without a Rust
+      # toolchain the release build fails. The version and the Android
+      # targets come from rust-toolchain.toml.
+      - name: Setup Rust
+        run: rustup show
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: cargo-release-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: cargo-release-${{ runner.os }}-
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:

@@ -1,0 +1,8 @@
+[toolchain]
+channel = "1.94.0"
+targets = [
+  # Android — the QA platform (see docs/specs/nostr-sdk-migration.md §9.3)
+  "aarch64-linux-android",
+  "armv7-linux-androideabi",
+  "x86_64-linux-android",
+]

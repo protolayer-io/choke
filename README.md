@@ -23,7 +23,8 @@ Choke lets you create, score, and publish Brazilian Jiu-Jitsu matches in real ti
 
 - **Mobile**: Flutter (Android & iOS)
 - **State Management**: Riverpod
-- **Protocol**: Nostr (nostr_tools)
+- **Protocol**: Nostr (`nostr_tools`, migrating to the Rust [`nostr`](https://crates.io/crates/nostr) crate — see the [migration spec](docs/specs/nostr-sdk-migration.md))
+- **Native**: Rust crate bridged with `flutter_rust_bridge`
 - **Security**: flutter_secure_storage for key management
 - **Design**: Custom BJJ-inspired theme
 
@@ -43,8 +44,11 @@ See [BJJ_STYLE_GUIDE.md](BJJ_STYLE_GUIDE.md) for complete style guide.
 ### Prerequisites
 
 - Flutter SDK (^3.11.0)
-- Dart SDK (^3.11.0)
+- Dart SDK (>=3.5.0)
 - Android Studio / Xcode (for mobile builds)
+- **Rust** — the app links a native crate. Install [rustup](https://rustup.rs);
+  the pinned version and Android targets are installed for you from
+  `rust-toolchain.toml`.
 
 ### Installation
 
@@ -59,8 +63,36 @@ flutter pub get
 # Run code generation (if needed)
 flutter pub run build_runner build
 
-# Run the app
+# Run the app — the Rust crate is compiled and linked automatically
 flutter run
+```
+
+### The Rust crate
+
+Nostr cryptography is moving to the actively maintained Rust
+[`nostr`](https://crates.io/crates/nostr) crate, reached from Dart through
+`flutter_rust_bridge`. See the [migration spec](docs/specs/nostr-sdk-migration.md).
+
+| Path | What it is |
+|---|---|
+| `rust/` | the crate — the app's whole native surface |
+| `lib/src/rust/` | generated Dart bindings (committed; never edit by hand) |
+| `rust_builder/` | Cargokit glue that builds the crate for each platform |
+
+Building the app compiles the crate; no separate step is needed. Two cases do
+need a command:
+
+```bash
+# After changing anything under rust/src/api/, regenerate the bindings.
+# The codegen CLI version must match the flutter_rust_bridge version in
+# pubspec.yaml and rust/Cargo.toml — all three are pinned together.
+cargo install flutter_rust_bridge_codegen --version 2.12.0 --locked
+flutter_rust_bridge_codegen generate
+
+# The bridge tests need the native library on disk; without it they skip
+# themselves, which is why a plain `flutter test` needs no Rust at all.
+cargo build --manifest-path rust/Cargo.toml
+flutter test --tags rust
 ```
 
 ### Build for Production

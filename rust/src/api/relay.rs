@@ -6,10 +6,11 @@
 //! convergence, the resend sweep — stays in Dart, where it was won (PRs #77,
 //! #78). This module must never quietly acquire an opinion about any of it.
 //!
-//! The one thing worth understanding here is [`relay_publish`]: it asks the
-//! pool to send to a single relay and reports whether **that** relay accepted.
-//! `nostr-sdk` hands us that verdict directly (`Output.success` / `.failed`) —
-//! precisely what the hand-rolled transport had to grow OK-tracking to learn.
+//! The one thing worth understanding here is [`relay_publish`]: it asks a
+//! single relay to take the event and reports whether **that** relay accepted.
+//! `nostr-sdk`'s relay handle hands us that verdict structured — an `OK: false`
+//! surfaces as its own error, distinct from a socket that simply never answered
+//! — precisely what the hand-rolled transport had to grow OK-tracking to learn.
 //! Flattening it back into a pool-wide "it worked" would resurrect the
 //! stale-scoreboard bug.
 
@@ -85,7 +86,10 @@ pub async fn relay_add(url: String) -> Result<(), String> {
     });
 
     // Connect this relay alone, so adding one later does not disturb the rest.
-    client().connect_relay(&url).await.map_err(|e| e.to_string())?;
+    client()
+        .connect_relay(&url)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -123,24 +127,29 @@ pub async fn relay_reconnect_all() {
 /// pool-level "it worked" would flatten exactly the distinction that matters.
 pub async fn relay_publish(url: String, event: SignedEventData) -> Result<bool, String> {
     let event = to_event(&event)?;
-    let relay_url = RelayUrl::parse(&url).map_err(|e| e.to_string())?;
 
-    let output = client()
-        .send_event_to([relay_url.clone()], &event)
-        .await
-        .map_err(|e| e.to_string())?;
+    // Send to this one relay and wait for its verdict. Going through the relay
+    // directly, rather than the pool's `send_event_to`, is what keeps that
+    // verdict *structured*: the pool flattens every per-relay failure into an
+    // opaque string in `Output.failed`, so a dead socket and an explicit `OK
+    // false` would arrive indistinguishable — and collapsing "never answered"
+    // into "refused" is exactly the confusion the caller's convergence
+    // bookkeeping cannot survive (#78). Resolving the relay also fails cleanly
+    // when it was never added, which is the honest answer to that call.
+    let relay = client().relay(&url).await.map_err(|e| e.to_string())?;
 
-    if output.success.contains(&relay_url) {
-        return Ok(true);
+    match relay.send_event(&event).await {
+        // The relay accepted it.
+        Ok(_) => Ok(true),
+        // The relay answered, and its answer was no: an `OK: false`. This — a
+        // rate limit, an invalid event, a policy refusal — is the *only* thing
+        // that reads as a rejection.
+        Err(nostr_sdk::pool::relay::Error::RelayMessage(_)) => Ok(false),
+        // Anything else — not connected, timed out — means we never heard a
+        // verdict at all, and the caller must be told so rather than shown a
+        // refusal the relay never gave.
+        Err(e) => Err(e.to_string()),
     }
-
-    // The relay answered, and its answer was no.
-    if output.failed.contains_key(&relay_url) {
-        return Ok(false);
-    }
-
-    // Neither accepted nor refused: silence.
-    Err(format!("no answer from {url}"))
 }
 
 pub async fn relay_subscribe(subscription_id: String, filter: FilterData) -> Result<(), String> {

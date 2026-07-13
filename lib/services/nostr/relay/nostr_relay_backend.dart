@@ -1,16 +1,32 @@
 import '../nostr_service.dart' show NostrEvent;
 
 /// Filter for Nostr subscriptions (NIP-01 `REQ`).
+///
+/// Every field is optional, and null means *unconstrained*: a filter with
+/// nothing set asks a relay for everything it has.
 class Filter {
+  /// Event kinds to match. The app only ever asks for 31415 (a match).
   final List<int>? kinds;
+
+  /// Hex public keys whose events to match.
   final List<String>? authors;
+
+  /// Specific event ids to match.
   final List<String>? ids;
+
+  /// NIP-50 full-text search term. Relays may ignore it.
   final String? search;
+
+  /// Only events created at or after this unix timestamp (seconds).
   final int? since;
+
+  /// Only events created at or before this unix timestamp (seconds).
   final int? until;
+
+  /// At most this many events. Relays may return fewer.
   final int? limit;
 
-  Filter({
+  const Filter({
     this.kinds,
     this.authors,
     this.ids,
@@ -20,6 +36,9 @@ class Filter {
     this.limit,
   });
 
+  /// The wire form a relay expects inside a `REQ`. Unset fields are omitted
+  /// rather than sent as null — a relay reads an explicit null as a constraint
+  /// nothing can satisfy.
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};
     if (kinds != null) map['kinds'] = kinds;
@@ -68,8 +87,11 @@ abstract class NostrRelayBackend {
   /// The subset currently connected.
   List<String> get connectedRelays;
 
+  /// Register a relay and dial it. Idempotent: adding one twice is a no-op.
   Future<void> addRelay(String url);
 
+  /// Forget a relay and drop its socket. It stops counting towards
+  /// convergence — a relay nobody is talking to must not hold a match hostage.
   void removeRelay(String url);
 
   /// Drop every socket and dial again, without waiting for TCP to notice they
@@ -81,6 +103,7 @@ abstract class NostrRelayBackend {
   /// re-establishes them on a fresh socket by itself.
   void subscribe(String subscriptionId, Filter filter);
 
+  /// Drop a subscription on every relay.
   void unsubscribe(String subscriptionId);
 
   /// Publish to one relay and wait for its verdict.
@@ -94,7 +117,11 @@ abstract class NostrRelayBackend {
   /// same event twice.
   bool isAwaitingOk(String relayUrl, String eventId);
 
+  /// Close every socket, keeping the relays registered. The backend is still
+  /// usable afterwards — [reconnectAll] brings it back.
   void disconnect();
 
+  /// Release everything: sockets, streams, subscriptions. The backend cannot
+  /// be used again.
   void dispose();
 }

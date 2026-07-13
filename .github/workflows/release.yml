@@ -162,6 +162,10 @@ jobs:
       - name: Setup Rust
         run: rustup show
 
+      # Puts sdkmanager on PATH; the runner ships the SDK but not its CLI.
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       # Cargokit compiles the crate through the NDK, so the version the project
       # pins must actually be installed — otherwise configuring the
       # :rust_lib_choke project dies with a bare NullPointerException. Read it

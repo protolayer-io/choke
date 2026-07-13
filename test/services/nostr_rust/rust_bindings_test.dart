@@ -90,8 +90,17 @@ void _bridgeTests(String? libraryPath) {
 
 /// Where `cargo build` leaves the crate, or null if it has not been built.
 /// Debug first: that is what a contributor (and CI) has just produced.
+///
+/// The filename follows the host — these tests run on a developer's machine,
+/// not on a device, so a hardcoded `.so` would silently skip them on macOS or
+/// Windows.
 String? _findNativeLibrary() {
-  const name = 'librust_lib_choke.so';
+  final name = Platform.isMacOS
+      ? 'librust_lib_choke.dylib'
+      : Platform.isWindows
+          ? 'rust_lib_choke.dll'
+          : 'librust_lib_choke.so';
+
   for (final profile in ['debug', 'release']) {
     final path = 'rust/target/$profile/$name';
     if (File(path).existsSync()) return path;

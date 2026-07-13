@@ -206,12 +206,19 @@ void _differentialTests() {
           content: 'choke',
         );
 
-        // Act & Assert
-        expect(
-          rust.finishEvent(unsigned, privateKey).id,
-          dart.finishEvent(unsigned, privateKey).id,
-          reason: 'event id differs for tags: $tags',
-        );
+        // Act
+        final byRust = rust.finishEvent(unsigned, privateKey);
+        final byDart = dart.finishEvent(unsigned, privateKey);
+
+        // Assert — matching ids prove Rust hashed the tags correctly *inside*
+        // Rust; they say nothing about the return leg, where the struct could
+        // still mangle them on the way back to Dart. So check the tags that
+        // actually came back, and that each library accepts the other's event.
+        expect(byRust.id, byDart.id, reason: 'event id differs for: $tags');
+        expect(byRust.tags, tags, reason: 'tags mangled crossing back: $tags');
+        expect(byDart.tags, tags);
+        expect(dart.verifyEvent(byRust), isTrue);
+        expect(rust.verifyEvent(byDart), isTrue);
       }
     });
 
@@ -314,8 +321,17 @@ String _describe(String content) =>
     content.replaceAll('\n', r'\n').replaceAll('\t', r'\t');
 
 /// Where `cargo build` leaves the crate, or null if it has not been built.
+///
+/// The filename follows the host: these tests run on a developer's machine and
+/// on CI, not on a device, so a hardcoded `.so` would silently skip the whole
+/// suite on macOS or Windows.
 String? _findNativeLibrary() {
-  const name = 'librust_lib_choke.so';
+  final name = Platform.isMacOS
+      ? 'librust_lib_choke.dylib'
+      : Platform.isWindows
+          ? 'rust_lib_choke.dll'
+          : 'librust_lib_choke.so';
+
   for (final profile in ['debug', 'release']) {
     final path = 'rust/target/$profile/$name';
     if (File(path).existsSync()) return path;

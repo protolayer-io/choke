@@ -326,9 +326,13 @@ the invariant needed teeth before then, not after.
 
 Steps:
 1. Extend the crate: `generate_secret_key`, `public_key_from_secret`,
-   `npub_encode`, `nsec_encode`, `nsec_decode`, `finish_event(unsigned_json, sk)`,
-   `verify_event(json)` — thin wrappers over `nostr::Keys`, `nostr::nips::nip19`,
-   `nostr::EventBuilder`/`UnsignedEvent`.
+   `npub_encode`, `nsec_encode`, `nsec_decode`, plus — over **typed** FFI
+   structs rather than JSON, for the reason in §3.1 —
+   `finish_event(UnsignedEventData, secret_hex) -> SignedEventData` and
+   `verify_event_data(SignedEventData) -> bool`. Thin wrappers over
+   `nostr::Keys`, `nostr::nips::nip19` and `nostr::UnsignedEvent`.
+   (`verify_event(json)` from Phase 1 stays, unused by the app but handy as a
+   smoke test of the bridge.)
 2. `RustNostrCrypto implements NostrCrypto` over the generated bindings.
 3. Run the Phase 2 contract suite against `RustNostrCrypto`.
 4. **Differential tests** (the heart of this phase): for a corpus of fixed vectors

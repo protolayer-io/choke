@@ -1,12 +1,12 @@
 # Migration Spec: `nostr_tools` (Dart) → `nostr-sdk` (Rust) via `flutter_rust_bridge`
 
-**Status:** APPROVED — Phases 0-1 complete, Phase 2 next
+**Status:** APPROVED — Phases 0-2 complete, Phase 3 next
 **Author:** prepared with Claude Code
 **Date:** 2026-07-13
 **Decisions locked (2026-07-13):** web target frozen (§5, W1) · own thin Rust
 crate over official Flutter bindings (§9.2) · manual QA on Android (§9.3)
 
-**Progress:** Phase 0 ✅ · Phase 1 ✅ · Phases 2–8 pending
+**Progress:** Phases 0 ✅ 1 ✅ 2 ✅ · Phases 3–8 pending
 
 ---
 
@@ -109,8 +109,8 @@ These are pinned by the existing test suite (105 tests) and must never regress:
 | I4 | A relay that never answers OK is treated as dead and recycled; connections recycled on app resume | zombie detection tests (PR #78) |
 | I5 | Pending state publishes the moment a relay reconnects (no backoff wait) | reconnect recovery tests (PR #78) |
 | I6 | Incoming NIP-40 expired events ignored; addressable replacement keeps newest `(kind, pubkey, d)` | `_handleIncomingEvent` behavior |
-| I7 | Keys: same nsec always derives the same npub; import/export round-trips | key manager tests |
-| I8 | Event ids/signatures are valid NIP-01 (verifiable by any compliant relay) | differential tests (new, Phase 3) |
+| I7 | Keys: same nsec always derives the same npub; import/export round-trips | key manager tests (added in Phase 2 — see §2.2) |
+| I8 | Event ids/signatures are valid NIP-01: the id hashes the event **and** the signature is the pubkey's (verifiable by any compliant relay) | `NostrCrypto` contract (Phase 2) + differential tests (Phase 3) — see §2.1 |
 
 ## 5. Platform support & the web question
 
@@ -249,7 +249,7 @@ release APK growth stays inside the ≤6 MB budget (measured: +2.1 MB — see th
 
 ---
 
-### Phase 2 — Crypto seam in Dart *(PR: pure refactor)*
+### Phase 2 — Crypto seam in Dart — ✅ **DONE (2026-07-13)** *(PR: pure refactor)*
 
 **Goal:** one interface both crypto implementations can stand behind.
 
@@ -279,9 +279,44 @@ Steps:
    against a hand-computed NIP-01 vector, sign→verify). Runs against
    `NostrToolsCrypto` in this PR.
 
-**Tests:** existing 105 + contract suite. Zero behavior change.
-**Acceptance:** `nostr_tools` imports exist **only** inside `NostrToolsCrypto`.
-**Rollback:** revert; pure refactor.
+#### 2.1 What the contract turned up: `nostr_tools` under-verifies events
+
+Writing the contract first surfaced a real flaw in the incumbent library.
+`EventApi.verifySignature` checks the signature **against the event id, but
+never checks that the id describes the event**. Per NIP-01 the id *is* the hash
+of the event's fields, so an event whose content is rewritten after signing —
+keeping the original id and signature — is forged. `nostr_tools` calls it valid.
+The Rust `nostr` crate rejects it (Phase 1's tampering test already proved this),
+so the two implementations would not have been interchangeable.
+
+`NostrToolsCrypto.verifyEvent` therefore also recomputes the id (via
+`getEventHash`) and rejects a mismatch. This is a **deliberate, small hardening**
+rather than a pure move: it is what makes the contract satisfiable by both
+backends, and it cannot regress the app, whose only use of verification is a
+self-check on events it just signed itself (where the id always matches).
+
+Two consequences:
+- **I8 gets stronger**: event verification now means *id integrity + signature*,
+  in both implementations.
+- **Phase 8 gains urgency**: the app is currently shipping a signature check
+  that the library alone would have gotten wrong. Nothing else in the app calls
+  it, so exposure is nil — but it is exactly the class of bug that motivated
+  this migration.
+
+#### 2.2 I7 was not actually pinned
+
+The spec claimed invariant I7 (same nsec ⇒ same npub; import round-trips) was
+"pinned by key manager tests" — there were none. Phase 2 adds
+`test/services/key_management/key_manager_test.dart` (in-memory secure storage),
+covering first launch, reopening, npub/nsec round-trips, nsec import (valid and
+malformed), and the repair path for a stored pubkey that disagrees with its
+private key. Phase 4 swaps the crypto backend underneath exactly this code, so
+the invariant needed teeth before then, not after.
+
+**Tests:** 136 passing (110 existing + 19 contract + 7 key manager).
+**Acceptance:** `package:nostr_tools` is imported in **exactly one file**,
+`nostr_tools_crypto.dart`. ✅
+**Rollback:** revert; behavior-preserving apart from §2.1.
 
 ---
 

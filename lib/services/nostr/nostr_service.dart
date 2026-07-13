@@ -3,10 +3,15 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:nostr_tools/nostr_tools.dart' as nostr;
 import '../key_management/key_manager.dart';
+import 'crypto/nostr_crypto.dart';
+import 'crypto/nostr_tools_crypto.dart';
 
-/// Nostr Event model (wrapper around nostr_tools Event)
+/// A signed Nostr event.
+///
+/// Deliberately free of any crypto library's types: translating to and from
+/// those is [NostrCrypto]'s business, which is what lets the backend change
+/// without the rest of the app noticing.
 class NostrEvent {
   final String id;
   final String pubkey;
@@ -52,31 +57,6 @@ class NostrEvent {
     };
   }
 
-  /// Convert to nostr_tools Event
-  nostr.Event toNostrToolsEvent() {
-    return nostr.Event(
-      id: id,
-      pubkey: pubkey,
-      created_at: createdAt,
-      kind: kind,
-      tags: tags,
-      content: content,
-      sig: sig,
-    );
-  }
-
-  /// Create NostrEvent from nostr_tools Event
-  factory NostrEvent.fromNostrToolsEvent(nostr.Event event) {
-    return NostrEvent(
-      id: event.id,
-      pubkey: event.pubkey,
-      createdAt: event.created_at,
-      kind: event.kind,
-      tags: event.tags,
-      content: event.content,
-      sig: event.sig,
-    );
-  }
 }
 
 /// Filter for Nostr subscriptions
@@ -396,12 +376,18 @@ class NostrService {
   final WebSocketChannelFactory? _channelFactory;
   final Duration _okTimeout;
 
+  /// Signs and verifies the events this service publishes. Injected so the
+  /// crypto backend can be swapped without touching the relay layer.
+  final NostrCrypto _crypto;
+
   NostrService(
     this._keyManager, {
+    NostrCrypto? crypto,
     WebSocketChannelFactory? channelFactory,
     Duration okTimeout = const Duration(seconds: 10),
     this.resendInterval = const Duration(seconds: 5),
-  })  : _channelFactory = channelFactory,
+  })  : _crypto = crypto ?? NostrToolsCrypto(),
+        _channelFactory = channelFactory,
         _okTimeout = okTimeout;
 
   Stream<NostrEvent> get eventStream => _eventController.stream;
@@ -688,31 +674,24 @@ class NostrService {
 
     final createdAt = nextCreatedAt(dTag);
 
-    // Build nostr_tools Event
-    final nostrEvent = nostr.Event(
-      kind: 31415,
-      tags: tags,
-      content: content,
-      created_at: createdAt,
-      pubkey: publicKey,
+    // Sign the event: this computes both its id and its signature.
+    final event = _crypto.finishEvent(
+      UnsignedNostrEvent(
+        kind: 31415,
+        tags: tags,
+        content: content,
+        createdAt: createdAt,
+        pubkey: publicKey,
+      ),
+      privateKey,
     );
+    debugPrint('NostrService: event id: ${event.id}');
 
-    // Sign event using nostr_tools (calculates id + signature)
-    final eventApi = nostr.EventApi();
-    final finishedEvent = eventApi.finishEvent(nostrEvent, privateKey);
-    debugPrint('NostrService: event id: ${finishedEvent.id}');
-    debugPrint(
-        'NostrService: event sig: ${finishedEvent.sig.substring(0, 16)}...');
-    debugPrint('NostrService: event pubkey: ${finishedEvent.pubkey}');
-
-    // Verify the signature before publishing
-    final isValid = eventApi.verifySignature(finishedEvent);
-    debugPrint('NostrService: signature valid: $isValid');
-    if (!isValid) {
+    // Self-check before it goes out: a relay would reject a bad event anyway,
+    // and a silently malformed one is worse than a loud failure here.
+    if (!_crypto.verifyEvent(event)) {
       throw Exception('Event signature verification failed');
     }
-
-    final event = NostrEvent.fromNostrToolsEvent(finishedEvent);
 
     await publishEvent(event);
   }

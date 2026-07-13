@@ -13,13 +13,20 @@ import 'features/account/account_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/providers/relay_config_provider.dart';
 import 'services/key_management/key_manager.dart';
+import 'services/nostr/crypto/nostr_crypto.dart';
+import 'services/nostr/crypto/nostr_tools_crypto.dart';
 import 'services/nostr/nostr_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // The one place the crypto implementation is chosen. Everything downstream
+  // takes it as a NostrCrypto, so swapping the backend (Phase 4) is a change
+  // to this line alone. See docs/specs/nostr-sdk-migration.md.
+  final NostrCrypto crypto = NostrToolsCrypto();
+
   // Initialize KeyManager
-  final keyManager = KeyManager();
+  final keyManager = KeyManager(crypto: crypto);
   try {
     await keyManager.initialize();
   } catch (e, st) {
@@ -36,7 +43,7 @@ void main() async {
   }
 
   // Initialize NostrService with configured relays
-  final nostrService = NostrService(keyManager);
+  final nostrService = NostrService(keyManager, crypto: crypto);
   try {
     final enabledRelayUrls =
         relayConfigs.where((r) => r.isEnabled).map((r) => r.url).toList();
@@ -60,6 +67,7 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [
+        nostrCryptoProvider.overrideWithValue(crypto),
         keyManagerProvider.overrideWithValue(keyManager),
         nostrServiceProvider.overrideWithValue(nostrService),
         relayConfigServiceProvider.overrideWithValue(relayConfigService),

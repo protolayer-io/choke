@@ -1,20 +1,28 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:nostr_tools/nostr_tools.dart';
+
+import '../nostr/crypto/nostr_crypto.dart';
+import '../nostr/crypto/nostr_tools_crypto.dart';
 
 /// Service for managing Nostr keypairs
 /// Handles generation, storage, and recovery of keys
+///
+/// All cryptography goes through [NostrCrypto] rather than through a library
+/// of its own, so the implementation can be swapped without touching this
+/// class. See docs/specs/nostr-sdk-migration.md.
 class KeyManager {
   static const String _privateKeyKey = 'nostr_private_key';
   static const String _publicKeyKey = 'nostr_public_key';
 
   final FlutterSecureStorage _secureStorage;
+  final NostrCrypto _crypto;
   String? _cachedPrivateKey;
   String? _cachedPublicKey;
 
-  KeyManager({FlutterSecureStorage? secureStorage})
-      : _secureStorage = secureStorage ??
+  KeyManager({FlutterSecureStorage? secureStorage, NostrCrypto? crypto})
+      : _crypto = crypto ?? NostrToolsCrypto(),
+        _secureStorage = secureStorage ??
             const FlutterSecureStorage(
               aOptions: AndroidOptions(encryptedSharedPreferences: true),
               iOptions: IOSOptions(
@@ -48,15 +56,9 @@ class KeyManager {
   }
 
   /// Generate a new secp256k1 keypair and store it securely.
-  /// Uses nostr_tools KeyApi to guarantee a valid private key.
   Future<void> _generateAndStoreKeypair() async {
-    final keyApi = KeyApi();
-
-    // Generate a valid secp256k1 private key via nostr_tools
-    final privateKeyHex = keyApi.generatePrivateKey();
-
-    // Derive public key from private key
-    final publicKeyHex = keyApi.getPublicKey(privateKeyHex);
+    final privateKeyHex = _crypto.generatePrivateKey();
+    final publicKeyHex = _crypto.getPublicKey(privateKeyHex);
 
     // Store securely
     await _secureStorage.write(key: _privateKeyKey, value: privateKeyHex);
@@ -120,8 +122,11 @@ class KeyManager {
 
       debugPrint('KeyManager: Keypair imported successfully');
       return true;
-    } catch (e) {
-      debugPrint('KeyManager: Error importing nsec: $e');
+    } catch (_) {
+      // Not logged: everything inside this try handles the private key the
+      // user is importing, so the exception's message can carry it into the
+      // device log.
+      debugPrint('KeyManager: Error importing nsec');
       return false;
     }
   }
@@ -146,24 +151,24 @@ class KeyManager {
     debugPrint('KeyManager: All keys deleted');
   }
 
-  /// Derive secp256k1 public key from private key using nostr_tools.
+  /// Derive secp256k1 public key from private key.
   String _derivePublicKeyHex(String privateKeyHex) {
     try {
-      final keyApi = KeyApi();
-      return keyApi.getPublicKey(privateKeyHex);
-    } catch (e) {
-      debugPrint('KeyManager: Error deriving public key: $e');
+      return _crypto.getPublicKey(privateKeyHex);
+    } catch (_) {
+      // The exception is not logged: it was raised while handling the private
+      // key, so its message can carry the key itself into the device log —
+      // and debugPrint is not stripped from release builds. The throw still
+      // propagates, so no error is swallowed.
+      debugPrint('KeyManager: Error deriving public key');
       rethrow;
     }
   }
 
-  // NIP-19 Encoding/Decoding using nostr_tools
-
   /// Encode hex public key to npub (NIP-19 bech32)
   String _encodeNpub(String hexPublicKey) {
     try {
-      final nip19 = Nip19();
-      return nip19.npubEncode(hexPublicKey);
+      return _crypto.npubEncode(hexPublicKey);
     } catch (e) {
       debugPrint('KeyManager: Error encoding npub: $e');
       rethrow;
@@ -173,30 +178,17 @@ class KeyManager {
   /// Encode hex private key to nsec (NIP-19 bech32)
   String _encodeNsec(String hexPrivateKey) {
     try {
-      final nip19 = Nip19();
-      return nip19.nsecEncode(hexPrivateKey);
-    } catch (e) {
-      debugPrint('KeyManager: Error encoding nsec: $e');
+      return _crypto.nsecEncode(hexPrivateKey);
+    } catch (_) {
+      // Same reasoning as _derivePublicKeyHex: the input is the private key,
+      // so the exception's message must not reach the log.
+      debugPrint('KeyManager: Error encoding nsec');
       rethrow;
     }
   }
 
-  /// Decode nsec to hex private key
-  String? _decodeNsec(String nsec) {
-    try {
-      final nip19 = Nip19();
-      final decoded = nip19.decode(nsec);
-
-      // Validate type is 'nsec'
-      if (decoded['type'] != 'nsec') return null;
-
-      // Return the hex data
-      return decoded['data'] as String?;
-    } catch (e) {
-      debugPrint('KeyManager: nsec decode error: $e');
-      return null;
-    }
-  }
+  /// Decode nsec to hex private key, or null if it is not a valid nsec.
+  String? _decodeNsec(String nsec) => _crypto.nsecDecode(nsec);
 }
 
 /// Provider for KeyManager

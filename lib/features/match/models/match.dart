@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math';
-import 'package:nostr_tools/nostr_tools.dart' as nostr;
 import '../../../services/nostr/nostr_service.dart';
 
 /// Sentinel value for distinguishing "not provided" from "null" in copyWith

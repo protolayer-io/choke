@@ -122,8 +122,11 @@ class KeyManager {
 
       debugPrint('KeyManager: Keypair imported successfully');
       return true;
-    } catch (e) {
-      debugPrint('KeyManager: Error importing nsec: $e');
+    } catch (_) {
+      // Not logged: everything inside this try handles the private key the
+      // user is importing, so the exception's message can carry it into the
+      // device log.
+      debugPrint('KeyManager: Error importing nsec');
       return false;
     }
   }
@@ -152,8 +155,12 @@ class KeyManager {
   String _derivePublicKeyHex(String privateKeyHex) {
     try {
       return _crypto.getPublicKey(privateKeyHex);
-    } catch (e) {
-      debugPrint('KeyManager: Error deriving public key: $e');
+    } catch (_) {
+      // The exception is not logged: it was raised while handling the private
+      // key, so its message can carry the key itself into the device log —
+      // and debugPrint is not stripped from release builds. The throw still
+      // propagates, so no error is swallowed.
+      debugPrint('KeyManager: Error deriving public key');
       rethrow;
     }
   }
@@ -172,8 +179,10 @@ class KeyManager {
   String _encodeNsec(String hexPrivateKey) {
     try {
       return _crypto.nsecEncode(hexPrivateKey);
-    } catch (e) {
-      debugPrint('KeyManager: Error encoding nsec: $e');
+    } catch (_) {
+      // Same reasoning as _derivePublicKeyHex: the input is the private key,
+      // so the exception's message must not reach the log.
+      debugPrint('KeyManager: Error encoding nsec');
       rethrow;
     }
   }

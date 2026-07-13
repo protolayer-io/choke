@@ -41,8 +41,11 @@ class NostrToolsCrypto implements NostrCrypto {
       // be a catastrophic confusion, so the type has to match.
       if (decoded['type'] != 'nsec') return null;
       return decoded['data'] as String?;
-    } catch (e) {
-      debugPrint('NostrToolsCrypto: nsec decode error: $e');
+    } catch (_) {
+      // The exception itself is deliberately not logged: it was raised while
+      // parsing an nsec, so its message can carry the private key into the
+      // device log — and debugPrint is not stripped from release builds.
+      debugPrint('NostrToolsCrypto: nsec could not be decoded');
       return null;
     }
   }

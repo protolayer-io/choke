@@ -20,15 +20,22 @@ import 'package:choke/src/rust/frb_generated.dart';
 ///   flutter test --tags rust
 void main() {
   final libraryPath = _findNativeLibrary();
-  if (libraryPath == null) {
-    // Not a failure: the suite must remain runnable for contributors (and
-    // CI jobs) that never touch Rust.
-    markTestSkipped(
-      'native library not built — run: cargo build --manifest-path rust/Cargo.toml',
-    );
-    return;
-  }
 
+  // Declared as a group with a `skip` reason rather than an early return: the
+  // reason has to reach the test runner, and a bare `markTestSkipped` at
+  // declaration time has no test to mark. Absent the library the group is
+  // reported as skipped — not silently missing, and not a failure, so the
+  // suite stays green for contributors who never touch Rust.
+  group(
+    'Rust bridge',
+    skip: libraryPath == null
+        ? 'native library not built — run: cargo build --manifest-path rust/Cargo.toml'
+        : null,
+    () => _bridgeTests(libraryPath),
+  );
+}
+
+void _bridgeTests(String? libraryPath) {
   // A genuinely signed event, generated once with a throwaway key. Its id and
   // signature are real, so a bridge that quietly did nothing could not make
   // this pass.
@@ -43,8 +50,9 @@ void main() {
       '}';
 
   setUpAll(() async {
+    // Non-null whenever this group runs: a null path is what skips it.
     await RustLib.init(
-      externalLibrary: ExternalLibrary.open(libraryPath),
+      externalLibrary: ExternalLibrary.open(libraryPath!),
     );
   });
 

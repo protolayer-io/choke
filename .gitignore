@@ -92,3 +92,12 @@ rust/target/
 # The blanket *.lock rule above would swallow this, but an application's
 # lockfile belongs in the repo: it is what makes the build reproducible.
 !rust/Cargo.lock
+
+# Cargokit ships the Gradle wiring that compiles the Rust crate into the APK.
+# The blanket *.gradle rule above is aimed at the Flutter app's generated
+# files and silently swallowed these, leaving CI to configure an Android
+# project with no build script — which surfaces only as a bare
+# NullPointerException. They are source, not build output: keep them.
+!rust_builder/android/build.gradle
+!rust_builder/android/settings.gradle
+!rust_builder/cargokit/gradle/*.gradle

@@ -70,7 +70,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 1623134185;
+  int get rustContentHash => 141708053;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -82,9 +82,24 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
+  SignedEventData crateApiCryptoFinishEvent(
+      {required UnsignedEventData event, required String secretHex});
+
+  String crateApiCryptoGenerateSecretKey();
+
   Future<void> crateApiCryptoInitApp();
 
+  String crateApiCryptoNpubEncode({required String publicKeyHex});
+
+  String? crateApiCryptoNsecDecode({required String nsec});
+
+  String crateApiCryptoNsecEncode({required String secretHex});
+
+  String crateApiCryptoPublicKeyFromSecret({required String secretHex});
+
   bool crateApiCryptoVerifyEvent({required String eventJson});
+
+  bool crateApiCryptoVerifyEventData({required SignedEventData event});
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -96,12 +111,60 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
+  SignedEventData crateApiCryptoFinishEvent(
+      {required UnsignedEventData event, required String secretHex}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_box_autoadd_unsigned_event_data(event, serializer);
+        sse_encode_String(secretHex, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_signed_event_data,
+        decodeErrorData: sse_decode_String,
+      ),
+      constMeta: kCrateApiCryptoFinishEventConstMeta,
+      argValues: [event, secretHex],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiCryptoFinishEventConstMeta => const TaskConstMeta(
+        debugName: "finish_event",
+        argNames: ["event", "secretHex"],
+      );
+
+  @override
+  String crateApiCryptoGenerateSecretKey() {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_String,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiCryptoGenerateSecretKeyConstMeta,
+      argValues: [],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiCryptoGenerateSecretKeyConstMeta =>
+      const TaskConstMeta(
+        debugName: "generate_secret_key",
+        argNames: [],
+      );
+
+  @override
   Future<void> crateApiCryptoInitApp() {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 1, port: port_);
+            funcId: 3, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -119,12 +182,105 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  String crateApiCryptoNpubEncode({required String publicKeyHex}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(publicKeyHex, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 4)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_String,
+        decodeErrorData: sse_decode_String,
+      ),
+      constMeta: kCrateApiCryptoNpubEncodeConstMeta,
+      argValues: [publicKeyHex],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiCryptoNpubEncodeConstMeta => const TaskConstMeta(
+        debugName: "npub_encode",
+        argNames: ["publicKeyHex"],
+      );
+
+  @override
+  String? crateApiCryptoNsecDecode({required String nsec}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(nsec, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_opt_String,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiCryptoNsecDecodeConstMeta,
+      argValues: [nsec],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiCryptoNsecDecodeConstMeta => const TaskConstMeta(
+        debugName: "nsec_decode",
+        argNames: ["nsec"],
+      );
+
+  @override
+  String crateApiCryptoNsecEncode({required String secretHex}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(secretHex, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_String,
+        decodeErrorData: sse_decode_String,
+      ),
+      constMeta: kCrateApiCryptoNsecEncodeConstMeta,
+      argValues: [secretHex],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiCryptoNsecEncodeConstMeta => const TaskConstMeta(
+        debugName: "nsec_encode",
+        argNames: ["secretHex"],
+      );
+
+  @override
+  String crateApiCryptoPublicKeyFromSecret({required String secretHex}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(secretHex, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_String,
+        decodeErrorData: sse_decode_String,
+      ),
+      constMeta: kCrateApiCryptoPublicKeyFromSecretConstMeta,
+      argValues: [secretHex],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiCryptoPublicKeyFromSecretConstMeta =>
+      const TaskConstMeta(
+        debugName: "public_key_from_secret",
+        argNames: ["secretHex"],
+      );
+
+  @override
   bool crateApiCryptoVerifyEvent({required String eventJson}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(eventJson, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -141,6 +297,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         argNames: ["eventJson"],
       );
 
+  @override
+  bool crateApiCryptoVerifyEventData({required SignedEventData event}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_box_autoadd_signed_event_data(event, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_bool,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiCryptoVerifyEventDataConstMeta,
+      argValues: [event],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiCryptoVerifyEventDataConstMeta =>
+      const TaskConstMeta(
+        debugName: "verify_event_data",
+        argNames: ["event"],
+      );
+
   @protected
   String dco_decode_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
@@ -154,9 +334,68 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SignedEventData dco_decode_box_autoadd_signed_event_data(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_signed_event_data(raw);
+  }
+
+  @protected
+  UnsignedEventData dco_decode_box_autoadd_unsigned_event_data(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_unsigned_event_data(raw);
+  }
+
+  @protected
+  PlatformInt64 dco_decode_i_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeI64(raw);
+  }
+
+  @protected
+  List<String> dco_decode_list_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_String).toList();
+  }
+
+  @protected
+  List<List<String>> dco_decode_list_list_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_list_String).toList();
+  }
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  String? dco_decode_opt_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_String(raw);
+  }
+
+  @protected
+  SignedEventData dco_decode_signed_event_data(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return SignedEventData(
+      id: dco_decode_String(arr[0]),
+      pubkey: dco_decode_String(arr[1]),
+      createdAt: dco_decode_i_64(arr[2]),
+      kind: dco_decode_u_16(arr[3]),
+      tags: dco_decode_list_list_String(arr[4]),
+      content: dco_decode_String(arr[5]),
+      sig: dco_decode_String(arr[6]),
+    );
+  }
+
+  @protected
+  int dco_decode_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
   }
 
   @protected
@@ -169,6 +408,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void dco_decode_unit(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return;
+  }
+
+  @protected
+  UnsignedEventData dco_decode_unsigned_event_data(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return UnsignedEventData(
+      pubkey: dco_decode_String(arr[0]),
+      createdAt: dco_decode_i_64(arr[1]),
+      kind: dco_decode_u_16(arr[2]),
+      tags: dco_decode_list_list_String(arr[3]),
+      content: dco_decode_String(arr[4]),
+    );
   }
 
   @protected
@@ -185,10 +439,91 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SignedEventData sse_decode_box_autoadd_signed_event_data(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_signed_event_data(deserializer));
+  }
+
+  @protected
+  UnsignedEventData sse_decode_box_autoadd_unsigned_event_data(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_unsigned_event_data(deserializer));
+  }
+
+  @protected
+  PlatformInt64 sse_decode_i_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getPlatformInt64();
+  }
+
+  @protected
+  List<String> sse_decode_list_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <String>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_String(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<List<String>> sse_decode_list_list_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <List<String>>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_list_String(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  SignedEventData sse_decode_signed_event_data(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_pubkey = sse_decode_String(deserializer);
+    var var_createdAt = sse_decode_i_64(deserializer);
+    var var_kind = sse_decode_u_16(deserializer);
+    var var_tags = sse_decode_list_list_String(deserializer);
+    var var_content = sse_decode_String(deserializer);
+    var var_sig = sse_decode_String(deserializer);
+    return SignedEventData(
+        id: var_id,
+        pubkey: var_pubkey,
+        createdAt: var_createdAt,
+        kind: var_kind,
+        tags: var_tags,
+        content: var_content,
+        sig: var_sig);
+  }
+
+  @protected
+  int sse_decode_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint16();
   }
 
   @protected
@@ -200,6 +535,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_decode_unit(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+  }
+
+  @protected
+  UnsignedEventData sse_decode_unsigned_event_data(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_pubkey = sse_decode_String(deserializer);
+    var var_createdAt = sse_decode_i_64(deserializer);
+    var var_kind = sse_decode_u_16(deserializer);
+    var var_tags = sse_decode_list_list_String(deserializer);
+    var var_content = sse_decode_String(deserializer);
+    return UnsignedEventData(
+        pubkey: var_pubkey,
+        createdAt: var_createdAt,
+        kind: var_kind,
+        tags: var_tags,
+        content: var_content);
   }
 
   @protected
@@ -221,11 +573,79 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_signed_event_data(
+      SignedEventData self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_signed_event_data(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_unsigned_event_data(
+      UnsignedEventData self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_unsigned_event_data(self, serializer);
+  }
+
+  @protected
+  void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putPlatformInt64(self);
+  }
+
+  @protected
+  void sse_encode_list_String(List<String> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_String(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_list_String(
+      List<List<String>> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_list_String(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
       Uint8List self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_String(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_signed_event_data(
+      SignedEventData self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.pubkey, serializer);
+    sse_encode_i_64(self.createdAt, serializer);
+    sse_encode_u_16(self.kind, serializer);
+    sse_encode_list_list_String(self.tags, serializer);
+    sse_encode_String(self.content, serializer);
+    sse_encode_String(self.sig, serializer);
+  }
+
+  @protected
+  void sse_encode_u_16(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint16(self);
   }
 
   @protected
@@ -237,6 +657,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_encode_unit(void self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+  }
+
+  @protected
+  void sse_encode_unsigned_event_data(
+      UnsignedEventData self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.pubkey, serializer);
+    sse_encode_i_64(self.createdAt, serializer);
+    sse_encode_u_16(self.kind, serializer);
+    sse_encode_list_list_String(self.tags, serializer);
+    sse_encode_String(self.content, serializer);
   }
 
   @protected

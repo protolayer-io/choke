@@ -1,12 +1,12 @@
 # Migration Spec: `nostr_tools` (Dart) → `nostr-sdk` (Rust) via `flutter_rust_bridge`
 
-**Status:** APPROVED — Phases 0-2 complete, Phase 3 next
+**Status:** APPROVED — Phases 0-3 complete, Phase 4 next
 **Author:** prepared with Claude Code
 **Date:** 2026-07-13
 **Decisions locked (2026-07-13):** web target frozen (§5, W1) · own thin Rust
 crate over official Flutter bindings (§9.2) · manual QA on Android (§9.3)
 
-**Progress:** Phases 0 ✅ 1 ✅ 2 ✅ · Phases 3–8 pending
+**Progress:** Phases 0 ✅ 1 ✅ 2 ✅ 3 ✅ · Phases 4–8 pending
 
 ---
 
@@ -320,7 +320,7 @@ the invariant needed teeth before then, not after.
 
 ---
 
-### Phase 3 — Rust crypto implementation + differential tests *(PR: additive)*
+### Phase 3 — Rust crypto implementation + differential tests — ✅ **DONE (2026-07-13)** *(PR: additive)*
 
 **Goal:** a fully verified Rust implementation, not yet default.
 
@@ -342,9 +342,49 @@ Steps:
 5. Wire the backend selector: `nostrCryptoProvider` reads
    `String.fromEnvironment('NOSTR_BACKEND', defaultValue: 'legacy')`.
 
-**Tests:** contract ×2 + differential suite (tagged `rust`, run in the CI job that
-has the native lib).
-**Acceptance:** both impls pass identical contracts; differential suite green.
+#### 3.1 Events cross the bridge as structs, not JSON
+
+The event id is a hash of the event's canonical serialization. Passing events
+over FFI as JSON would have put a **second** serializer in the path (Dart's
+`jsonEncode` on one side, `serde` on the other) — a silent canonicalization the
+differential tests could only have caught by luck. The bridge therefore carries
+the *fields* (`UnsignedEventData` / `SignedEventData`), and the `nostr` crate
+performs the only serialization that counts.
+
+#### 3.2 Results
+
+Both implementations pass the **identical** Phase 2 contract — 19 tests, not a
+line of it changed — plus 10 differential tests. `nostr_tools` and the Rust
+crate agree on:
+
+- the public key, npub and nsec derived from the same private key (20 random
+  keys per run), and each accepts the other's generated keys;
+- **the event id**, for every hostile content vector tried — empty, accented,
+  CJK, emoji, embedded quotes, newlines, tabs, back- and forward-slashes, and
+  raw match JSON — and for tag sets from empty to unicode d-tags. Identical ids
+  mean both libraries serialize to identical canonical bytes;
+- `created_at` preserved exactly across the FFI boundary (0 → 4102444800),
+  which matters because NIP-01 replacement ordering turns on it (I1);
+- rejecting a post-signing tamper, keeping §2.1's divergence closed.
+
+Signatures are *not* compared byte for byte — Schnorr signing uses a random
+nonce, so they legitimately differ. What is asserted instead is the property
+that actually matters: **each library verifies the other's signatures**, which
+is what a relay and every other Nostr client will do.
+
+**Size, re-measured** (§0.3 asked Phase 3 not to assume headroom): release APK
+`43.9 MB` (baseline `41.7`, so +2.2 MB); `librust_lib_choke.so` = 2.09 MB. The
+seven new crypto functions cost ~0.08 MB — the bulk was already paid for by
+secp256k1 in Phase 1. Comfortably inside the ≤6 MB budget.
+
+**Backend selector:** `--dart-define=NOSTR_BACKEND=rust|legacy`, defaulting to
+`legacy`. `main.dart` initializes `RustLib` only when Rust is selected. Both
+APKs build.
+
+**Tests:** contract ×2 + differential suite (tagged `rust`; CI's `bridge` job
+already runs `flutter test --tags rust`, so it picks them up with no workflow
+change). 165 Dart tests + 10 Rust unit tests.
+**Acceptance:** both impls pass identical contracts; differential suite green. ✅
 **Rollback:** revert; default is still `legacy`.
 
 ---

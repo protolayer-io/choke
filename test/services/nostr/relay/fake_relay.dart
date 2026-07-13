@@ -21,16 +21,24 @@ class FakeRelay {
   /// Events this relay accepted, oldest first.
   List<Map<String, dynamic>> get received => List.unmodifiable(_stored);
 
-  FakeRelay._(this._server) {
+  /// Captured at construction: a stopped relay still has to be able to say
+  /// where it *was*, since a drill's whole point is bringing it back there.
+  final int port;
+  final String url;
+
+  FakeRelay._(this._server)
+      : port = _server.port,
+        url = 'ws://127.0.0.1:${_server.port}' {
     _server.transform(WebSocketTransformer()).listen(_handleClient);
   }
 
-  static Future<FakeRelay> start() async {
-    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  /// Start a relay. Pass [port] to take over an address a stopped relay left
+  /// behind — that is how a drill makes a relay *come back*, rather than
+  /// replacing it with a different one the app has never heard of.
+  static Future<FakeRelay> start({int port = 0}) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
     return FakeRelay._(server);
   }
-
-  String get url => 'ws://127.0.0.1:${_server.port}';
 
   void _handleClient(WebSocket socket) {
     _clients.add(socket);

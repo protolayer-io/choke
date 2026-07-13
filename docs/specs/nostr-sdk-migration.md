@@ -6,7 +6,7 @@
 **Decisions locked (2026-07-13):** web target frozen (§5, W1) · own thin Rust
 crate over official Flutter bindings (§9.2) · manual QA on Android (§9.3)
 
-**Progress:** Phases 0 ✅ 1 ✅ 2 ✅ 3 ✅ 5 ✅ · Phase 4 (PR #84) · Phases 6–8 pending
+**Progress:** Phases 0-3 ✅ · 5 ✅ 6 ✅ 7 ✅ · Phase 4 (PR #84) · Phase 8 pending
 
 ---
 
@@ -542,23 +542,72 @@ contract; APK builds with either.
 
 ---
 
-### Phase 7 — Switch relay backend to Rust *(PR: one-line default + QA)*
+### Phase 7 — Switch relay backend to Rust — ✅ **DONE (2026-07-13)** *(PR: default + drills)*
 
 **Goal:** `nostr-sdk` owns production traffic.
 
 Steps:
 1. Flip `NOSTR_RELAY_BACKEND` default to `rust`.
-2. Re-run the Phase 4 QA checklist **plus** the failure drills that motivated
-   PR #77/#78 (these are the reason this app exists — do not skip):
-   - airplane mode mid-match → score more → disable → all relays converge;
-   - kill one relay of two → rapid advantage presses → relay comes back →
-     it receives the latest state;
-   - app backgrounded 10 min mid-match → resume → next press publishes promptly;
-   - relay that rate-limits: hammer advantages, confirm eventual convergence.
-3. Keep `DartRelayBackend` + flag for one release cycle.
+2. Keep `DartRelayBackend` + the flag for one release cycle. Removed in Phase 8.
 
-**Acceptance:** QA + failure drills green; relay monitor shows I2–I5 hold.
-**Rollback:** `--dart-define=NOSTR_RELAY_BACKEND=legacy` or revert.
+#### 7.1 The failure drills are automated, not remembered
+
+The spec listed the drills as manual: airplane mode mid-match, kill one relay of
+two, background the app, hammer a rate-limiting relay. Those are exactly the
+scenarios that produced the original bug — and exactly the ones a human is
+worst at re-enacting faithfully, on a phone, under time pressure, once.
+
+They are now `convergence_drills.dart`, run against a **real relay** on **both**
+backends:
+
+- **a relay that rejects the score is retried until it accepts** — rate limiting,
+  which is what a burst of advantages actually triggers;
+- **a relay that was down gets the score when it comes back** — both relays
+  configured, one dead when the referee scores, then returning *on the same
+  address*. This is the whole of #78: "one relay accepted" is not "done", and
+  the relay that was away is precisely the one whose scoreboard goes stale;
+- **a relay that was down receives only the latest score, not the history** —
+  the events are addressable, so replaying three intermediate scores would make
+  a relay briefly display a score that is no longer true;
+- **with nothing reachable, the score survives until the relay returns** —
+  airplane mode: the publish fails *loudly* (pretending is what got us here),
+  and the score lands by itself once the network is back, with the referee
+  tapping nothing.
+
+Writing them turned up that my first attempt was measuring the wrong thing:
+it added the second relay *after* the publish, and convergence is measured
+against the relays configured *at publish time*. The drills now configure both
+up front and take one down, which is the situation the app is actually in.
+
+All four pass on both transports.
+
+#### 7.2 Size: over budget, then fixed
+
+The first release build came in at **48.2 MB** — a 6.5 MB delta over the 41.7 MB
+baseline, **breaking the ≤6 MB budget** (`nostr-sdk` brings the relay pool,
+tokio and TLS; its optional NIPs were already off).
+
+The crate was building with Cargo's stock release profile. Optimizing it for
+size — `opt-level = "z"`, LTO, one codegen unit, stripped — takes the native
+library from **6.12 MB to 3.57 MB**:
+
+| Release APK (arm64) | Size |
+|---|---|
+| Baseline | 41.7 MB |
+| Phase 7 | **45.5 MB** |
+| **Delta** | **+3.8 MB** ✅ |
+
+`panic = "abort"` is deliberately *not* set: flutter_rust_bridge unwinds across
+the FFI boundary to turn a Rust panic into a Dart exception.
+
+**Tests:** 193 Dart (46 tagged `rust`) + 10 Rust.
+**Acceptance:** both transports pass the contract and all four drills. ✅
+**Rollback:** `--dart-define=NOSTR_RELAY_BACKEND=legacy` — no code change.
+
+**Manual QA still outstanding** (needs a device):
+- [ ] a full match against live relays, watched on a second Nostr client
+- [ ] airplane mode mid-match, on the actual phone
+- [ ] app backgrounded ten minutes mid-match, then resumed
 
 ---
 

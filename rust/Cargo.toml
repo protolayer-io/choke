@@ -14,3 +14,14 @@ tokio = { version = "1.52.3", features = ["rt"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
+
+# The crate ships inside the APK, so it is optimized for size rather than for
+# the last few microseconds. Signing an event takes tens of microseconds either
+# way; a referee cannot tell, and the download is on a phone at a gym.
+# `panic = "abort"` is deliberately NOT set: flutter_rust_bridge unwinds across
+# the FFI boundary to turn a Rust panic into a Dart exception.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true

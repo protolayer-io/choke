@@ -39,17 +39,21 @@ const _nostrBackend = String.fromEnvironment(
 
 /// Which relay transport the app runs on.
 ///
-/// `legacy` is the hand-written WebSocket pool; `rust` is `nostr-sdk`'s relay
-/// pool. Phase 6 ships both and defaults to `legacy`; Phase 7 flips it. Both
-/// pass the same transport contract against a real relay, so the difference is
-/// meant to be invisible — but the flag is what makes finding out cheap:
+/// **Default: `rust`** — `nostr-sdk`'s relay pool. `legacy` is the hand-written
+/// WebSocket pool, kept for one release cycle as an instant rollback and
+/// removed in Phase 8:
 ///
-///   flutter run --dart-define=NOSTR_RELAY_BACKEND=rust
+///   flutter build apk --dart-define=NOSTR_RELAY_BACKEND=legacy
+///
+/// The two are interchangeable by test, not by assertion: both pass the same
+/// transport contract against a real relay (Phase 6). What the new one adds is
+/// signature verification on incoming events — the old transport would hand the
+/// app any event a relay cared to send, forged or not.
 ///
 /// See docs/specs/nostr-sdk-migration.md.
 const _relayBackend = String.fromEnvironment(
   'NOSTR_RELAY_BACKEND',
-  defaultValue: 'legacy',
+  defaultValue: 'rust',
 );
 
 /// Load the native library, if anything is going to need it.
@@ -64,13 +68,16 @@ const _relayBackend = String.fromEnvironment(
 /// would score a whole match into the void. Failing at launch is the honest
 /// outcome, and CI's Android build exercises exactly this path.
 Future<void> _initRustIfNeeded() async {
-  if (_nostrBackend != 'rust' && _relayBackend != 'rust') return;
+  if (_nostrBackend == 'legacy' && _relayBackend == 'legacy') return;
   await RustLib.init();
 }
 
 /// Build the selected relay transport.
 NostrRelayBackend _buildRelayBackend() {
-  if (_relayBackend != 'rust') return DartRelayBackend();
+  if (_relayBackend == 'legacy') {
+    debugPrint('Nostr relay backend: legacy (hand-written WebSockets)');
+    return DartRelayBackend();
+  }
   debugPrint('Nostr relay backend: rust (nostr-sdk)');
   return RustRelayBackend();
 }

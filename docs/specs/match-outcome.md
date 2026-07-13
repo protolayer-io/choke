@@ -4,7 +4,8 @@
 **Date:** 2026-07-13
 **Decisions taken:** apply the IBJJF penalty ladder (§5) · `dq_reason` as a
 standard category plus optional free-text detail (§3.4) · always record
-`ended_at` (§3.5)
+`ended_at` (§3.5) · draws exist, and a level match is the referee's to call
+(§6)
 
 ---
 
@@ -75,11 +76,10 @@ Who won. Absent (or null) for a match that is `waiting`, `in-progress`, or
 | `submission` | The opponent tapped, submitted verbally, or the referee stopped it (technical submission) | **Yes** |
 | `points` | The clock ran out and one fighter had more points | No — it *is* the scoreboard |
 | `advantages` | Points were level; advantages decided it | No |
-| `penalties` | Points and advantages were level; the opponent had more penalties | No |
-| `decision` | Referee's decision (still level after all of the above) | No |
+| `decision` | Points **and** advantages were level, and the referees gave it to one fighter | No |
 | `dq` | The **loser** was disqualified | **Yes** |
 | `forfeit` | The loser withdrew, no-showed, or could not continue (injury) | **Yes** |
-| `draw` | No winner (formats that allow one) | — |
+| `draw` | Points and advantages were level, and the referees called it even | — |
 
 ### 3.3 `submission` — the technique, optional free text
 
@@ -143,10 +143,11 @@ consumer that computes the winner from the scoreboard gets Bob. The entire point
 of this change is that it must get Carlos.
 
 And even for the point-based endings, deriving the winner means every dashboard
-re-implementing the tie-break ladder (points → advantages → fewer penalties →
-referee decision) and getting it subtly different. The referee's device is the
-only thing that was actually *at the match*. It should state the result, not
-leave every reader to infer it.
+re-implementing the tie-break ladder (§6) and getting it subtly different — and
+for a level match there is nothing to derive at all: the result is a judgment
+three referees made on the mat, and it exists nowhere else. The referee's device
+is the only thing that was actually *at the match*. It should state the result,
+not leave every reader to infer it.
 
 ## 5. Penalties become real (decided)
 
@@ -199,7 +200,48 @@ and the distinction between serious and severe fouls decides whether a penalty
 is even the right instrument. The referee is the authority on *whether* to give
 a penalty; this spec is only about what the app does once one is given.
 
-## 6. Backwards and forwards compatibility
+## 6. Who wins when the clock runs out (decided)
+
+Two rungs, and then it stops being arithmetic:
+
+1. **More effective points wins.**
+2. Level on points → **more effective advantages wins.**
+3. Level on both → **the referees decide.** They may name a winner
+   (`method: "decision"`) or call it even (`method: "draw"`, no winner).
+
+### 6.1 Penalties are *not* a third rung — that would count them twice
+
+The obvious next rung would be "fewer penalties wins", and it is wrong. Under
+§5, penalties have **already** become advantages and points: a second penalty
+*is* an advantage for the opponent, a third *is* two points. They are inside the
+numbers being compared at rungs 1 and 2.
+
+Using the raw penalty count as a further tiebreak would count the same penalty a
+second time, and it would silently reverse matches: a fighter whose third penalty
+already handed their opponent two points could then lose *again* for having the
+higher count.
+
+This is why `penalties` is not a `method`. It cannot be the reason anyone won.
+
+### 6.2 The app cannot finish a level match by itself
+
+Today the clock reaching zero finishes the match outright. It can no longer
+always do that: if the fighters are level on effective points **and** effective
+advantages, there is **no winner in the data**, and inventing one is exactly the
+class of lie this spec exists to remove.
+
+So:
+
+- **Clock expires, one fighter ahead** → finish automatically, as today, with
+  `method: "points"` or `"advantages"` and the winner filled in.
+- **Clock expires, fighters level** → finish the clock, keep the match on screen,
+  and **ask**: *decision (which fighter?)* or *draw*. The match is not `finished`
+  until the referee says how it ended.
+
+That is one extra tap in the rarest case, and it is the only honest option: a
+level scoreboard is a question, not an answer.
+
+## 7. Backwards and forwards compatibility
 
 The fields are **additive**, and both directions already behave correctly:
 
@@ -214,7 +256,7 @@ No version bump on the event kind. No migration. Matches published before this
 change stay readable; they simply cannot say how they ended — which is the truth
 about them.
 
-## 7. The referee's hands
+## 8. The referee's hands
 
 The constraint that shapes the UI: a referee is standing over two people, one of
 whom has just tapped, holding a phone in one hand. **The common case must be two
@@ -245,37 +287,37 @@ Today, holding *Finish* ends the match immediately. Proposed:
 - **Submission asks which fighter, in their own colours** — the same two colours
   the referee has been tapping all match. The technique is an optional text
   field, skippable.
-- **The clock running out** does *not* open the sheet. It finishes on points
-  automatically, as it does today, with the winner computed. A referee who wants
-  to correct it can still amend the outcome.
+- **The clock running out** opens the sheet **only when the fighters are level**
+  (§6.2) — otherwise it finishes automatically on points or advantages, as it
+  does today. A referee who wants to correct an automatic result can still amend
+  it.
 - **Cancel** stays exactly as it is: a voided match, no winner, no method. It is
   not a result — it is the absence of one.
 
-## 8. What this does *not* change
+## 9. What this does *not* change
 
 - Scoring, penalties, advantages: untouched.
 - The `canceled` status: untouched.
 - The event kind, the d-tag, addressable replacement, the convergence
   guarantees: untouched.
 
-## 9. Open questions
+## 10. Open questions
 
-Three of the four are now decided and folded in above:
+All four are decided.
 
 - ~~**Penalties are only counted.**~~ → **Fixed.** §5 applies the IBJJF ladder.
-- ~~**Should `dq` carry a reason?**~~ → **Yes, as a category + free text.** §3.4.
+- ~~**Should `dq` carry a reason?**~~ → **Yes: a category, plus free text.** §3.4.
   The categories are standard; the infractions are not.
 - ~~**Should `ended_at` be recorded for matches that expire on the clock?**~~ →
   **Yes, always.** §3.5.
+- ~~**Is `draw` real for us?**~~ → **Yes.** Level on points and advantages is a
+  draw, and the referees call it. §6 — which also removed `penalties` as a
+  tiebreak, since §5 already turned them into the very points and advantages
+  being compared.
 
-Still open:
+Ready to implement.
 
-1. **Is `draw` real for us?** IBJJF has no draws in most brackets — a level match
-   goes to referee decision. The value costs nothing to keep and some rulesets
-   (and friendly in-house comps) do use it. **Kept for now**; say the word and it
-   goes.
-
-## 10. Proposed phasing
+## 11. Proposed phasing
 
 Each phase is a PR that leaves `main` shippable.
 
@@ -284,12 +326,14 @@ Each phase is a PR that leaves `main` shippable.
    compatibility cases in §6 pinned as tests.
 
    The **penalty ladder** (§5) lands here too, as effective-score getters, and
-   so does the tie-break ladder — both tested on their own. This is the phase
-   that changes who wins, so it is the phase that has to be right.
+   so does the **tie-break ladder** (§6) — both tested on their own, including
+   the case where it *refuses* to name a winner. This is the phase that changes
+   who wins, so it is the phase that has to be right.
 
    No UI: nothing sets the new fields yet.
 2. **The outcome sheet.** Hold-to-finish opens it; the match finishes with an
-   outcome. The fourth penalty ends the match on its own (§5.2). Strings in all
+   outcome. The fourth penalty ends the match on its own (§5.2), and a clock that
+   expires on a level scoreboard asks instead of guessing (§6.2). Strings in all
    four locales (`en`, `es`, `pt`, `ja`).
 3. **Showing it.** The match list and the match screen say *"Carlos won by
    submission (armbar)"* instead of showing a scoreboard that lies, and the

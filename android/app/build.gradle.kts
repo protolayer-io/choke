@@ -60,7 +60,38 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+
+            // Release ships one architecture. `flutter build apk
+            // --target-platform android-arm64` only narrows Flutter's own
+            // libraries — it does not stop Cargokit from building the Rust
+            // crate for every Android ABI. This does.
+            //
+            // Debug keeps every ABI on purpose: filtering it would break an
+            // x86_64 emulator at runtime, with an UnsatisfiedLinkError and no
+            // hint as to why.
+            ndk {
+                abiFilters += "arm64-v8a"
+            }
         }
+    }
+}
+
+// `abiFilters` above does not reach native code that arrives *prebuilt* inside
+// a plugin's AAR: ML Kit's barcode scanner (the QR reader on the Account
+// screen) was still shipping 8.8 MB of x86_64 and armeabi-v7a libraries in
+// every release. Nothing on an arm64 phone will ever load them.
+//
+// Scoped to the release variant, not to the Gradle invocation. Keying off the
+// task names would flip this on for debug too the moment anything built both in
+// one run (`gradle build` does), and the emulator would break for reasons the
+// build output would never explain.
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.packaging.jniLibs.excludes.addAll(
+            "**/x86/**",
+            "**/x86_64/**",
+            "**/armeabi-v7a/**",
+        )
     }
 }
 

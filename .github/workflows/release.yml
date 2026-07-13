@@ -220,8 +220,16 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=choke-upload-key.jks" >> android/key.properties
 
+      # arm64 only. A plain `flutter build apk` packs native code for three ABIs
+      # into one file — and since the Nostr stack became a Rust library, that is
+      # three copies of it. Every 64-bit Android phone made in the last decade
+      # runs arm64-v8a; armeabi-v7a and x86_64 were costing ~40 MB to serve
+      # 32-bit hardware nobody referees on, and emulators.
+      #
+      # Deliberately NOT --split-per-abi: that renames the output to
+      # app-arm64-v8a-release.apk and would break the step below.
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --target-platform android-arm64
 
       - name: Rename APK
         run: |

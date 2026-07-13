@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 import '../key_management/key_manager.dart';
 import 'crypto/nostr_crypto.dart';
 import 'crypto/nostr_tools_crypto.dart';
+import 'relay/dart_relay_backend.dart';
+import 'relay/nostr_relay_backend.dart';
 
 /// A signed Nostr event.
 ///
@@ -56,409 +56,103 @@ class NostrEvent {
       'sig': sig,
     };
   }
-
 }
 
-/// Filter for Nostr subscriptions
-class Filter {
-  final List<int>? kinds;
-  final List<String>? authors;
-  final List<String>? ids;
-  final String? search;
-  final int? since;
-  final int? until;
-  final int? limit;
-
-  Filter({
-    this.kinds,
-    this.authors,
-    this.ids,
-    this.search,
-    this.since,
-    this.until,
-    this.limit,
-  });
-
-  Map<String, dynamic> toJson() {
-    final map = <String, dynamic>{};
-    if (kinds != null) map['kinds'] = kinds;
-    if (authors != null) map['authors'] = authors;
-    if (ids != null) map['ids'] = ids;
-    if (search != null) map['search'] = search;
-    if (since != null) map['since'] = since;
-    if (until != null) map['until'] = until;
-    if (limit != null) map['limit'] = limit;
-    return map;
-  }
-}
-
-/// Creates the WebSocket for a relay connection; injectable for tests.
-typedef WebSocketChannelFactory = WebSocketChannel Function(Uri uri);
-
-/// Represents a Nostr relay connection
-class RelayConnection {
-  final String url;
-  bool isConnected = false;
-  WebSocketChannel? _channel;
-  final WebSocketChannelFactory _channelFactory;
-
-  /// How long to wait for a relay's OK before declaring the socket dead.
-  final Duration okTimeout;
-
-  final _messageController = StreamController<NostrEvent>.broadcast();
-  final _connectionController = StreamController<bool>.broadcast();
-  final _okController = StreamController<List<dynamic>>.broadcast();
-  Timer? _reconnectTimer;
-  final Set<String> _activeSubscriptions = {};
-  final Map<String, Filter> _subscriptionFilters = {};
-
-  /// Publishes waiting for an OK on the *current* socket, by event id. A
-  /// socket swap fails them: the OK they wait for can never arrive.
-  final Map<String, Completer<List<dynamic>>> _inFlight = {};
-
-  /// Listener on the current socket. Held so it can be cancelled before a
-  /// new socket is installed — a stale `onDone` from the old one would
-  /// otherwise tear down its replacement.
-  StreamSubscription<dynamic>? _channelSub;
-
-  /// Whether a publish of this event is already in flight on this relay.
-  bool isAwaitingOk(String eventId) => _inFlight.containsKey(eventId);
-
-  RelayConnection(
-    this.url, {
-    WebSocketChannelFactory? channelFactory,
-    this.okTimeout = const Duration(seconds: 10),
-  }) : _channelFactory = channelFactory ?? WebSocketChannel.connect;
-
-  Stream<NostrEvent> get messageStream => _messageController.stream;
-  Stream<bool> get connectionStream => _connectionController.stream;
-
-  Future<void> connect() async {
-    try {
-      _channel = _channelFactory(Uri.parse(url));
-
-      // Wait for WebSocket handshake to complete with timeout
-      await _channel!.ready.timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw TimeoutException('WebSocket connection to $url timed out');
-        },
-      );
-
-      isConnected = true;
-      _connectionController.add(true);
-      debugPrint('NostrService: Connected to $url');
-
-      _channelSub = _channel!.stream.listen(
-        (data) => _handleMessage(data),
-        onError: (error) {
-          debugPrint('NostrService: Error on $url: $error');
-          _handleDisconnect();
-        },
-        onDone: () {
-          debugPrint('NostrService: Disconnected from $url');
-          _handleDisconnect();
-        },
-      );
-
-      // Resubscribe to active subscriptions after connection is confirmed
-      for (final entry in _subscriptionFilters.entries) {
-        _subscribe(entry.key, entry.value);
-      }
-    } on TimeoutException catch (e) {
-      debugPrint('NostrService: Connection timeout to $url: $e');
-      _channel?.sink.close();
-      _channel = null;
-      _scheduleReconnect();
-    } catch (e) {
-      debugPrint('NostrService: Failed to connect to $url: $e');
-      _scheduleReconnect();
-    }
-  }
-
-  void _handleMessage(dynamic data) {
-    try {
-      final raw = data as String;
-      debugPrint(
-          'NostrService: [$url] received: ${raw.length > 200 ? '${raw.substring(0, 200)}...' : raw}');
-      final message = jsonDecode(raw) as List<dynamic>;
-      if (message.isEmpty) return;
-
-      final type = message[0] as String;
-      if (type == 'EVENT' && message.length >= 3) {
-        final eventData = message[2] as Map<String, dynamic>;
-        final event = NostrEvent.fromJson(eventData);
-        _messageController.add(event);
-      } else if (type == 'OK' && message.length >= 3) {
-        // ["OK", <event_id>, <accepted>, <message>]
-        debugPrint(
-            'NostrService: [$url] OK: eventId=${message[1]}, accepted=${message[2]}, msg=${message.length > 3 ? message[3] : ""}');
-        _okController.add(message);
-      } else if (type == 'NOTICE' && message.length >= 2) {
-        debugPrint('NostrService: [$url] NOTICE: ${message[1]}');
-      }
-    } catch (e) {
-      debugPrint('NostrService: Error parsing message: $e');
-    }
-  }
-
-  void _handleDisconnect() {
-    if (!isConnected) return;
-    isConnected = false;
-    _connectionController.add(false);
-    _teardownChannel();
-    _scheduleReconnect();
-  }
-
-  /// Detach from the current socket for good: stop listening (so its late
-  /// `onDone` cannot tear down whatever replaces it), close it, and fail
-  /// every publish still waiting on an OK it can no longer receive.
-  void _teardownChannel() {
-    _channelSub?.cancel();
-    _channelSub = null;
-    _channel?.sink.close();
-    _channel = null;
-
-    final orphaned = List.of(_inFlight.values);
-    _inFlight.clear();
-    for (final completer in orphaned) {
-      if (!completer.isCompleted) {
-        completer.completeError(
-          Exception('Connection to $url closed before the relay answered'),
-        );
-      }
-    }
-  }
-
-  void _scheduleReconnect() {
-    _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(const Duration(seconds: 5), () {
-      debugPrint('NostrService: Attempting reconnect to $url');
-      connect();
-    });
-  }
-
-  void subscribe(String subscriptionId, Filter filter) {
-    _activeSubscriptions.add(subscriptionId);
-    _subscriptionFilters[subscriptionId] = filter;
-    if (!isConnected) return;
-    _subscribe(subscriptionId, filter);
-  }
-
-  void _subscribe(String subscriptionId, Filter filter) {
-    final message = jsonEncode([
-      'REQ',
-      subscriptionId,
-      filter.toJson(),
-    ]);
-    _channel?.sink.add(message);
-  }
-
-  void unsubscribe(String subscriptionId) {
-    _activeSubscriptions.remove(subscriptionId);
-    _subscriptionFilters.remove(subscriptionId);
-    if (!isConnected) return;
-
-    final message = jsonEncode(['CLOSE', subscriptionId]);
-    _channel?.sink.add(message);
-  }
-
-  /// Publish an event and wait for OK confirmation from the relay.
-  /// Returns true if relay accepted, false if rejected.
-  /// Throws on connection error or timeout.
-  Future<bool> publish(NostrEvent event) async {
-    final channel = _channel;
-    if (!isConnected || channel == null) {
-      throw Exception('Not connected to relay $url');
-    }
-
-    final message = jsonEncode(['EVENT', event.toJson()]);
-    debugPrint('NostrService: [$url] publishing event ${event.id}');
-
-    // Listen for OK response matching this event ID.
-    // Use manual subscription + completer to avoid stale listener leak on timeout.
-    final completer = Completer<List<dynamic>>();
-    final subscription = _okController.stream
-        .where((msg) => msg.length >= 3 && msg[1] == event.id)
-        .listen((msg) {
-      if (!completer.isCompleted) completer.complete(msg);
-    });
-
-    final timer = Timer(okTimeout, () {
-      if (!completer.isCompleted) {
-        completer.completeError(
-          TimeoutException('No OK response from $url for event ${event.id}'),
-        );
-        // A relay that says nothing for this long is not slow — the socket
-        // died without a close frame (phone slept, network switched) and
-        // every write goes into a void while isConnected still reads true.
-        // Recycle the connection instead of feeding more events into it.
-        _handleDisconnect();
-      }
-    });
-
-    _inFlight[event.id] = completer;
-    channel.sink.add(message);
-
-    List<dynamic> okMsg;
-    try {
-      okMsg = await completer.future;
-    } finally {
-      // A socket swap may already have dropped (and failed) this entry —
-      // only clear it if it is still the one this publish registered.
-      if (identical(_inFlight[event.id], completer)) _inFlight.remove(event.id);
-      timer.cancel();
-      await subscription.cancel();
-    }
-    final accepted = okMsg[2] as bool;
-    if (!accepted) {
-      final reason = okMsg.length > 3 ? okMsg[3] as String : 'unknown reason';
-      debugPrint('NostrService: [$url] rejected event ${event.id}: $reason');
-    }
-    return accepted;
-  }
-
-  /// Tear down the socket — dead or alive — and connect a fresh one now.
-  ///
-  /// A socket killed while the app was backgrounded produces no close
-  /// event, so [isConnected] can lie until TCP gives up minutes later.
-  /// Callers that know the transport is suspect (app just resumed) use
-  /// this to skip that wait; subscriptions are re-established on connect.
-  Future<void> reconnectNow() async {
-    _reconnectTimer?.cancel();
-    if (isConnected) {
-      isConnected = false;
-      _connectionController.add(false);
-    }
-    _teardownChannel();
-    await connect();
-  }
-
-  void disconnect() {
-    _reconnectTimer?.cancel();
-    isConnected = false;
-    _teardownChannel();
-  }
-
-  void dispose() {
-    disconnect();
-    _messageController.close();
-    _connectionController.close();
-    _okController.close();
-  }
-}
-
-/// Service for managing Nostr relay connections and event handling
+/// Publishing matches to Nostr, reliably.
+///
+/// The transport lives behind [NostrRelayBackend]. What stays here is
+/// everything that makes publishing *trustworthy*, and it stays here on
+/// purpose — each piece was bought with a real bug:
+///
+/// - **Convergence** (I3): a publish succeeds as soon as one relay accepts, so
+///   the referee is never left waiting. But relays that were down, silent, or
+///   that rejected the event keep being resent the latest state until every
+///   configured relay has it. "One relay accepted" used to be treated as
+///   "done", which left the relay someone was actually watching showing a
+///   stale scoreboard (#78).
+/// - **Monotonic `created_at`** (I1): relays keep one event per
+///   (kind, pubkey, d-tag) and, per NIP-01, a replacement needs a strictly
+///   newer timestamp — on a tie the *old* event wins. Two scores in the same
+///   second would otherwise leave the relay holding the earlier one.
+/// - **Supersession**: only the newest state per match is ever resent. These
+///   events are addressable; an older one is not history, it is noise.
+///
+/// None of that belongs to a transport, which is why swapping the transport
+/// (Phase 6) cannot quietly undo it. See docs/specs/nostr-sdk-migration.md.
 class NostrService {
   static const int _maxCachedEvents = 1000; // Max addressable events to cache
 
+  static const List<String> _defaultRelays = [
+    'wss://relay.mostro.network',
+    'wss://nos.lol',
+  ];
+
   final KeyManager _keyManager;
-  final Map<String, RelayConnection> _relays = {};
-  final Map<String, StreamSubscription<NostrEvent>> _relaySubscriptions = {};
-  final Map<String, StreamSubscription<bool>> _connectionSubscriptions = {};
-  final _eventController = StreamController<NostrEvent>.broadcast();
-  final _relayConnectedController = StreamController<String>.broadcast();
-  final Map<String, NostrEvent> _addressableEvents = {};
-  final Map<String, int> _lastCreatedAt = {};
-
-  /// Latest signed event per d-tag that some relay has not accepted yet,
-  /// and the relay urls that already did. "One relay accepted" is enough
-  /// for the caller, but every configured relay must converge to the
-  /// latest state — stragglers are resent on reconnect and by [_resendTimer].
-  final Map<String, NostrEvent> _pendingLatest = {};
-  final Map<String, Set<String>> _pendingAcks = {};
-  Timer? _resendTimer;
-
-  /// How often relays that are connected but still missing the latest
-  /// event (e.g. they rejected it) are retried.
-  final Duration resendInterval;
-
-  final WebSocketChannelFactory? _channelFactory;
-  final Duration _okTimeout;
+  final NostrRelayBackend _backend;
 
   /// Signs and verifies the events this service publishes. Injected so the
   /// crypto backend can be swapped without touching the relay layer.
   final NostrCrypto _crypto;
 
+  final _eventController = StreamController<NostrEvent>.broadcast();
+  final Map<String, NostrEvent> _addressableEvents = {};
+  final Map<String, int> _lastCreatedAt = {};
+
+  StreamSubscription<NostrEvent>? _backendEvents;
+  StreamSubscription<String>? _backendConnections;
+
+  /// Latest signed event per d-tag that some relay has not accepted yet, and
+  /// the relay urls that already did. "One relay accepted" is enough for the
+  /// caller, but every configured relay must converge to the latest state —
+  /// stragglers are resent on reconnect and by [_resendTimer].
+  final Map<String, NostrEvent> _pendingLatest = {};
+  final Map<String, Set<String>> _pendingAcks = {};
+  Timer? _resendTimer;
+
+  /// How often relays that are connected but still missing the latest event
+  /// (because they rejected it) are retried.
+  final Duration resendInterval;
+
   NostrService(
     this._keyManager, {
     NostrCrypto? crypto,
-    WebSocketChannelFactory? channelFactory,
-    Duration okTimeout = const Duration(seconds: 10),
+    NostrRelayBackend? backend,
     this.resendInterval = const Duration(seconds: 5),
   })  : _crypto = crypto ?? NostrToolsCrypto(),
-        _channelFactory = channelFactory,
-        _okTimeout = okTimeout;
+        _backend = backend ?? DartRelayBackend() {
+    _backendEvents = _backend.events.listen(_handleIncomingEvent);
+    _backendConnections = _backend.onRelayConnected.listen((url) {
+      // A relay that just came back may have missed events while it was away —
+      // bring it up to date now, rather than on the referee's next score.
+      _resendPendingTo(url);
+    });
+  }
 
   Stream<NostrEvent> get eventStream => _eventController.stream;
 
   /// Fires with the relay URL each time a relay (re)connects. Publishers
   /// holding unconfirmed state listen to this to retry immediately instead
   /// of waiting out a backoff against a relay that just came back.
-  Stream<String> get onRelayConnected => _relayConnectedController.stream;
+  Stream<String> get onRelayConnected => _backend.onRelayConnected;
 
   /// Connect to configured relays on app start
   Future<void> initialize({List<String>? relayUrls}) async {
-    final urls = relayUrls ??
-        [
-          'wss://relay.mostro.network',
-          'wss://nos.lol',
-        ];
-    for (final url in urls) {
+    for (final url in relayUrls ?? _defaultRelays) {
       await addRelay(url);
     }
   }
 
   /// Add a custom relay
-  Future<void> addRelay(String url) async {
-    if (_relays.containsKey(url)) {
-      debugPrint('NostrService: Relay $url already exists');
-      return;
-    }
-
-    final relay = RelayConnection(
-      url,
-      channelFactory: _channelFactory,
-      okTimeout: _okTimeout,
-    );
-    _relays[url] = relay;
-
-    // Listen to events from this relay and store subscription
-    final subscription = relay.messageStream.listen((event) {
-      _handleIncomingEvent(event);
-    });
-    _relaySubscriptions[url] = subscription;
-
-    _connectionSubscriptions[url] = relay.connectionStream.listen((connected) {
-      if (!connected) return;
-      _relayConnectedController.add(url);
-      // A fresh socket may belong to a relay that missed events while it
-      // was down — bring it up to date right away.
-      _resendPendingTo(relay);
-    });
-
-    await relay.connect();
-  }
+  Future<void> addRelay(String url) => _backend.addRelay(url);
 
   /// Remove a relay
-  void removeRelay(String url) {
-    // Cancel stream subscriptions to prevent memory leaks
-    final subscription = _relaySubscriptions.remove(url);
-    subscription?.cancel();
-    final connectionSubscription = _connectionSubscriptions.remove(url);
-    connectionSubscription?.cancel();
-
-    final relay = _relays.remove(url);
-    relay?.dispose();
-  }
+  void removeRelay(String url) => _backend.removeRelay(url);
 
   /// Recycle every relay connection with a fresh socket.
   ///
   /// Meant for app resume: the OS kills sockets in the background without a
   /// close frame, so connections can look open while dropping every event.
-  Future<void> reconnectAll() async {
-    await Future.wait(_relays.values.map((relay) => relay.reconnectNow()));
-  }
+  Future<void> reconnectAll() => _backend.reconnectAll();
 
   /// Subscribe to kind 31415 events for the current user
   Future<void> subscribeToUserEvents() async {
@@ -467,35 +161,23 @@ class NostrService {
       throw Exception('No public key available');
     }
 
-    final filter = Filter(
-      kinds: [31415],
-      authors: [publicKey],
+    _backend.subscribe(
+      'user_events',
+      Filter(kinds: [31415], authors: [publicKey]),
     );
-
-    for (final relay in _relays.values) {
-      relay.subscribe('user_events', filter);
-    }
   }
 
   /// Subscribe to kind 31415 events from a specific author
   void subscribeToAuthor(String authorPubkey, {String? subscriptionId}) {
-    final filter = Filter(
-      kinds: [31415],
-      authors: [authorPubkey],
+    _backend.subscribe(
+      subscriptionId ?? 'author_$authorPubkey',
+      Filter(kinds: [31415], authors: [authorPubkey]),
     );
-
-    final subId = subscriptionId ?? 'author_$authorPubkey';
-    for (final relay in _relays.values) {
-      relay.subscribe(subId, filter);
-    }
   }
 
   /// Unsubscribe from a subscription
-  void unsubscribe(String subscriptionId) {
-    for (final relay in _relays.values) {
-      relay.unsubscribe(subscriptionId);
-    }
-  }
+  void unsubscribe(String subscriptionId) =>
+      _backend.unsubscribe(subscriptionId);
 
   /// Handle incoming events with addressable event logic
   void _handleIncomingEvent(NostrEvent event) {
@@ -543,8 +225,8 @@ class NostrService {
     _eventController.add(event);
   }
 
-  /// Publish a signed event to all connected relays.
-  /// Waits for OK confirmation from each relay.
+  /// Publish a signed event to all connected relays, waiting for each relay's
+  /// verdict.
   ///
   /// Succeeds when at least one relay accepts, but keeps working after
   /// returning: relays that were down, timed out, or rejected the event are
@@ -552,33 +234,32 @@ class NostrService {
   Future<void> publishEvent(NostrEvent event) async {
     final dTag = _dTagOf(event);
     if (dTag != null) {
-      // This event supersedes whatever was pending for the match: relays
-      // that missed older states only ever need the newest one.
+      // This event supersedes whatever was pending for the match: relays that
+      // missed older states only ever need the newest one.
       _pendingLatest[dTag] = event;
       _pendingAcks[dTag] = <String>{};
     }
 
-    final connectedRelays = _relays.values.where((r) => r.isConnected).toList();
+    final connected = _backend.connectedRelays;
 
     debugPrint(
-        'NostrService: publishing event ${event.id} (kind ${event.kind}, content ${event.content.length} chars) to ${connectedRelays.length} relays');
+        'NostrService: publishing event ${event.id} (kind ${event.kind}, content ${event.content.length} chars) to ${connected.length} relays');
 
-    if (connectedRelays.isEmpty) {
-      // Pending state stays registered: the reconnect listener delivers it
+    if (connected.isEmpty) {
+      // The pending state stays registered: the reconnect listener delivers it
       // as soon as any relay comes back.
       throw Exception('No connected relays');
     }
 
-    // Publish to all relays and wait for OK confirmations
     final results = await Future.wait(
-      connectedRelays.map((relay) async {
+      connected.map((url) async {
         try {
-          final accepted = await relay.publish(event);
-          debugPrint('NostrService: [${relay.url}] accepted=$accepted');
-          if (accepted) _markAccepted(dTag, event, relay.url);
+          final accepted = await _backend.publish(url, event);
+          debugPrint('NostrService: [$url] accepted=$accepted');
+          if (accepted) _markAccepted(dTag, event, url);
           return accepted;
         } catch (e) {
-          debugPrint('NostrService: [${relay.url}] publish error: $e');
+          debugPrint('NostrService: [$url] publish error: $e');
           return false;
         }
       }),
@@ -586,7 +267,7 @@ class NostrService {
 
     final successCount = results.where((r) => r).length;
     debugPrint(
-        'NostrService: published to $successCount/${connectedRelays.length} relays');
+        'NostrService: published to $successCount/${connected.length} relays');
 
     _scheduleResendSweep();
 
@@ -602,53 +283,53 @@ class NostrService {
     return null;
   }
 
-  /// Record that [url] accepted [event]; forget the d-tag once every
-  /// configured relay has the latest state.
+  /// Record that [url] accepted [event]; forget the d-tag once every configured
+  /// relay has the latest state.
   void _markAccepted(String? dTag, NostrEvent event, String url) {
     if (dTag == null) return;
-    // A newer state may have superseded this event mid-flight; an ack for
-    // the old one says nothing about the state the relays must converge to.
+    // A newer state may have superseded this event mid-flight; an ack for the
+    // old one says nothing about the state the relays must converge to.
     if (!identical(_pendingLatest[dTag], event)) return;
     final acked = _pendingAcks[dTag];
     if (acked == null) return;
     acked.add(url);
-    if (_relays.keys.every(acked.contains)) {
+    if (_backend.relayUrls.every(acked.contains)) {
       _pendingLatest.remove(dTag);
       _pendingAcks.remove(dTag);
     }
   }
 
   /// Send every pending latest event this relay has not accepted yet.
-  Future<void> _resendPendingTo(RelayConnection relay) async {
+  Future<void> _resendPendingTo(String url) async {
     for (final dTag in _pendingLatest.keys.toList()) {
       final event = _pendingLatest[dTag];
       if (event == null) continue;
       final acked = _pendingAcks[dTag];
-      if (acked == null || acked.contains(relay.url)) continue;
-      // The original publish may still be waiting on this relay's OK —
-      // don't race it with a duplicate frame for the same event.
-      if (relay.isAwaitingOk(event.id)) continue;
+      if (acked == null || acked.contains(url)) continue;
+      // The original publish may still be waiting on this relay's OK — don't
+      // race it with a duplicate frame for the same event.
+      if (_backend.isAwaitingOk(url, event.id)) continue;
       try {
-        final accepted = await relay.publish(event);
+        final accepted = await _backend.publish(url, event);
         debugPrint(
-            'NostrService: resent ${event.id} to ${relay.url}, accepted=$accepted');
-        if (accepted) _markAccepted(dTag, event, relay.url);
+            'NostrService: resent ${event.id} to $url, accepted=$accepted');
+        if (accepted) _markAccepted(dTag, event, url);
       } catch (e) {
-        debugPrint('NostrService: resend to ${relay.url} failed: $e');
+        debugPrint('NostrService: resend to $url failed: $e');
       }
     }
     _scheduleResendSweep();
   }
 
-  /// While any relay is missing the latest state, keep a slow retry loop
-  /// alive for relays that are connected but rejected it (rate limits and
-  /// the like). Disconnected relays are handled by the reconnect listener.
+  /// While any relay is missing the latest state, keep a slow retry loop alive
+  /// for relays that are connected but rejected it (rate limits and the like).
+  /// Disconnected relays are handled by the reconnect listener instead.
   void _scheduleResendSweep() {
     if (_pendingLatest.isEmpty) return;
     _resendTimer ??= Timer(resendInterval, () async {
       _resendTimer = null;
-      for (final relay in _relays.values.where((r) => r.isConnected)) {
-        await _resendPendingTo(relay);
+      for (final url in _backend.connectedRelays) {
+        await _resendPendingTo(url);
       }
       _scheduleResendSweep();
     });
@@ -720,31 +401,18 @@ class NostrService {
   }
 
   /// Get list of connected relays
-  List<String> get connectedRelays =>
-      _relays.values.where((r) => r.isConnected).map((r) => r.url).toList();
+  List<String> get connectedRelays => _backend.connectedRelays;
 
   /// Disconnect all relays
-  void disconnect() {
-    for (final relay in _relays.values) {
-      relay.disconnect();
-    }
-  }
+  void disconnect() => _backend.disconnect();
 
   void dispose() {
-    // Cancel all relay subscriptions to prevent memory leaks
-    for (final subscription in _relaySubscriptions.values) {
-      subscription.cancel();
-    }
-    _relaySubscriptions.clear();
-    for (final subscription in _connectionSubscriptions.values) {
-      subscription.cancel();
-    }
-    _connectionSubscriptions.clear();
+    _backendEvents?.cancel();
+    _backendConnections?.cancel();
     _resendTimer?.cancel();
 
-    disconnect();
+    _backend.dispose();
     _eventController.close();
-    _relayConnectedController.close();
   }
 }
 

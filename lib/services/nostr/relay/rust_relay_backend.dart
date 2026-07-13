@@ -56,6 +56,13 @@ class RustRelayBackend implements NostrRelayBackend {
   }
 
   void _onStatusChange(rust.RelayStatusData change) {
+    // The Rust status stream is process-wide, and a relay's connection task can
+    // still be (re)connecting when this backend removes it. A late `connected`
+    // for a relay already dropped from _relayUrls must not resurrect it in
+    // _connected, or connectedRelays would hand NostrService a relay the user
+    // removed — publishing scores to it while convergence no longer counts it.
+    if (!_relayUrls.contains(change.url)) return;
+
     if (change.connected) {
       _connected.add(change.url);
       _relayConnectedController.add(change.url);

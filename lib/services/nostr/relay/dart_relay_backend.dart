@@ -42,6 +42,18 @@ class RelayConnection {
   /// otherwise tear down its replacement.
   StreamSubscription<dynamic>? _channelSub;
 
+  /// Bumped every time a socket is installed or torn down.
+  ///
+  /// `connect()` has an await in the middle of it (the handshake), and the app
+  /// can call `reconnectNow()` during that window — resume fires while a slow
+  /// relay is still shaking hands. Without this, the older attempt would wake
+  /// up afterwards, announce itself connected, and attach its listener to
+  /// whichever socket had since taken its place: two listeners on one channel,
+  /// and a disconnect from either tearing down the other. An attempt therefore
+  /// carries the generation it was born in, and does nothing if it is no longer
+  /// the current one.
+  int _generation = 0;
+
   /// Whether a publish of this event is already in flight on this relay.
   bool isAwaitingOk(String eventId) => _inFlight.containsKey(eventId);
 
@@ -55,28 +67,41 @@ class RelayConnection {
   Stream<bool> get connectionStream => _connectionController.stream;
 
   Future<void> connect() async {
-    try {
-      _channel = _channelFactory(Uri.parse(url));
+    final generation = ++_generation;
+    // The attempt owns its channel outright. Reading the field back after the
+    // handshake would be reading whatever won the race, not what we dialed.
+    final channel = _channelFactory(Uri.parse(url));
+    _channel = channel;
 
+    try {
       // Wait for WebSocket handshake to complete with timeout
-      await _channel!.ready.timeout(
+      await channel.ready.timeout(
         const Duration(seconds: 10),
         onTimeout: () {
           throw TimeoutException('WebSocket connection to $url timed out');
         },
       );
 
+      if (generation != _generation) {
+        // Someone replaced this socket while it was shaking hands. It is not
+        // ours to announce, listen to, or reconnect — just close it.
+        await channel.sink.close();
+        return;
+      }
+
       isConnected = true;
       _connectionController.add(true);
       debugPrint('RelayConnection: Connected to $url');
 
-      _channelSub = _channel!.stream.listen(
+      _channelSub = channel.stream.listen(
         (data) => _handleMessage(data),
         onError: (error) {
+          if (generation != _generation) return;
           debugPrint('RelayConnection: Error on $url: $error');
           _handleDisconnect();
         },
         onDone: () {
+          if (generation != _generation) return;
           debugPrint('RelayConnection: Disconnected from $url');
           _handleDisconnect();
         },
@@ -86,13 +111,13 @@ class RelayConnection {
       for (final entry in _subscriptionFilters.entries) {
         _subscribe(entry.key, entry.value);
       }
-    } on TimeoutException catch (e) {
-      debugPrint('RelayConnection: Connection timeout to $url: $e');
-      _channel?.sink.close();
-      _channel = null;
-      _scheduleReconnect();
     } catch (e) {
       debugPrint('RelayConnection: Failed to connect to $url: $e');
+      // Close the socket we opened, whatever went wrong — the old code left it
+      // dangling on any error that was not a timeout.
+      await channel.sink.close();
+      if (generation != _generation) return;
+      _channel = null;
       _scheduleReconnect();
     }
   }
@@ -100,8 +125,9 @@ class RelayConnection {
   void _handleMessage(dynamic data) {
     try {
       final raw = data as String;
-      debugPrint(
-          'RelayConnection: [$url] received: ${raw.length > 200 ? '${raw.substring(0, 200)}...' : raw}');
+      // Only the shape, never the payload: a frame carries match content and
+      // pubkeys, and debugPrint is not stripped from release builds.
+      debugPrint('RelayConnection: [$url] received ${raw.length} bytes');
       final message = jsonDecode(raw) as List<dynamic>;
       if (message.isEmpty) return;
 
@@ -135,6 +161,8 @@ class RelayConnection {
   /// `onDone` cannot tear down whatever replaces it), close it, and fail
   /// every publish still waiting on an OK it can no longer receive.
   void _teardownChannel() {
+    // Any connect() still in the air belongs to a socket nobody wants now.
+    _generation++;
     _channelSub?.cancel();
     _channelSub = null;
     _channel?.sink.close();

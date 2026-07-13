@@ -15,6 +15,11 @@ class _FakeWebSocketChannel implements WebSocketChannel {
   final sent = <String>[];
   late final _FakeWebSocketSink _sink = _FakeWebSocketSink(this);
 
+  /// When set, the handshake hangs until it is completed — which is the window
+  /// a resume can land in.
+  Completer<void>? handshake;
+  bool closed = false;
+
   @override
   Stream<dynamic> get stream => incoming.stream;
 
@@ -22,7 +27,7 @@ class _FakeWebSocketChannel implements WebSocketChannel {
   WebSocketSink get sink => _sink;
 
   @override
-  Future<void> get ready => Future<void>.value();
+  Future<void> get ready => handshake?.future ?? Future<void>.value();
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -36,7 +41,9 @@ class _FakeWebSocketSink implements WebSocketSink {
   void add(dynamic message) => _channel.sent.add(message as String);
 
   @override
-  Future<void> close([int? closeCode, String? closeReason]) async {}
+  Future<void> close([int? closeCode, String? closeReason]) async {
+    _channel.closed = true;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -70,14 +77,20 @@ void main() {
     late List<_FakeWebSocketChannel> channels;
     late RelayConnection relay;
 
+    /// Hangs the *next* socket's handshake. Connecting mints a fresh channel,
+    /// so the only way to catch one mid-handshake is to arm it before it exists.
+    Completer<void>? nextHandshake;
+
     _FakeWebSocketChannel current() => channels.last;
 
     setUp(() async {
       channels = [];
+      nextHandshake = null;
       relay = RelayConnection(
         'wss://relay.test',
         channelFactory: (_) {
-          final channel = _FakeWebSocketChannel();
+          final channel = _FakeWebSocketChannel()..handshake = nextHandshake;
+          nextHandshake = null;
           channels.add(channel);
           return channel;
         },
@@ -149,6 +162,45 @@ void main() {
 
       // Assert — the fresh socket must survive its predecessor's funeral
       expect(relay.isConnected, isTrue);
+    });
+
+    test('a connect still shaking hands cannot hijack the socket that replaced it',
+        () async {
+      // Arrange — a connect that hangs mid-handshake, as a slow relay does.
+      // Count what the relay announces: NostrService resends a match's pending
+      // state on every "connected", so a spurious one is not cosmetic.
+      final announcements = <bool>[];
+      relay.connectionStream.listen(announcements.add);
+
+      final gate = Completer<void>();
+      nextHandshake = gate;
+      final hanging = relay.connect();
+      final stale = current();
+
+      // Act — the app resumes and replaces the socket out from under it. This
+      // is the window: connect() dials, awaits, and used to read the channel
+      // field back afterwards — by then, whatever had won the race.
+      await relay.reconnectNow();
+      final replacement = current();
+      expect(replacement, isNot(same(stale)));
+
+      // The stale handshake finally completes
+      gate.complete();
+      await hanging;
+      await Future<void>.delayed(Duration.zero);
+
+      // Assert — exactly one connection was announced: the replacement's. The
+      // stale attempt woke up, found it no longer owned the socket, and said
+      // nothing. Announcing again would have had NostrService push the match to
+      // a relay on the strength of a handshake that belonged to a dead socket.
+      expect(announcements.where((up) => up).length, 1);
+      expect(relay.isConnected, isTrue);
+      expect(stale.closed, isTrue);
+
+      // And the replacement is still the live socket.
+      final publishing = relay.publish(_event('e1'));
+      replacement.incoming.add(jsonEncode(['OK', 'e1', true, '']));
+      expect(await publishing, isTrue);
     });
 
     test('reconnecting frees a publish that was in flight on the old socket',

@@ -1,10 +1,12 @@
 # Migration Spec: `nostr_tools` (Dart) → `nostr-sdk` (Rust) via `flutter_rust_bridge`
 
-**Status:** IN REVIEW
+**Status:** APPROVED — Phase 0 complete, Phase 1 next
 **Author:** prepared with Claude Code
 **Date:** 2026-07-13
 **Decisions locked (2026-07-13):** web target frozen (§5, W1) · own thin Rust
 crate over official Flutter bindings (§9.2) · manual QA on Android (§9.3)
+
+**Progress:** Phase 0 ✅ · Phases 1–8 pending
 
 ---
 
@@ -134,27 +136,77 @@ no behavior change unless the phase explicitly says so, and a documented rollbac
 
 ---
 
-### Phase 0 — Spike & decision record *(PR: docs only)*
+### Phase 0 — Spike & decision record — ✅ **DONE (2026-07-13)** *(PR: docs only)*
 
 **Goal:** de-risk everything irreversible before writing production code.
 
-Decided up front (see header): own thin crate, web frozen, QA on Android. What
-remains for the spike:
+Ran on a throwaway branch (`spike/frb-throwaway`, discarded): FRB integrated into
+the real app, `nostr` wired in with three crypto functions, release APK built.
+Results below; everything the spike learned is now Phase 1's job to reproduce
+deliberately.
 
-Steps:
-1. Sanity-check the official `rust-nostr` Flutter bindings
-   ([github.com/rust-nostr/nostr-sdk-flutter](https://github.com/rust-nostr/nostr-sdk-flutter))
-   — a brief look only, to confirm the own-crate decision still stands (if they
-   turned production-grade, note it as a future simplification; do not switch plans).
-2. On a throwaway branch, scaffold FRB v2 (`flutter_rust_bridge_codegen create` /
-   `integrate`) and prove: debug + release builds on **Android** (QA platform) and
-   **Linux** (development platform), calling one Rust function from the app.
-3. Measure APK size delta (arm64 + armeabi-v7a).
-4. Pin toolchain versions: Rust toolchain (rustup), `flutter_rust_bridge` (codegen
-   and runtime must match exactly), `nostr`/`nostr-sdk` crate version.
+#### 0.1 Official bindings — sanity check (confirms §9.2)
 
-**Deliverable:** this spec updated with version pins + measured size delta.
-**Acceptance:** reviewer signs off on: version pins, size budget (≤ ~6 MB APK growth).
+[`rust-nostr/nostr-sdk-flutter`](https://github.com/rust-nostr/nostr-sdk-flutter):
+7 stars, last push 2026-01-29 (~6 months stale), and its only "releases" are
+precompiled-binary artifacts from early 2025. The `nostr_sdk` package on pub.dev
+(v0.0.1) is a **different, unrelated author** — not the official binding.
+
+→ **Own thin crate confirmed.** Adopting these would trade one unmaintained
+dependency for another.
+
+#### 0.2 Version pins
+
+| Component | Pin | Notes |
+|---|---|---|
+| Rust toolchain | 1.94.0 | `rust-toolchain.toml` in Phase 1 |
+| `flutter_rust_bridge` | **2.12.0** | codegen CLI, Rust crate and pub package must all match **exactly** |
+| `nostr` crate | **0.44.4** | released 2026-07-06 — actively maintained |
+| `nostr-sdk` crate | 0.44.1 | Phase 6 only; not needed for the crypto track |
+| Dart SDK floor | **≥3.5.0** | see 0.4 |
+
+`nostr` is pulled with `--no-default-features --features std`: NIP-19 lives in the
+core (there is **no** `nip19` feature), so `std` alone covers keys, NIP-19 and
+event signing.
+
+#### 0.3 Size budget — measured ✅
+
+Release APK, `--target-platform android-arm64`:
+
+| Build | Size |
+|---|---|
+| Baseline (`main`) | 41.7 MB |
+| With Rust + `nostr` | 42.5 MB |
+| **Delta** | **+0.8 MB** |
+
+`librust_lib_choke.so` (arm64, release) is **0.81 MB** — that is the whole cost:
+FRB runtime + `nostr` + secp256k1. Well inside the ≤6 MB budget; no further
+size work needed.
+
+#### 0.4 Gotchas Phase 1 must handle (found the hard way)
+
+1. **`flutter_rust_bridge_codegen integrate` comments out the whole of
+   `lib/main.dart`** and replaces it with its demo app. It must be restored
+   afterwards — verify with `git diff lib/main.dart` before committing.
+2. **`integrate` runs `dart format` across the entire repo**, producing a large
+   unrelated diff. Phase 1 must either revert that churn or land it as a separate
+   commit so the review stays readable.
+3. **Dart SDK floor must rise to ≥3.3** (Phase 1 sets `>=3.5.0 <4.0.0`). The
+   generated `frb_generated.web.dart` uses *extension types*, which the previous
+   `>=3.0.0` floor rejects — codegen fails to format it. This applies even with
+   the web target frozen, because codegen still emits the file.
+4. **Crate name:** FRB's `integrate` names it `rust_lib_choke` and wires that name
+   into Cargokit's Gradle/CMake glue. Phase 1 keeps that name rather than the
+   `choke_nostr` this spec first proposed — renaming buys nothing and fights the
+   tooling.
+5. **`flutter build linux` is already broken on this machine** (`ld.lld` missing
+   from `/usr/lib/llvm-18/bin`) — verified to fail identically on a clean `main`
+   worktree, so it is a pre-existing local environment gap, **unrelated to this
+   migration**. Android (the QA platform) builds fine. Do not let it block Phase 1;
+   fix it separately if desktop Linux ever matters.
+
+**Deliverable:** ✅ this section.
+**Acceptance:** reviewer signs off on the pins (0.2) and the measured size (0.3).
 **Rollback:** n/a (no app code).
 
 ---
@@ -163,22 +215,28 @@ Steps:
 
 **Goal:** the Rust toolchain lives in the repo and CI, invisible to the running app.
 
-Steps:
-1. `rust/` crate (`choke_nostr`) with pinned `nostr` dependency (crypto only at this
-   stage; `nostr-sdk` comes in Phase 6). Expose one smoke function:
-   `fn verify_event(event_json: String) -> Result<bool>`.
-2. FRB v2 integration: codegen config (`flutter_rust_bridge.yaml`), generated Dart
-   under `lib/services/nostr_rust/generated/` (committed), Cargokit build wiring for
-   the platforms chosen in Phase 0.
-3. `RustLib.init()` called lazily — **not** from `main()` yet; only tests touch it.
-4. CI: new job — `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`,
-   plus one Android debug build to prove linking. Cache cargo artifacts.
-5. `README` section: contributor setup (rustup + targets), how to re-run codegen.
+Steps (informed by the Phase 0 gotchas — read §0.4 first):
+1. `rust/` crate **`rust_lib_choke`** (FRB's default name; see §0.4.4) depending on
+   `nostr = "=0.44.4"` with `--no-default-features --features std` (crypto only;
+   `nostr-sdk` arrives in Phase 6). Expose one smoke function:
+   `fn verify_event(event_json: String) -> Result<bool, String>`.
+2. FRB v2 integration (`flutter_rust_bridge_codegen integrate`): `flutter_rust_bridge.yaml`,
+   generated Dart under `lib/src/rust/` (committed), Cargokit build wiring, `rust_builder/`.
+   **Restore `lib/main.dart` afterwards** (§0.4.1) and keep the repo-wide `dart format`
+   churn out of the review diff (§0.4.2).
+3. Raise the Dart SDK floor to `>=3.5.0 <4.0.0` (§0.4.3) and add `rust-toolchain.toml`
+   pinning Rust 1.94.0. Gitignore `rust/target/`.
+4. `RustLib.init()` called lazily — **not** from `main()` yet; only tests touch it.
+5. CI: new job — `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`, plus
+   one **Android** build to prove linking (no Linux desktop build — §0.4.5). Cache
+   cargo artifacts.
+6. `README` section: contributor setup (rustup + Android targets), how to re-run codegen.
 
 **Tests:** `cargo test` for the crate; one Dart integration test (skipped where the
 native lib is unavailable, e.g. plain `flutter test` on CI without the built binary —
 use `@Tags(['rust'])` and a dedicated CI step).
-**Acceptance:** app builds and behaves identically with the crate present; suite green.
+**Acceptance:** app builds and behaves identically with the crate present; suite green;
+release APK growth matches the ~0.8 MB measured in §0.3.
 **Rollback:** revert the PR — nothing references the crate.
 
 ---

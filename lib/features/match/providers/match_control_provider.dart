@@ -74,12 +74,24 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
   bool _sending = false;
   Timer? _retryTimer;
   int _retryAttempt = 0;
+  StreamSubscription<String>? _relayConnectedSub;
 
   MatchControlNotifier(Match match, this._nostrService, [this._feedNotifier])
       : super(MatchControlState(
           match: match,
           remainingSeconds: _calculateRemaining(match),
         )) {
+    // A relay that just (re)connected can take the pending state right now —
+    // waiting out a backoff scheduled against its dead predecessor would
+    // leave the remote board stale for up to 30 extra seconds.
+    _relayConnectedSub = _nostrService.onRelayConnected.listen((_) {
+      if (_outbox == null) return;
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      _retryAttempt = 0;
+      _drainOutbox();
+    });
+
     if (match.status == MatchStatus.inProgress) {
       if (match.pausedAt != null) {
         // A paused clock stays paused, however long the app was away.
@@ -393,6 +405,7 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
   void dispose() {
     _timer?.cancel();
     _retryTimer?.cancel();
+    _relayConnectedSub?.cancel();
     super.dispose();
   }
 }

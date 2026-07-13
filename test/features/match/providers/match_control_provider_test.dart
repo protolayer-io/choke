@@ -18,6 +18,12 @@ class _FakeNostrService extends NostrService {
   int failuresRemaining = 0;
   Completer<void>? gate;
 
+  /// Lets tests simulate a relay (re)connecting.
+  final relayConnected = StreamController<String>.broadcast();
+
+  @override
+  Stream<String> get onRelayConnected => relayConnected.stream;
+
   Match get lastPublishedMatch =>
       Match.fromJsonString(publishedContents.last);
 
@@ -529,6 +535,41 @@ void main() {
 
       // Assert — publishes immediately with the combined state
       expect(nostr.lastPublishedMatch.f1Score, 5);
+    });
+
+    test('a pending state is published the moment a relay reconnects',
+        () async {
+      // Arrange — the relay is unreachable: the advantage fails to publish
+      // and sits in the outbox behind a backoff timer
+      nostr = _FakeNostrService()..failuresRemaining = 1;
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+      notifier.scoreAdv(1);
+      await Future<void>.delayed(Duration.zero);
+      expect(nostr.publishCount, 0, reason: 'publish must have failed');
+
+      // Act — the relay comes back before the backoff runs out
+      nostr.relayConnected.add('wss://relay.test');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // Assert — the advantage lands right away, not seconds later
+      expect(nostr.publishCount, greaterThan(0));
+      expect(nostr.lastPublishedMatch.f1Adv, 1);
+    });
+
+    test('a reconnect with nothing pending publishes nothing', () async {
+      // Arrange — everything already confirmed
+      nostr = _FakeNostrService();
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+      notifier.scoreAdv(1);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final publishesBefore = nostr.publishCount;
+
+      // Act
+      nostr.relayConnected.add('wss://relay.test');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // Assert
+      expect(nostr.publishCount, publishesBefore);
     });
   });
 }

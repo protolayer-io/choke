@@ -76,11 +76,41 @@ void main() async {
 /// Watches [localeProvider] and [themeModeProvider] to configure the app's
 /// locale and theme mode. Provides both light and dark themes, with the
 /// active mode determined by user preference or system setting.
-class ChokeApp extends ConsumerWidget {
+///
+/// Also watches the app lifecycle: relay sockets rarely survive
+/// backgrounding — the OS kills them without a close frame, leaving
+/// connections that look open but drop every event — so on resume all
+/// relay connections are recycled before the operator's next action.
+class ChokeApp extends ConsumerStatefulWidget {
   const ChokeApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChokeApp> createState() => _ChokeAppState();
+}
+
+class _ChokeAppState extends ConsumerState<ChokeApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(nostrServiceProvider).reconnectAll();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final locale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
 

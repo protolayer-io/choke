@@ -84,8 +84,8 @@ class RelayConnection {
 
       if (generation != _generation) {
         // Someone replaced this socket while it was shaking hands. It is not
-        // ours to announce, listen to, or reconnect — just close it.
-        await channel.sink.close();
+        // ours to announce, listen to, or reconnect — just drop it.
+        _close(channel);
         return;
       }
 
@@ -115,11 +115,21 @@ class RelayConnection {
       debugPrint('RelayConnection: Failed to connect to $url: $e');
       // Close the socket we opened, whatever went wrong — the old code left it
       // dangling on any error that was not a timeout.
-      await channel.sink.close();
+      _close(channel);
       if (generation != _generation) return;
       _channel = null;
       _scheduleReconnect();
     }
+  }
+
+  /// Close a socket, best-effort.
+  ///
+  /// Never awaited, never allowed to throw: closing a socket that never opened
+  /// can do both, and this runs on the path that schedules the *reconnect*.
+  /// An exception escaping here would mean a relay that went down never came
+  /// back — the failure this whole class exists to prevent.
+  void _close(WebSocketChannel channel) {
+    unawaited(channel.sink.close().catchError((Object _) {}));
   }
 
   void _handleMessage(dynamic data) {

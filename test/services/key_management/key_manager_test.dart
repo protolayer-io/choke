@@ -1,8 +1,15 @@
+@Tags(['rust'])
+library;
+
+import 'dart:io';
+
 import 'package:flutter/services.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:choke/services/key_management/key_manager.dart';
-import 'package:choke/services/nostr/crypto/nostr_tools_crypto.dart';
+import 'package:choke/services/nostr/crypto/rust_nostr_crypto.dart';
+import 'package:choke/src/rust/frb_generated.dart';
 
 /// Pins the identity guarantees the crypto migration must not break: the key
 /// in secure storage *is* the user's identity, and swapping the crypto
@@ -10,6 +17,18 @@ import 'package:choke/services/nostr/crypto/nostr_tools_crypto.dart';
 /// untouched. See docs/specs/nostr-sdk-migration.md (I7).
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  final libraryPath = _findNativeLibrary();
+  if (libraryPath == null) {
+    group('KeyManager', skip: 'native library not built', () {
+      test('needs cargo build --manifest-path rust/Cargo.toml', () {});
+    });
+    return;
+  }
+
+  setUpAll(() async {
+    await RustLib.init(externalLibrary: ExternalLibrary.open(libraryPath));
+  });
 
   // In-memory stand-in for the platform keystore.
   late Map<String, String> storage;
@@ -47,7 +66,7 @@ void main() {
 
   KeyManager subject() => KeyManager(
         secureStorage: const FlutterSecureStorage(),
-        crypto: NostrToolsCrypto(),
+        crypto: const RustNostrCrypto(),
       );
 
   group('first launch', () {
@@ -75,7 +94,7 @@ void main() {
       // Assert — the npub the user shows the world must be the one their nsec
       // actually signs with
       final privateKey = (await manager.getPrivateKeyHex())!;
-      final derived = NostrToolsCrypto().getPublicKey(privateKey);
+      final derived = const RustNostrCrypto().getPublicKey(privateKey);
       expect(await manager.getPublicKeyHex(), derived);
     });
   });
@@ -110,7 +129,7 @@ void main() {
       // Assert — always re-derived from the private key, never trusted
       expect(
         await manager.getPublicKeyHex(),
-        NostrToolsCrypto().getPublicKey(privateKey),
+        const RustNostrCrypto().getPublicKey(privateKey),
       );
     });
   });
@@ -136,7 +155,7 @@ void main() {
       expect(await manager.getNsec(), nsec);
       expect(
         await manager.getPublicKeyHex(),
-        NostrToolsCrypto().getPublicKey(privateKeyHex),
+        const RustNostrCrypto().getPublicKey(privateKeyHex),
       );
     });
 
@@ -169,4 +188,19 @@ void main() {
     expect(await manager.hasKeys(), isFalse);
     expect(await manager.getPrivateKeyHex(), isNull);
   });
+}
+
+/// Where `cargo build` leaves the crate, or null if it has not been built.
+String? _findNativeLibrary() {
+  final name = Platform.isMacOS
+      ? 'librust_lib_choke.dylib'
+      : Platform.isWindows
+          ? 'rust_lib_choke.dll'
+          : 'librust_lib_choke.so';
+
+  for (final profile in ['debug', 'release']) {
+    final path = 'rust/target/$profile/$name';
+    if (File(path).existsSync()) return path;
+  }
+  return null;
 }

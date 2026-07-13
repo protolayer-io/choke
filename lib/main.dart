@@ -14,92 +14,30 @@ import 'features/settings/settings_screen.dart';
 import 'features/settings/providers/relay_config_provider.dart';
 import 'services/key_management/key_manager.dart';
 import 'services/nostr/crypto/nostr_crypto.dart';
-import 'services/nostr/crypto/nostr_tools_crypto.dart';
 import 'services/nostr/crypto/rust_nostr_crypto.dart';
 import 'services/nostr/nostr_service.dart';
-import 'services/nostr/relay/dart_relay_backend.dart';
 import 'services/nostr/relay/nostr_relay_backend.dart';
 import 'services/nostr/relay/rust_relay_backend.dart';
 import 'src/rust/frb_generated.dart';
 
-/// Which crypto implementation the app runs on.
+/// Load the native library the app's Nostr stack is built on.
 ///
-/// `legacy` is the Dart `nostr_tools` package; `rust` is the maintained Rust
-/// `nostr` crate. Phase 3 ships both and still defaults to `legacy`; Phase 4
-/// flips this default — which is why it is a flag rather than an edit, and why
-/// rolling back needs no code change:
-///
-///   flutter run --dart-define=NOSTR_BACKEND=rust
-///
-/// See docs/specs/nostr-sdk-migration.md.
-const _nostrBackend = String.fromEnvironment(
-  'NOSTR_BACKEND',
-  defaultValue: 'legacy',
-);
-
-/// Which relay transport the app runs on.
-///
-/// **Default: `rust`** — `nostr-sdk`'s relay pool. `legacy` is the hand-written
-/// WebSocket pool, kept for one release cycle as an instant rollback and
-/// removed in Phase 8:
-///
-///   flutter build apk --dart-define=NOSTR_RELAY_BACKEND=legacy
-///
-/// The two are interchangeable by test, not by assertion: both pass the same
-/// transport contract against a real relay (Phase 6). What the new one adds is
-/// signature verification on incoming events — the old transport would hand the
-/// app any event a relay cared to send, forged or not.
-///
-/// See docs/specs/nostr-sdk-migration.md.
-const _relayBackend = String.fromEnvironment(
-  'NOSTR_RELAY_BACKEND',
-  defaultValue: 'rust',
-);
-
-/// Load the native library, if anything is going to need it.
-///
-/// The two backends are selected independently, so this cannot live inside
-/// either one: a build that took the Rust transport but the legacy crypto would
-/// then never initialize the library the transport depends on, and every relay
-/// call would fail on a phone while every test passed on a laptop.
-///
-/// Deliberately not wrapped in a try/catch. If a backend that needs the library
-/// cannot have it, the app can only limp on publishing nothing — a referee
-/// would score a whole match into the void. Failing at launch is the honest
-/// outcome, and CI's Android build exercises exactly this path.
-Future<void> _initRustIfNeeded() async {
-  if (_nostrBackend == 'legacy' && _relayBackend == 'legacy') return;
-  await RustLib.init();
-}
-
-/// Build the selected relay transport.
-NostrRelayBackend _buildRelayBackend() {
-  if (_relayBackend == 'legacy') {
-    debugPrint('Nostr relay backend: legacy (hand-written WebSockets)');
-    return DartRelayBackend();
-  }
-  debugPrint('Nostr relay backend: rust (nostr-sdk)');
-  return RustRelayBackend();
-}
-
-/// Build the selected crypto backend.
-NostrCrypto _buildCrypto() {
-  if (_nostrBackend != 'rust') {
-    debugPrint('Nostr crypto backend: legacy (nostr_tools)');
-    return NostrToolsCrypto();
-  }
-  debugPrint('Nostr crypto backend: rust (nostr crate)');
-  return const RustNostrCrypto();
-}
+/// Deliberately not wrapped in a try/catch, unlike every other initialization
+/// in `main()`. Without it nothing can be signed and nothing can be published,
+/// so the app could only limp on doing neither — a referee would score a whole
+/// match into the void and find out afterwards. Failing at launch is the honest
+/// outcome, and CI's Android job links exactly this path.
+Future<void> _initRust() => RustLib.init();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await _initRustIfNeeded();
+  await _initRust();
 
-  // The one place the implementations are chosen. Everything downstream takes
-  // them as interfaces, so a backend swap never reaches a call site.
-  final NostrCrypto crypto = _buildCrypto();
+  // The Nostr stack, in one place. Both sides are interfaces (NostrCrypto,
+  // NostrRelayBackend) so the app never names an implementation twice — which
+  // is what made swapping them a flag, and then a deletion.
+  final NostrCrypto crypto = const RustNostrCrypto();
 
   // Initialize KeyManager
   final keyManager = KeyManager(crypto: crypto);
@@ -122,7 +60,7 @@ void main() async {
   final nostrService = NostrService(
     keyManager,
     crypto: crypto,
-    backend: _buildRelayBackend(),
+    backend: RustRelayBackend(),
   );
   try {
     final enabledRelayUrls =

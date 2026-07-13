@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:choke/services/nostr/crypto/nostr_crypto.dart';
-import 'package:choke/services/nostr/crypto/nostr_tools_crypto.dart';
+import 'package:choke/services/nostr/crypto/rust_nostr_crypto.dart';
 import 'package:choke/services/nostr/nostr_service.dart';
 import 'package:choke/services/nostr/relay/nostr_relay_backend.dart';
 
@@ -33,7 +33,19 @@ void runRelayBackendContract(
     late FakeRelay relay;
     late NostrRelayBackend backend;
 
+    // Events are genuinely signed, not stubbed: `nostr-sdk` verifies incoming
+    // events and silently drops the ones that do not check out, so a fixture
+    // full of 'cccc…' signatures would have looked exactly like a broken event
+    // stream. The keys are minted in setUp, not here — RustLib is initialized
+    // in setUpAll, and a key made before that would call into a library that
+    // does not exist yet.
+    const crypto = RustNostrCrypto();
+    late String privateKey;
+    late String publicKey;
+
     setUp(() async {
+      privateKey = crypto.generatePrivateKey();
+      publicKey = crypto.getPublicKey(privateKey);
       relay = await FakeRelay.start();
       backend = create();
     });
@@ -47,14 +59,6 @@ void runRelayBackendContract(
       await backend.addRelay(relay.url);
       await Future<void>.delayed(settle);
     }
-
-    // Events are genuinely signed, not stubbed. `nostr-sdk` verifies incoming
-    // events and silently drops the ones that do not check out — which is a
-    // property worth having, and which a fixture full of 'cccc…' signatures
-    // would have looked exactly like a broken event stream.
-    final crypto = NostrToolsCrypto();
-    final privateKey = crypto.generatePrivateKey();
-    final publicKey = crypto.getPublicKey(privateKey);
 
     NostrEvent event({int createdAt = 1700000000, String content = 'choke'}) {
       return crypto.finishEvent(

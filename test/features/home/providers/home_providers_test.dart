@@ -6,9 +6,12 @@ import 'package:choke/features/match/models/match.dart';
 import 'package:choke/services/key_management/key_manager.dart';
 import 'package:choke/services/nostr/nostr_service.dart';
 
+import '../../../support/nostr_fakes.dart';
+
 /// NostrService whose event stream can be fed from the test (relay echoes).
 class _StreamNostrService extends NostrService {
-  _StreamNostrService() : super(KeyManager());
+  _StreamNostrService() : super(KeyManager(crypto: FakeNostrCrypto()),
+            crypto: FakeNostrCrypto(), backend: FakeRelayBackend());
 
   final controller = StreamController<NostrEvent>.broadcast();
 

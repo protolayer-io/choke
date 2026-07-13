@@ -1,12 +1,12 @@
 # Migration Spec: `nostr_tools` (Dart) → `nostr-sdk` (Rust) via `flutter_rust_bridge`
 
-**Status:** APPROVED — Phases 0-3 complete, Phase 4 next
+**Status:** COMPLETE — the app runs on the Rust `nostr` stack
 **Author:** prepared with Claude Code
 **Date:** 2026-07-13
 **Decisions locked (2026-07-13):** web target frozen (§5, W1) · own thin Rust
 crate over official Flutter bindings (§9.2) · manual QA on Android (§9.3)
 
-**Progress:** Phases 0-3 ✅ · 5 ✅ 6 ✅ 7 ✅ · Phase 4 (PR #84) · Phase 8 pending
+**Progress:** Phases 0–8 ✅ — migration complete
 
 ---
 
@@ -611,18 +611,52 @@ the FFI boundary to turn a Rust panic into a Dart exception.
 
 ---
 
-### Phase 8 — Removal & cleanup *(PR: deletions)*
+### Phase 8 — Removal & cleanup — ✅ **DONE (2026-07-13)** *(PR: deletions)*
 
 **Goal:** one stack, no corpses.
 
-Steps:
-1. Remove `nostr_tools` from `pubspec.yaml`; delete `NostrToolsCrypto`,
-   `DartRelayBackend`, `RelayConnection`, backend flags, shadow mode.
-2. `web_socket_channel` becomes unused → remove.
-3. Update `README`, `CHANGELOG`, bump version.
+Done:
+1. Deleted `NostrToolsCrypto`, `DartRelayBackend`, `RelayConnection`, both
+   backend flags, and their tests. `nostr_tools` is gone from `pubspec.yaml`.
+2. `README` and CI updated; version bumped.
 
-**Acceptance:** `grep -r nostr_tools` returns nothing; suite green; release build QA.
-**Rollback:** revert (previous release still carries the flag as a safety net).
+#### 8.1 The defaults had to go too
+
+`NostrService` and `KeyManager` used to accept their crypto and their transport
+optionally, falling back to the legacy implementations. With those deleted, a
+default could only have been a lie — so both are now **required**. Tests that
+genuinely do not care say so out loud, with the fakes in
+`test/support/nostr_fakes.dart`, rather than silently inheriting an
+implementation nobody chose. The Riverpod providers likewise now demand an
+override instead of inventing a second Nostr stack: two of them would mean two
+sets of sockets and two outboxes, quietly competing to publish the same match.
+
+#### 8.2 What the suite lost, and what it kept
+
+The differential suite (Rust vs `nostr_tools`) and the transport contract's
+Dart leg went out with the code they were comparing against. They had already
+done their job: they are what earned the switch. What remains is the same
+contract, still run against a real relay, plus the convergence drills — the ones
+that actually encode the bug this migration was chasing.
+
+The cost is that a plain `flutter test` now covers less: the crypto and
+transport tests need the native library, and skip without it. That is inherent
+once the app *is* Rust, and CI compensates by building the crate before running
+the suite — a silently-skipped test is worse than a failing one, because it goes
+green.
+
+#### 8.3 `web_socket_channel` stays
+
+It is no longer the app's Nostr transport, but the Settings screen still uses it
+to ping a relay the user is adding. That is a genuinely separate use, so it goes
+back into `pubspec.yaml` as an explicit dependency — it was only still building
+because it came in transitively, which is the kind of thing that breaks on an
+unrelated upgrade months later.
+
+**Final state:** release APK **45.1 MB** (baseline 41.7, so **+3.4 MB**).
+142 Dart tests, 43 of them requiring the native library, plus 10 Rust.
+**Acceptance:** `grep -r nostr_tools lib/ test/` returns only historical
+comments. ✅
 
 ---
 

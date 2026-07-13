@@ -23,7 +23,7 @@ Choke lets you create, score, and publish Brazilian Jiu-Jitsu matches in real ti
 
 - **Mobile**: Flutter (Android & iOS)
 - **State Management**: Riverpod
-- **Protocol**: Nostr (`nostr_tools`, migrating to the Rust [`nostr`](https://crates.io/crates/nostr) crate — see the [migration spec](docs/specs/nostr-sdk-migration.md))
+- **Protocol**: Nostr — the Rust [`nostr`](https://crates.io/crates/nostr) and [`nostr-sdk`](https://crates.io/crates/nostr-sdk) crates (crypto and relay pool)
 - **Native**: Rust crate bridged with `flutter_rust_bridge`
 - **Security**: flutter_secure_storage for key management
 - **Design**: Custom BJJ-inspired theme
@@ -69,9 +69,12 @@ flutter run
 
 ### The Rust crate
 
-Nostr cryptography is moving to the actively maintained Rust
-[`nostr`](https://crates.io/crates/nostr) crate, reached from Dart through
-`flutter_rust_bridge`. See the [migration spec](docs/specs/nostr-sdk-migration.md).
+The app's Nostr stack — key handling, NIP-19, event signing, and the relay pool
+it publishes through — is the Rust [`nostr`](https://crates.io/crates/nostr) and
+[`nostr-sdk`](https://crates.io/crates/nostr-sdk) crates, reached from Dart
+through `flutter_rust_bridge`. Rust is therefore **required** to build or test
+the app. See the [migration spec](docs/specs/nostr-sdk-migration.md) for how it
+got here.
 
 | Path | What it is |
 |---|---|
@@ -89,8 +92,9 @@ need a command:
 cargo install flutter_rust_bridge_codegen --version 2.12.0 --locked
 flutter_rust_bridge_codegen generate
 
-# The bridge tests need the native library on disk; without it they skip
-# themselves, which is why a plain `flutter test` needs no Rust at all.
+# Tests that exercise crypto or the relay pool need the native library on disk.
+# Without it they skip themselves — so a plain `flutter test` still runs, it
+# just covers less. Build the crate first to run everything:
 cargo build --manifest-path rust/Cargo.toml
 flutter test --tags rust
 ```

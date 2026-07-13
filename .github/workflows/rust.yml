@@ -72,12 +72,16 @@ jobs:
       - run: flutter pub get
       - run: flutter gen-l10n
 
-      # The bridge tests skip themselves unless this library exists on disk.
+      # The app's crypto and transport are Rust now, so the tests that cover
+      # them need this library. Without it they skip themselves — silently, and
+      # the suite would still go green while covering nothing that matters.
       - name: Build the native library
         run: cargo build --manifest-path rust/Cargo.toml
 
-      - name: Bridge tests
-        run: flutter test --tags rust
+      - name: Tests (including the ones that need Rust)
+        run: |
+          flutter test
+          flutter test --tags rust
 
   android:
     name: Android build (proves the crate links into the APK)

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:choke/services/key_management/key_manager.dart';
 import 'package:choke/services/nostr/crypto/nostr_crypto.dart';
-import 'package:choke/services/nostr/crypto/nostr_tools_crypto.dart';
+import 'package:choke/services/nostr/crypto/rust_nostr_crypto.dart';
 import 'package:choke/services/nostr/nostr_service.dart';
 import 'package:choke/services/nostr/relay/nostr_relay_backend.dart';
 
@@ -28,9 +28,12 @@ void runConvergenceDrills(
     late FakeRelay relayB;
     late NostrService service;
 
-    final crypto = NostrToolsCrypto();
-    final privateKey = crypto.generatePrivateKey();
-    final publicKey = crypto.getPublicKey(privateKey);
+    // Generated in setUp, not at declaration: RustLib is only initialized in
+    // setUpAll, and a key minted before that would call into a library that is
+    // not there yet.
+    const crypto = RustNostrCrypto();
+    late String privateKey;
+    late String publicKey;
 
     NostrEvent score(int createdAt, String content) {
       return crypto.finishEvent(
@@ -48,10 +51,13 @@ void runConvergenceDrills(
     }
 
     setUp(() async {
+      privateKey = crypto.generatePrivateKey();
+      publicKey = crypto.getPublicKey(privateKey);
       relayA = await FakeRelay.start();
       relayB = await FakeRelay.start();
       service = NostrService(
-        KeyManager(),
+        KeyManager(crypto: crypto),
+        crypto: crypto,
         backend: create(),
         resendInterval: const Duration(milliseconds: 200),
       );

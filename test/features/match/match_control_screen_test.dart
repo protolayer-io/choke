@@ -9,9 +9,12 @@ import 'package:choke/services/key_management/key_manager.dart';
 import 'package:choke/services/nostr/nostr_service.dart';
 import 'package:choke/shared/theme/app_theme.dart';
 
+import '../../support/nostr_fakes.dart';
+
 /// Fake NostrService that skips relay publishing entirely
 class _FakeNostrService extends NostrService {
-  _FakeNostrService() : super(KeyManager());
+  _FakeNostrService() : super(KeyManager(crypto: FakeNostrCrypto()),
+            crypto: FakeNostrCrypto(), backend: FakeRelayBackend());
 
   @override
   Future<void> publishAddressableEvent({

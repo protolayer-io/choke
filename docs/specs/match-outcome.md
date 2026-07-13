@@ -175,7 +175,7 @@ actually pressed.
 
 What changes is that the app (and any consumer) reads an **effective** score:
 
-```
+```text
 effective_points(f1)     = 2·f1_pt2 + 3·f1_pt3 + 4·f1_pt4  +  (f2_pen ≥ 3 ? 2 : 0)
 effective_advantages(f1) = f1_adv                          +  (f2_pen ≥ 2 ? 1 : 0)
 ```
@@ -264,7 +264,7 @@ taps, and it must be impossible to record the wrong fighter by accident.**
 
 Today, holding *Finish* ends the match immediately. Proposed:
 
-```
+```text
    ┌──────────────────────────────────────┐
    │  How did it end?                     │
    │                                      │

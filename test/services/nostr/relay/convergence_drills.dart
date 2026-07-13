@@ -26,6 +26,7 @@ void runConvergenceDrills(
   group('$name — convergence drills', () {
     late FakeRelay relayA;
     late FakeRelay relayB;
+    late NostrRelayBackend backend;
     late NostrService service;
 
     final crypto = NostrToolsCrypto();
@@ -50,9 +51,10 @@ void runConvergenceDrills(
     setUp(() async {
       relayA = await FakeRelay.start();
       relayB = await FakeRelay.start();
+      backend = create();
       service = NostrService(
         KeyManager(),
-        backend: create(),
+        backend: backend,
         resendInterval: const Duration(milliseconds: 200),
       );
     });
@@ -78,13 +80,24 @@ void runConvergenceDrills(
       fail('condition never held within $timeout');
     }
 
+    /// Wait until the transport has actually dialed [url].
+    ///
+    /// Sleeping a fixed number of milliseconds instead would be guessing: the
+    /// two backends connect on different schedules (one in-process, one across
+    /// an FFI boundary and a tokio runtime), and a guess that holds on a laptop
+    /// is exactly the kind that fails on a loaded CI box — turning a drill that
+    /// guards real behavior into a coin flip nobody trusts.
+    Future<void> connected(String url) async {
+      await eventually(() => backend.connectedRelays.contains(url));
+    }
+
     test('a relay that rejects the score is retried until it accepts',
         () async {
       // Arrange — a relay that is up, answering, and saying no. This is what
       // rate limiting looks like when a referee taps three advantages in two
       // seconds, and it is exactly what used to leave that relay stale forever.
       await service.addRelay(relayA.url);
-      await Future<void>.delayed(settle);
+      await connected(relayA.url);
       relayA.rejectReason = 'rate-limited: slow down';
 
       // Act — nobody accepted it, so the publish must not claim success
@@ -111,7 +124,7 @@ void runConvergenceDrills(
 
       await service.addRelay(relayA.url);
       await service.addRelay(relayB.url);
-      await Future<void>.delayed(settle);
+      await connected(relayA.url);
 
       // Act — the score lands on A. For the referee this is a success, and it
       // should be: the app must never block on a relay that is not there.
@@ -137,7 +150,7 @@ void runConvergenceDrills(
 
       await service.addRelay(relayA.url);
       await service.addRelay(relayB.url);
-      await Future<void>.delayed(settle);
+      await connected(relayA.url);
 
       // Act — three scores in quick succession, all landing on A
       await service.publishEvent(score(1700000000, 'f1: 2'));
@@ -164,6 +177,9 @@ void runConvergenceDrills(
       final portA = relayA.port;
       await relayA.stop();
       await service.addRelay(relayA.url);
+      // Nothing to wait *for* here — the point of the drill is that no relay
+      // comes up. A brief settle lets the failed dial finish before the referee
+      // scores into it.
       await Future<void>.delayed(settle);
 
       // Act — the referee scores anyway. The publish fails, loudly: no relay

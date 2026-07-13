@@ -1,7 +1,10 @@
 # Spec: recording *how* a match was won
 
-**Status:** DRAFT — for review
+**Status:** DRAFT — for review (round 2)
 **Date:** 2026-07-13
+**Decisions taken:** apply the IBJJF penalty ladder (§5) · `dq_reason` as a
+standard category plus optional free-text detail (§3.4) · always record
+`ended_at` (§3.5)
 
 ---
 
@@ -47,7 +50,7 @@ Everything about **how the match ended** is absent: who won, and by what.
 
 ## 3. Proposal
 
-Four new fields, all optional, all only meaningful once the match is over.
+Six new fields, all optional, all only meaningful once the match is over.
 
 ```json
 {
@@ -86,10 +89,49 @@ Deliberately **not** an enum: BJJ invents submissions faster than any spec can
 enumerate them, and a referee must never be blocked from finishing a match
 because the app has never heard of a *baratoplata*.
 
-### 3.4 `ended_at` — unix seconds
+### 3.4 `dq_reason` — why they were disqualified
 
-When the match actually ended. Not derivable: `start_at + duration` is when the
-clock *would* have run out, which is precisely what a submission prevents.
+Present only when `method: "dq"`. This is where the research changed the shape
+of the proposal.
+
+**The categories are standard. The infractions are not.** IBJJF subdivides fouls
+into *serious* (which accumulate penalties) and *severe* (immediate
+disqualification), and severe fouls further into *technical* and *disciplinary*
+— the difference being that a disciplinary foul disqualifies an athlete from the
+**competition**, not merely the match. Those categories are stable and worth
+encoding.
+
+The specific infraction is not. Whether a knee reap is illegal depends on the
+ruleset, the belt and the age division; ADCC's list is different from IBJJF's
+again. Enumerating infractions would mean shipping a rulebook and versioning it.
+
+So: a small enum for what a record actually needs to be sortable by, plus free
+text for what happened.
+
+| `dq_reason` | Meaning |
+|---|---|
+| `accumulated_penalties` | The fourth penalty (see §5) |
+| `technical_foul` | Severe technical foul — illegal technique, illegal grip, improper attire. Disqualified from the **match**. |
+| `disciplinary_foul` | Severe disciplinary foul — unsportsmanlike conduct. Disqualified from the **competition**. |
+
+Plus `dq_detail`, optional free text, same shape as `submission`:
+`"knee reap"`, `"slam"`, `"foul language"`.
+
+```json
+{ "method": "dq", "winner": "f1", "dq_reason": "technical_foul", "dq_detail": "knee reap" }
+```
+
+An `accumulated_penalties` DQ is the only one the app can raise **by itself**;
+the other two are the referee's judgment and must be chosen.
+
+### 3.5 `ended_at` — unix seconds
+
+**Always recorded on a finished match**, including one that ran out the clock.
+For a submission it is not derivable at all — `start_at + duration` is when the
+clock *would* have expired, which is exactly what a submission prevents. For a
+match that goes the distance it *is* computable, but writing it anyway means
+every finished match has the same shape and no consumer has to special-case
+one.
 
 ## 4. Why store the winner rather than compute it
 
@@ -106,7 +148,58 @@ referee decision) and getting it subtly different. The referee's device is the
 only thing that was actually *at the match*. It should state the result, not
 leave every reader to infer it.
 
-## 5. Backwards and forwards compatibility
+## 5. Penalties become real (decided)
+
+Today the app **counts** penalties and applies none of their consequences. Under
+IBJJF the ladder is cumulative, and each rung is automatic:
+
+| Penalty | Consequence for the **opponent** |
+|---|---|
+| 1st | none — recorded only |
+| 2nd | **+1 advantage** |
+| 3rd | **+2 points** |
+| 4th | **the offender is disqualified** |
+
+Sources: [IBJJF rulebook](https://jjbqc.org/wp-content/uploads/2023/06/EN_IBJJF_RulesBook_MAR2022.pdf),
+[summary](https://jiujitsulegacy.com/bjj-lifestyle/competition-tips/ibjjf-rules/).
+
+This changes who wins, so it cannot be bolted on afterwards.
+
+### 5.1 The raw counters stay raw
+
+The penalty consequences are **derived, never baked in**. `f1_pen` keeps meaning
+*"penalties given to fighter 1"*, and `f1_pt2`…`f1_pt4` keep meaning *"points
+fighter 1 scored"*. The event stays a faithful record of what the referee
+actually pressed.
+
+What changes is that the app (and any consumer) reads an **effective** score:
+
+```
+effective_points(f1)     = 2·f1_pt2 + 3·f1_pt3 + 4·f1_pt4  +  (f2_pen ≥ 3 ? 2 : 0)
+effective_advantages(f1) = f1_adv                          +  (f2_pen ≥ 2 ? 1 : 0)
+```
+
+Folding the two points into `f1_pt2` instead would corrupt the record — it would
+claim fighter 1 scored a takedown they never scored, and the mistake would be
+unrecoverable, because nothing would remember where the points came from.
+
+### 5.2 The fourth penalty ends the match
+
+Awarding a fourth penalty disqualifies the offender **immediately**: the app sets
+`status: "finished"`, `method: "dq"`, `dq_reason: "accumulated_penalties"`, and
+`winner` to the *other* fighter. It should say so plainly on screen — a referee
+who did not realize they were on the third penalty must not be surprised by a
+match that simply stops.
+
+### 5.3 What is *not* in scope
+
+IBJJF's penalty rules have more corners than this: penalties for lack of
+combativeness restart the match standing when both fighters reach a third one,
+and the distinction between serious and severe fouls decides whether a penalty
+is even the right instrument. The referee is the authority on *whether* to give
+a penalty; this spec is only about what the app does once one is given.
+
+## 6. Backwards and forwards compatibility
 
 The fields are **additive**, and both directions already behave correctly:
 
@@ -121,7 +214,7 @@ No version bump on the event kind. No migration. Matches published before this
 change stay readable; they simply cannot say how they ended — which is the truth
 about them.
 
-## 6. The referee's hands
+## 7. The referee's hands
 
 The constraint that shapes the UI: a referee is standing over two people, one of
 whom has just tapped, holding a phone in one hand. **The common case must be two
@@ -158,42 +251,48 @@ Today, holding *Finish* ends the match immediately. Proposed:
 - **Cancel** stays exactly as it is: a voided match, no winner, no method. It is
   not a result — it is the absence of one.
 
-## 7. What this does *not* change
+## 8. What this does *not* change
 
 - Scoring, penalties, advantages: untouched.
 - The `canceled` status: untouched.
 - The event kind, the d-tag, addressable replacement, the convergence
   guarantees: untouched.
 
-## 8. Open questions — decide before implementing
+## 9. Open questions
 
-1. **Penalties are currently just counted.** Under IBJJF, the 2nd penalty gives
-   an advantage to the opponent, the 3rd gives two points, and the 4th is a
-   disqualification. The app counts them and applies none of that. That is a
-   pre-existing simplification and this spec does **not** change it — but it
-   means an automatically computed `points` winner can disagree with a real
-   referee. Fix the penalty rules as part of this, or leave it and let the
-   referee override?
-2. **Is `draw` real for us?** IBJJF has no draws in most brackets — it goes to
-   referee decision. Keeping the value costs nothing and some rulesets use it.
-   Include, or drop?
-3. **Should `dq` carry a reason?** (`"illegal knee reap"`, …) Same free-text
-   shape as `submission`. Useful for a tournament record; one more thing to type
-   at the worst possible moment.
-4. **Should `ended_at` be filled in for matches that expire on the clock?** It is
-   knowable (`start_at + duration`, adjusted for stoppages), and filling it in
-   makes every finished match uniform.
+Three of the four are now decided and folded in above:
 
-## 9. Proposed phasing
+- ~~**Penalties are only counted.**~~ → **Fixed.** §5 applies the IBJJF ladder.
+- ~~**Should `dq` carry a reason?**~~ → **Yes, as a category + free text.** §3.4.
+  The categories are standard; the infractions are not.
+- ~~**Should `ended_at` be recorded for matches that expire on the clock?**~~ →
+  **Yes, always.** §3.5.
+
+Still open:
+
+1. **Is `draw` real for us?** IBJJF has no draws in most brackets — a level match
+   goes to referee decision. The value costs nothing to keep and some rulesets
+   (and friendly in-house comps) do use it. **Kept for now**; say the word and it
+   goes.
+
+## 10. Proposed phasing
 
 Each phase is a PR that leaves `main` shippable.
 
-1. **Schema + model.** `winner`, `method`, `submission`, `ended_at` on `Match`,
-   with JSON round-trip tests and the compatibility cases in §5 pinned as tests.
-   The winner-from-scoreboard tie-break ladder lands here, tested on its own. No
-   UI: nothing sets the fields yet, so nothing changes.
+1. **Schema + model.** `winner`, `method`, `submission`, `dq_reason`,
+   `dq_detail`, `ended_at` on `Match`, with JSON round-trips and the
+   compatibility cases in §6 pinned as tests.
+
+   The **penalty ladder** (§5) lands here too, as effective-score getters, and
+   so does the tie-break ladder — both tested on their own. This is the phase
+   that changes who wins, so it is the phase that has to be right.
+
+   No UI: nothing sets the new fields yet.
 2. **The outcome sheet.** Hold-to-finish opens it; the match finishes with an
-   outcome. Strings in all four locales (`en`, `es`, `pt`, `ja`).
+   outcome. The fourth penalty ends the match on its own (§5.2). Strings in all
+   four locales (`en`, `es`, `pt`, `ja`).
 3. **Showing it.** The match list and the match screen say *"Carlos won by
-   submission (armbar)"* instead of showing a scoreboard that lies. Update
-   `docs/SPEC.md`, which is the event schema other clients read.
+   submission (armbar)"* instead of showing a scoreboard that lies, and the
+   scoreboard itself shows the **effective** points and advantages, so a referee
+   can see the penalty they just gave turn into the opponent's advantage. Update
+   `docs/SPEC.md`, the event schema other clients read.

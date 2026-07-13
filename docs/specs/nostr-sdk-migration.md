@@ -6,8 +6,8 @@
 **Decisions locked (2026-07-13):** web target frozen (§5, W1) · own thin Rust
 crate over official Flutter bindings (§9.2) · manual QA on Android (§9.3)
 
-**Progress:** Phases 0 ✅ 1 ✅ 2 ✅ 3 ✅ 4 ✅ · Phases 5–8 pending
 
+**Progress:** Phases 0 ✅ 1 ✅ 2 ✅ 3 ✅ 4 ✅ 5 ✅ · Phases 6–8 pending
 ---
 
 ## 1. Motivation
@@ -446,7 +446,7 @@ needed), or revert the PR.
 
 ---
 
-### Phase 5 — Relay backend seam *(PR: pure refactor)*
+### Phase 5 — Relay backend seam — ✅ **DONE (2026-07-13)** *(PR: pure refactor)*
 
 **Goal:** the transport becomes swappable without touching business logic.
 
@@ -463,8 +463,33 @@ Steps:
 3. Re-point the 105-test suite; the PR #78 service tests (fake WebSocket channels)
    become `DartRelayBackend` tests.
 
-**Tests:** suite green, zero behavior change.
-**Acceptance:** `NostrService` contains no `web_socket_channel` import.
+#### 5.1 What stayed above the seam, and why
+
+The interface is deliberately narrow: connect, subscribe, publish-to-one-relay,
+report what that relay said. Everything that makes publishing *trustworthy*
+stayed in `NostrService` — the outbox, per-relay convergence and its ack
+bookkeeping, the resend sweep, supersession, monotonic `created_at`, the
+addressable cache and NIP-40 filtering.
+
+That split is the whole point. Those behaviors were each bought with a
+production bug (#77, #78), and none of them is a property of a *transport*. Had
+they been pushed down into the backend, Phase 6 would have had to re-implement
+and re-prove them against `nostr-sdk`'s relay pool — and the bug that started
+this whole thread (a relay quietly serving a stale scoreboard) would have had a
+fresh place to hide.
+
+Two things the transport *does* own, because they are genuinely about sockets:
+the OK-confirmed publish, and treating a silent relay as dead rather than slow.
+
+#### 5.2 Results
+
+`NostrService` no longer imports `web_socket_channel` — it cannot form an
+opinion about sockets any more. `RelayConnection` moved verbatim into
+`DartRelayBackend` (its subtleties intact), and its tests moved with it into
+`relay/dart_relay_backend_test.dart`, where they now read as what they are:
+transport regressions, not service tests.
+
+**Tests:** 165 passing, zero behavior change. **Acceptance:** ✅
 **Rollback:** revert; pure refactor.
 
 ---

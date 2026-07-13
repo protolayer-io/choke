@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:choke/services/key_management/key_manager.dart';
 import 'package:choke/services/nostr/nostr_service.dart';
+import 'package:choke/services/nostr/relay/dart_relay_backend.dart';
 
 /// In-memory WebSocket standing in for a relay: the test scripts what the
 /// "relay" sends back through [incoming] and inspects what the client wrote
@@ -103,113 +104,6 @@ void main() {
     });
   });
 
-  group('RelayConnection zombie detection', () {
-    // Every connect() gets a brand-new socket, as it does in production —
-    // reusing one fake would let a reconnect silently listen to the old
-    // (single-subscription) stream and never exercise the reconnect path.
-    late List<_FakeWebSocketChannel> channels;
-    late RelayConnection relay;
-
-    _FakeWebSocketChannel current() => channels.last;
-
-    setUp(() async {
-      channels = [];
-      relay = RelayConnection(
-        'wss://relay.test',
-        channelFactory: (_) {
-          final channel = _FakeWebSocketChannel();
-          channels.add(channel);
-          return channel;
-        },
-        okTimeout: const Duration(milliseconds: 100),
-      );
-      await relay.connect();
-    });
-
-    tearDown(() => relay.dispose());
-
-    test('publish succeeds and stays connected when the relay sends OK',
-        () async {
-      // Arrange
-      final event = _event('e1');
-
-      // Act — the relay confirms the event
-      final publishing = relay.publish(event);
-      current().incoming.add(jsonEncode(['OK', 'e1', true, '']));
-
-      // Assert
-      expect(await publishing, isTrue);
-      expect(relay.isConnected, isTrue);
-      expect(current().sent, hasLength(1));
-    });
-
-    test('publish drops the connection when the relay never answers',
-        () async {
-      // Arrange — the socket died without a close frame (phone slept,
-      // network switched): writes go nowhere and no OK ever arrives
-      final event = _event('e1');
-
-      // Act
-      await expectLater(
-        relay.publish(event),
-        throwsA(isA<TimeoutException>()),
-      );
-
-      // Assert — the connection must be recycled, not trusted again: a
-      // zombie socket that stays "connected" swallows every later publish
-      expect(relay.isConnected, isFalse);
-    });
-
-    test('reconnectNow tears down the socket and connects a fresh one',
-        () async {
-      // Arrange — the current socket may be a zombie after app resume
-      expect(relay.isConnected, isTrue);
-      final old = current();
-
-      // Act
-      await relay.reconnectNow();
-
-      // Assert — a genuinely new socket, and the connection is live on it
-      expect(channels, hasLength(2));
-      expect(current(), isNot(same(old)));
-      expect(relay.isConnected, isTrue);
-    });
-
-    test('a late close from the old socket does not kill the new connection',
-        () async {
-      // Arrange — the OS closes the backgrounded socket, but the close
-      // notification only lands after the app already reconnected
-      final old = current();
-      await relay.reconnectNow();
-      expect(relay.isConnected, isTrue);
-
-      // Act — the stale socket finally reports it is done
-      await old.incoming.close();
-      await Future<void>.delayed(Duration.zero);
-
-      // Assert — the fresh socket must survive its predecessor's funeral
-      expect(relay.isConnected, isTrue);
-    });
-
-    test('reconnecting frees a publish that was in flight on the old socket',
-        () async {
-      // Arrange — a publish is waiting for an OK the dead socket can never
-      // deliver when the app resumes and swaps the connection
-      final event = _event('e1');
-      final publishing = relay.publish(event);
-      expect(relay.isAwaitingOk('e1'), isTrue);
-
-      // Act
-      await relay.reconnectNow();
-      await expectLater(publishing, throwsA(isA<Exception>()));
-
-      // Assert — the event is no longer considered in flight, so the
-      // resend to the fresh socket is not suppressed as a duplicate
-      expect(relay.isAwaitingOk('e1'), isFalse);
-      expect(relay.isConnected, isTrue);
-    });
-  });
-
   group('per-relay convergence', () {
     test('a relay that missed an event receives it after reconnecting',
         () async {
@@ -226,8 +120,10 @@ void main() {
       };
       final service = NostrService(
         KeyManager(),
-        channelFactory: (uri) => channels[uri.host]!.removeAt(0),
-        okTimeout: const Duration(milliseconds: 100),
+        backend: DartRelayBackend(
+          channelFactory: (uri) => channels[uri.host]!.removeAt(0),
+          okTimeout: const Duration(milliseconds: 100),
+        ),
         resendInterval: const Duration(milliseconds: 100),
       );
       await service.addRelay('wss://a.test');
@@ -262,8 +158,10 @@ void main() {
       };
       final service = NostrService(
         KeyManager(),
-        channelFactory: (uri) => channels[uri.host]!.removeAt(0),
-        okTimeout: const Duration(milliseconds: 200),
+        backend: DartRelayBackend(
+          channelFactory: (uri) => channels[uri.host]!.removeAt(0),
+          okTimeout: const Duration(milliseconds: 200),
+        ),
         resendInterval: const Duration(milliseconds: 100),
       );
       await service.addRelay('wss://a.test');
@@ -301,8 +199,10 @@ void main() {
       };
       final service = NostrService(
         KeyManager(),
-        channelFactory: (uri) => channels[uri.host]!.removeAt(0),
-        okTimeout: const Duration(milliseconds: 100),
+        backend: DartRelayBackend(
+          channelFactory: (uri) => channels[uri.host]!.removeAt(0),
+          okTimeout: const Duration(milliseconds: 100),
+        ),
         resendInterval: const Duration(milliseconds: 100),
       );
       await service.addRelay('wss://a.test');

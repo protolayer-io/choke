@@ -15,15 +15,42 @@ import 'features/settings/providers/relay_config_provider.dart';
 import 'services/key_management/key_manager.dart';
 import 'services/nostr/crypto/nostr_crypto.dart';
 import 'services/nostr/crypto/nostr_tools_crypto.dart';
+import 'services/nostr/crypto/rust_nostr_crypto.dart';
 import 'services/nostr/nostr_service.dart';
+import 'src/rust/frb_generated.dart';
+
+/// Which crypto implementation the app runs on.
+///
+/// `legacy` is the Dart `nostr_tools` package; `rust` is the maintained Rust
+/// `nostr` crate. Phase 3 ships both and still defaults to `legacy`; Phase 4
+/// flips this default — which is why it is a flag rather than an edit, and why
+/// rolling back needs no code change:
+///
+///   flutter run --dart-define=NOSTR_BACKEND=rust
+///
+/// See docs/specs/nostr-sdk-migration.md.
+const _nostrBackend = String.fromEnvironment(
+  'NOSTR_BACKEND',
+  defaultValue: 'legacy',
+);
+
+/// Build the selected crypto backend, initializing whatever it needs.
+Future<NostrCrypto> _buildCrypto() async {
+  if (_nostrBackend != 'rust') return NostrToolsCrypto();
+
+  // Loads the native library. Failing loudly here beats limping on: without it
+  // nothing can be signed, and every match would silently go unpublished.
+  await RustLib.init();
+  debugPrint('Nostr crypto backend: rust');
+  return const RustNostrCrypto();
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // The one place the crypto implementation is chosen. Everything downstream
-  // takes it as a NostrCrypto, so swapping the backend (Phase 4) is a change
-  // to this line alone. See docs/specs/nostr-sdk-migration.md.
-  final NostrCrypto crypto = NostrToolsCrypto();
+  // takes it as a NostrCrypto, so the backend swap never reaches a call site.
+  final NostrCrypto crypto = await _buildCrypto();
 
   // Initialize KeyManager
   final keyManager = KeyManager(crypto: crypto);

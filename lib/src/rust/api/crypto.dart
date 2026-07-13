@@ -6,6 +6,44 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These functions are ignored because they are not marked as `pub`: `parse_tags`, `to_event`, `to_signed_data`
+
+/// A fresh secp256k1 private key, as lowercase hex.
+String generateSecretKey() =>
+    RustLib.instance.api.crateApiCryptoGenerateSecretKey();
+
+/// The public key belonging to `secret_hex`, as lowercase hex.
+String publicKeyFromSecret({required String secretHex}) => RustLib.instance.api
+    .crateApiCryptoPublicKeyFromSecret(secretHex: secretHex);
+
+/// NIP-19 bech32 encoding of a hex public key (`npub1…`).
+String npubEncode({required String publicKeyHex}) =>
+    RustLib.instance.api.crateApiCryptoNpubEncode(publicKeyHex: publicKeyHex);
+
+/// NIP-19 bech32 encoding of a hex private key (`nsec1…`).
+String nsecEncode({required String secretHex}) =>
+    RustLib.instance.api.crateApiCryptoNsecEncode(secretHex: secretHex);
+
+/// The hex private key inside `nsec`, or `None` if it is not a valid nsec.
+///
+/// `None` rather than an error: a malformed nsec is something a user can type,
+/// not a bug. An npub is rejected here too — it is bech32 of the same family,
+/// and reading one as a private key would be a catastrophic confusion.
+String? nsecDecode({required String nsec}) =>
+    RustLib.instance.api.crateApiCryptoNsecDecode(nsec: nsec);
+
+/// Compute `event`'s id and sign it with `secret_hex`.
+SignedEventData finishEvent(
+        {required UnsignedEventData event, required String secretHex}) =>
+    RustLib.instance.api
+        .crateApiCryptoFinishEvent(event: event, secretHex: secretHex);
+
+/// Whether `event`'s id hashes its own contents *and* its signature is the one
+/// its pubkey would produce. Both must hold: an event whose content was
+/// rewritten after signing still carries a valid signature over a now-wrong id.
+bool verifyEventData({required SignedEventData event}) =>
+    RustLib.instance.api.crateApiCryptoVerifyEventData(event: event);
+
 /// Whether `event_json` is a well-formed Nostr event whose id and Schnorr
 /// signature both check out.
 ///
@@ -13,3 +51,84 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 /// that parses but fails verification is `Ok(false)`.
 bool verifyEvent({required String eventJson}) =>
     RustLib.instance.api.crateApiCryptoVerifyEvent(eventJson: eventJson);
+
+/// A signed event, exactly as it goes to a relay.
+class SignedEventData {
+  final String id;
+  final String pubkey;
+  final PlatformInt64 createdAt;
+  final int kind;
+  final List<List<String>> tags;
+  final String content;
+  final String sig;
+
+  const SignedEventData({
+    required this.id,
+    required this.pubkey,
+    required this.createdAt,
+    required this.kind,
+    required this.tags,
+    required this.content,
+    required this.sig,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      pubkey.hashCode ^
+      createdAt.hashCode ^
+      kind.hashCode ^
+      tags.hashCode ^
+      content.hashCode ^
+      sig.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SignedEventData &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          pubkey == other.pubkey &&
+          createdAt == other.createdAt &&
+          kind == other.kind &&
+          tags == other.tags &&
+          content == other.content &&
+          sig == other.sig;
+}
+
+/// An event assembled but not yet signed: no id and no signature, because
+/// both are derived from these fields.
+class UnsignedEventData {
+  final String pubkey;
+  final PlatformInt64 createdAt;
+  final int kind;
+  final List<List<String>> tags;
+  final String content;
+
+  const UnsignedEventData({
+    required this.pubkey,
+    required this.createdAt,
+    required this.kind,
+    required this.tags,
+    required this.content,
+  });
+
+  @override
+  int get hashCode =>
+      pubkey.hashCode ^
+      createdAt.hashCode ^
+      kind.hashCode ^
+      tags.hashCode ^
+      content.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UnsignedEventData &&
+          runtimeType == other.runtimeType &&
+          pubkey == other.pubkey &&
+          createdAt == other.createdAt &&
+          kind == other.kind &&
+          tags == other.tags &&
+          content == other.content;
+}

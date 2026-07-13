@@ -135,7 +135,7 @@ fn parse_tags(tags: &[Vec<String>]) -> Result<Vec<Tag>, String> {
         .collect()
 }
 
-fn to_signed_data(event: &Event) -> SignedEventData {
+pub(crate) fn to_signed_data(event: &Event) -> SignedEventData {
     SignedEventData {
         id: event.id.to_hex(),
         pubkey: event.pubkey.to_hex(),
@@ -147,7 +147,7 @@ fn to_signed_data(event: &Event) -> SignedEventData {
     }
 }
 
-fn to_event(data: &SignedEventData) -> Result<Event, String> {
+pub(crate) fn to_event(data: &SignedEventData) -> Result<Event, String> {
     let created_at =
         u64::try_from(data.created_at).map_err(|_| "negative created_at".to_string())?;
 

@@ -17,6 +17,9 @@ import 'services/nostr/crypto/nostr_crypto.dart';
 import 'services/nostr/crypto/nostr_tools_crypto.dart';
 import 'services/nostr/crypto/rust_nostr_crypto.dart';
 import 'services/nostr/nostr_service.dart';
+import 'services/nostr/relay/dart_relay_backend.dart';
+import 'services/nostr/relay/nostr_relay_backend.dart';
+import 'services/nostr/relay/rust_relay_backend.dart';
 import 'src/rust/frb_generated.dart';
 
 /// Which crypto implementation the app runs on.
@@ -34,23 +37,62 @@ const _nostrBackend = String.fromEnvironment(
   defaultValue: 'legacy',
 );
 
-/// Build the selected crypto backend, initializing whatever it needs.
-Future<NostrCrypto> _buildCrypto() async {
-  if (_nostrBackend != 'rust') return NostrToolsCrypto();
+/// Which relay transport the app runs on.
+///
+/// `legacy` is the hand-written WebSocket pool; `rust` is `nostr-sdk`'s relay
+/// pool. Phase 6 ships both and defaults to `legacy`; Phase 7 flips it. Both
+/// pass the same transport contract against a real relay, so the difference is
+/// meant to be invisible — but the flag is what makes finding out cheap:
+///
+///   flutter run --dart-define=NOSTR_RELAY_BACKEND=rust
+///
+/// See docs/specs/nostr-sdk-migration.md.
+const _relayBackend = String.fromEnvironment(
+  'NOSTR_RELAY_BACKEND',
+  defaultValue: 'legacy',
+);
 
-  // Loads the native library. Failing loudly here beats limping on: without it
-  // nothing can be signed, and every match would silently go unpublished.
+/// Load the native library, if anything is going to need it.
+///
+/// The two backends are selected independently, so this cannot live inside
+/// either one: a build that took the Rust transport but the legacy crypto would
+/// then never initialize the library the transport depends on, and every relay
+/// call would fail on a phone while every test passed on a laptop.
+///
+/// Deliberately not wrapped in a try/catch. If a backend that needs the library
+/// cannot have it, the app can only limp on publishing nothing — a referee
+/// would score a whole match into the void. Failing at launch is the honest
+/// outcome, and CI's Android build exercises exactly this path.
+Future<void> _initRustIfNeeded() async {
+  if (_nostrBackend != 'rust' && _relayBackend != 'rust') return;
   await RustLib.init();
-  debugPrint('Nostr crypto backend: rust');
+}
+
+/// Build the selected relay transport.
+NostrRelayBackend _buildRelayBackend() {
+  if (_relayBackend != 'rust') return DartRelayBackend();
+  debugPrint('Nostr relay backend: rust (nostr-sdk)');
+  return RustRelayBackend();
+}
+
+/// Build the selected crypto backend.
+NostrCrypto _buildCrypto() {
+  if (_nostrBackend != 'rust') {
+    debugPrint('Nostr crypto backend: legacy (nostr_tools)');
+    return NostrToolsCrypto();
+  }
+  debugPrint('Nostr crypto backend: rust (nostr crate)');
   return const RustNostrCrypto();
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // The one place the crypto implementation is chosen. Everything downstream
-  // takes it as a NostrCrypto, so the backend swap never reaches a call site.
-  final NostrCrypto crypto = await _buildCrypto();
+  await _initRustIfNeeded();
+
+  // The one place the implementations are chosen. Everything downstream takes
+  // them as interfaces, so a backend swap never reaches a call site.
+  final NostrCrypto crypto = _buildCrypto();
 
   // Initialize KeyManager
   final keyManager = KeyManager(crypto: crypto);
@@ -70,7 +112,11 @@ void main() async {
   }
 
   // Initialize NostrService with configured relays
-  final nostrService = NostrService(keyManager, crypto: crypto);
+  final nostrService = NostrService(
+    keyManager,
+    crypto: crypto,
+    backend: _buildRelayBackend(),
+  );
   try {
     final enabledRelayUrls =
         relayConfigs.where((r) => r.isEnabled).map((r) => r.url).toList();

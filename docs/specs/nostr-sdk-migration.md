@@ -464,26 +464,81 @@ transport regressions, not service tests.
 
 ---
 
-### Phase 6 — `nostr-sdk` Client backend, shadow mode *(PR: additive)*
+### Phase 6 — `nostr-sdk` relay backend — ✅ **DONE (2026-07-13)** *(PR: additive)*
 
-**Goal:** the Rust relay pool runs in real conditions without owning production traffic.
+**Goal:** the Rust relay pool proves itself before it owns anything.
 
-Steps:
-1. Extend the crate with `nostr-sdk`: create `Client`, add/remove relays, connect,
-   `send_event` returning **per-relay results** (`Output` success/failed maps —
-   this is what lets Dart keep I2/I3 semantics), subscriptions streaming events
-   back over an FRB `StreamSink`, relay status notifications.
-2. `RustRelayBackend implements NostrRelayBackend`.
-3. Port the backend test suite (Phase 5) to run against `RustRelayBackend` where
-   possible; add a small integration test against a throwaway local relay
-   (e.g. `nak serve` or dockerized strfry) in CI for **both** backends.
-4. **Shadow mode** (debug builds only, off by default): rust backend connects and
-   mirrors subscriptions **read-only** (no publishing — avoids double-publish and
-   rate limits); logs divergence between what each backend receives.
+#### 6.1 A transport contract beats shadow mode
 
-**Acceptance:** backend contract tests green on both; shadow session shows no
-divergence over a full manual match.
-**Rollback:** revert; default backend unchanged.
+The spec originally called for *shadow mode*: run the Rust backend read-only
+alongside the Dart one and watch for divergence. That was dropped for something
+stronger and cheaper — **a transport contract, run against a real relay**.
+
+`test/services/nostr/relay/fake_relay.dart` is an in-process relay: a real
+WebSocket server speaking NIP-01 (`EVENT` → `OK`, `REQ` → its events → `EOSE`),
+able to accept, to reject with a reason, and to push events to subscribers.
+Both backends are then subjected to the identical contract
+(`relay_backend_contract.dart`) — same wire, same questions.
+
+The wire is the only place they *can* be compared: they share no code at all
+(Dart over `web_socket_channel`; Rust over `nostr-sdk`). Shadow mode would only
+have shown that they *tend* to agree, in whatever conditions happened to occur;
+the contract asserts they agree on the things the app's reliability rests on:
+
+- `publish` reports what **that relay** actually said — accepted, or rejected
+  with a reason. Convergence (I3) is built on that distinction; a backend that
+  read "sent" as "accepted" would resurrect #78 on the spot.
+- a relay that is up is counted, and one that leaves stops being counted;
+- a connecting relay is announced (the cue to push what it missed);
+- events publish and arrive with every field intact — content, tags,
+  `created_at`, ids — through UTF-8, emoji and embedded JSON;
+- publishing to a relay that was never dialed **fails**, rather than quietly
+  pretending.
+
+Both backends pass all ten, unchanged.
+
+#### 6.2 What the contract turned up: `nostr-sdk` verifies incoming events
+
+The subscription tests failed at first against Rust, and the reason is worth
+keeping: **`nostr-sdk` verifies the signature of every event it receives and
+drops the ones that do not check out.** The fixtures had stub signatures, so
+Rust — correctly — refused to deliver them.
+
+The Dart transport had never checked. It would hand the app any event a relay
+cared to send, forged or not. That is the same class of gap as §2.1 (where
+`nostr_tools` accepted events whose content had been rewritten after signing),
+and it is a second, unadvertised win for the migration: after Phase 7, a
+malicious or broken relay can no longer inject a match that was never signed by
+the referee it claims.
+
+The contract now signs its events for real.
+
+#### 6.3 Design notes
+
+- **Publish one relay at a time.** `nostr-sdk` will happily fan out inside its
+  pool, but its `Output.success` / `.failed` maps are exactly the per-relay
+  verdict the convergence bookkeeping needs. Flattening that into a pool-wide
+  "it worked" would have thrown away the very thing #78 was fixed to preserve.
+- **The status stream reports both directions.** Rust reports relay status per
+  relay, so each relay's notifications are fanned into one channel — and
+  disconnections are forwarded too, not just connections. `connectedRelays` is
+  answered synchronously on the hot path (deciding where to publish), so Dart
+  keeps its own view; a stream that only ever said "connected" would leave that
+  view permanently optimistic, publishing into relays that had left.
+- **Raw `Message` notifications, not de-duplicated `Event` ones.** The latter
+  drop events the client sent itself. The app needs the relay's echo of its own
+  matches: that echo is how a second device learns the score.
+
+**Backend selector:** `--dart-define=NOSTR_RELAY_BACKEND=rust|legacy`,
+defaulting to `legacy`. `RustLib.init()` was hoisted out of the crypto builder —
+the two backends are selected independently, and a build that took the Rust
+transport with the legacy crypto would otherwise never load the library the
+transport needs.
+
+**Tests:** 185 Dart (42 tagged `rust`) + 10 Rust. Both backends pass the
+contract; APK builds with either.
+**Acceptance:** ✅
+**Rollback:** revert, or simply do not pass the flag.
 
 ---
 

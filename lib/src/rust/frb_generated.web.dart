@@ -7,6 +7,7 @@
 // ignore_for_file: argument_type_not_assignable
 
 import 'api/crypto.dart';
+import 'api/relay.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -21,16 +22,39 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   });
 
   @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw);
+
+  @protected
+  RustStreamSink<RelayStatusData> dco_decode_StreamSink_relay_status_data_Sse(
+      dynamic raw);
+
+  @protected
+  RustStreamSink<SignedEventData> dco_decode_StreamSink_signed_event_data_Sse(
+      dynamic raw);
+
+  @protected
   String dco_decode_String(dynamic raw);
 
   @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  FilterData dco_decode_box_autoadd_filter_data(dynamic raw);
+
+  @protected
+  PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
+
+  @protected
   SignedEventData dco_decode_box_autoadd_signed_event_data(dynamic raw);
 
   @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw);
+
+  @protected
   UnsignedEventData dco_decode_box_autoadd_unsigned_event_data(dynamic raw);
+
+  @protected
+  FilterData dco_decode_filter_data(dynamic raw);
 
   @protected
   PlatformInt64 dco_decode_i_64(dynamic raw);
@@ -42,16 +66,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<List<String>> dco_decode_list_list_String(dynamic raw);
 
   @protected
+  Uint16List dco_decode_list_prim_u_16_strict(dynamic raw);
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
+
+  @protected
+  RelayStatusData dco_decode_relay_status_data(dynamic raw);
+
+  @protected
   SignedEventData dco_decode_signed_event_data(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
+
+  @protected
+  int dco_decode_u_32(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -63,18 +102,41 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UnsignedEventData dco_decode_unsigned_event_data(dynamic raw);
 
   @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
+
+  @protected
+  RustStreamSink<RelayStatusData> sse_decode_StreamSink_relay_status_data_Sse(
+      SseDeserializer deserializer);
+
+  @protected
+  RustStreamSink<SignedEventData> sse_decode_StreamSink_signed_event_data_Sse(
+      SseDeserializer deserializer);
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  FilterData sse_decode_box_autoadd_filter_data(SseDeserializer deserializer);
+
+  @protected
+  PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
   SignedEventData sse_decode_box_autoadd_signed_event_data(
       SseDeserializer deserializer);
 
   @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
   UnsignedEventData sse_decode_box_autoadd_unsigned_event_data(
       SseDeserializer deserializer);
+
+  @protected
+  FilterData sse_decode_filter_data(SseDeserializer deserializer);
 
   @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
@@ -86,16 +148,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<List<String>> sse_decode_list_list_String(SseDeserializer deserializer);
 
   @protected
+  Uint16List sse_decode_list_prim_u_16_strict(SseDeserializer deserializer);
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
+  RelayStatusData sse_decode_relay_status_data(SseDeserializer deserializer);
+
+  @protected
   SignedEventData sse_decode_signed_event_data(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -111,18 +188,44 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int sse_decode_i_32(SseDeserializer deserializer);
 
   @protected
+  void sse_encode_AnyhowException(
+      AnyhowException self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_StreamSink_relay_status_data_Sse(
+      RustStreamSink<RelayStatusData> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_StreamSink_signed_event_data_Sse(
+      RustStreamSink<SignedEventData> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_filter_data(
+      FilterData self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_i_64(
+      PlatformInt64 self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_signed_event_data(
       SignedEventData self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_unsigned_event_data(
       UnsignedEventData self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_filter_data(FilterData self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
@@ -135,6 +238,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       List<List<String>> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_prim_u_16_strict(
+      Uint16List self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
       Uint8List self, SseSerializer serializer);
 
@@ -142,11 +249,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_i_64(
+      PlatformInt64? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_relay_status_data(
+      RelayStatusData self, SseSerializer serializer);
+
+  @protected
   void sse_encode_signed_event_data(
       SignedEventData self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_16(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);

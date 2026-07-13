@@ -24,17 +24,19 @@ import 'src/rust/frb_generated.dart';
 
 /// Which crypto implementation the app runs on.
 ///
-/// `legacy` is the Dart `nostr_tools` package; `rust` is the maintained Rust
-/// `nostr` crate. Phase 3 ships both and still defaults to `legacy`; Phase 4
-/// flips this default — which is why it is a flag rather than an edit, and why
-/// rolling back needs no code change:
+/// **Default: `rust`** — the maintained Rust `nostr` crate. `legacy` is the
+/// three-year-old Dart `nostr_tools` package, kept for one release cycle as an
+/// instant rollback and removed in Phase 8. Rolling back needs no code change:
 ///
-///   flutter run --dart-define=NOSTR_BACKEND=rust
+///   flutter build apk --dart-define=NOSTR_BACKEND=legacy
 ///
-/// See docs/specs/nostr-sdk-migration.md.
+/// The two are interchangeable by test, not by assertion: they derive the same
+/// keys and npubs, compute the same event ids, and verify each other's
+/// signatures (Phase 3's differential suite). See
+/// docs/specs/nostr-sdk-migration.md.
 const _nostrBackend = String.fromEnvironment(
   'NOSTR_BACKEND',
-  defaultValue: 'legacy',
+  defaultValue: 'rust',
 );
 
 /// Which relay transport the app runs on.

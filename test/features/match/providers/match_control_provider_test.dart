@@ -6,12 +6,15 @@ import 'package:choke/features/match/providers/match_control_provider.dart';
 import 'package:choke/services/key_management/key_manager.dart';
 import 'package:choke/services/nostr/nostr_service.dart';
 
+import '../../../support/nostr_fakes.dart';
+
 /// Fake NostrService that skips relay publishing entirely.
 ///
 /// [failuresRemaining] makes the next N publishes throw (relay down).
 /// [gate] holds a publish in flight until completed (slow relay).
 class _FakeNostrService extends NostrService {
-  _FakeNostrService() : super(KeyManager());
+  _FakeNostrService() : super(KeyManager(crypto: FakeNostrCrypto()),
+            crypto: FakeNostrCrypto(), backend: FakeRelayBackend());
 
   int publishCount = 0;
   final List<String> publishedContents = [];

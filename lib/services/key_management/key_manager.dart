@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../nostr/crypto/nostr_crypto.dart';
-import '../nostr/crypto/nostr_tools_crypto.dart';
 
 /// Service for managing Nostr keypairs
 /// Handles generation, storage, and recovery of keys
@@ -20,8 +19,8 @@ class KeyManager {
   String? _cachedPrivateKey;
   String? _cachedPublicKey;
 
-  KeyManager({FlutterSecureStorage? secureStorage, NostrCrypto? crypto})
-      : _crypto = crypto ?? NostrToolsCrypto(),
+  KeyManager({required NostrCrypto crypto, FlutterSecureStorage? secureStorage})
+      : _crypto = crypto,
         _secureStorage = secureStorage ??
             const FlutterSecureStorage(
               aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -191,9 +190,13 @@ class KeyManager {
   String? _decodeNsec(String nsec) => _crypto.nsecDecode(nsec);
 }
 
-/// Provider for KeyManager
+/// Provider for KeyManager.
+///
+/// Overridden in `main.dart` with the app's real one. It cannot build a default
+/// any more: a KeyManager needs a NostrCrypto, and quietly inventing one here
+/// is how a test ends up asserting against an identity the app never uses.
 final keyManagerProvider = Provider<KeyManager>((ref) {
-  return KeyManager();
+  throw UnimplementedError('keyManagerProvider must be overridden');
 });
 
 /// Provider for npub (public identity)

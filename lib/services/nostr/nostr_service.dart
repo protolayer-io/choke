@@ -3,8 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../key_management/key_manager.dart';
 import 'crypto/nostr_crypto.dart';
-import 'crypto/nostr_tools_crypto.dart';
-import 'relay/dart_relay_backend.dart';
 import 'relay/nostr_relay_backend.dart';
 
 /// A signed Nostr event.
@@ -115,11 +113,11 @@ class NostrService {
 
   NostrService(
     this._keyManager, {
-    NostrCrypto? crypto,
-    NostrRelayBackend? backend,
+    required NostrCrypto crypto,
+    required NostrRelayBackend backend,
     this.resendInterval = const Duration(seconds: 5),
-  })  : _crypto = crypto ?? NostrToolsCrypto(),
-        _backend = backend ?? DartRelayBackend() {
+  })  : _crypto = crypto,
+        _backend = backend {
     _backendEvents = _backend.events.listen(_handleIncomingEvent);
     _backendConnections = _backend.onRelayConnected.listen((url) {
       // A relay that just came back may have missed events while it was away —
@@ -422,10 +420,11 @@ class NostrService {
   }
 }
 
-/// Provider for NostrService
+/// Provider for NostrService.
+///
+/// Overridden in `main.dart`, which owns the relay pool's lifetime. There is no
+/// sensible default: a second NostrService would mean a second set of sockets
+/// and a second outbox, silently competing to publish the same match.
 final nostrServiceProvider = Provider<NostrService>((ref) {
-  final keyManager = ref.watch(keyManagerProvider);
-  final service = NostrService(keyManager);
-  ref.onDispose(() => service.dispose());
-  return service;
+  throw UnimplementedError('nostrServiceProvider must be overridden');
 });

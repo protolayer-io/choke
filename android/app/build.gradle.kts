@@ -19,7 +19,11 @@ val releaseKeystoreFile =
 android {
     namespace = "com.grunch.choke"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Pinned rather than inherited from `flutter.ndkVersion`: Cargokit builds
+    // the Rust crate through the NDK, and CI installs this exact version by
+    // reading it back from this line. A Flutter upgrade that moved the NDK
+    // underneath us would otherwise break the build with a bare NPE.
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

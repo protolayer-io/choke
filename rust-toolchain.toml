@@ -1,5 +1,8 @@
 [toolchain]
 channel = "1.94.0"
+# Without these, `rustup show` installs a bare toolchain and CI's fmt/clippy
+# steps fail with "'cargo-fmt' is not installed for the toolchain".
+components = ["rustfmt", "clippy"]
 targets = [
   # Android — the QA platform (see docs/specs/nostr-sdk-migration.md §9.3)
   "aarch64-linux-android",

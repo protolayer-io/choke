@@ -10,7 +10,11 @@ on:
     paths:
       - 'rust/**'
       - 'rust_builder/**'
-      - 'lib/src/rust/**'
+      # Rust is now the default Nostr backend and its .so ships in every APK,
+      # so any Dart change can affect how the crate links or what the key
+      # backend derives — run the crate + bridge + Android jobs to guard it.
+      - 'lib/**'
+      - 'test/**'
       - 'rust-toolchain.toml'
       - 'flutter_rust_bridge.yaml'
       - '.github/workflows/rust.yml'

@@ -126,6 +126,9 @@ class NostrService {
     });
   }
 
+  /// Every event from every relay that survived filtering: expired ones
+  /// (NIP-40) and ones superseded by a newer state for the same match are
+  /// dropped before they get here.
   Stream<NostrEvent> get eventStream => _eventController.stream;
 
   /// Fires with the relay URL each time a relay (re)connects. Publishers
@@ -404,6 +407,9 @@ class NostrService {
   /// Disconnect all relays
   void disconnect() => _backend.disconnect();
 
+  /// Release the service and the transport beneath it. Anything still pending
+  /// in the outbox is abandoned — the caller is going away, and there is nobody
+  /// left to converge for.
   void dispose() {
     _backendEvents?.cancel();
     _backendConnections?.cancel();

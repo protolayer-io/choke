@@ -1,0 +1,133 @@
+name: Rust
+
+# The Rust crate backs the app's Nostr cryptography (see
+# docs/specs/nostr-sdk-migration.md). It ships inside the APK, so it is
+# gated like the Dart code is.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'rust/**'
+      - 'rust_builder/**'
+      - 'lib/src/rust/**'
+      - 'rust-toolchain.toml'
+      - 'flutter_rust_bridge.yaml'
+      - '.github/workflows/rust.yml'
+
+jobs:
+  crate:
+    name: Crate (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml pins the version and the Android targets.
+      - name: Setup Rust
+        run: rustup show
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: Format
+        run: cargo fmt --manifest-path rust/Cargo.toml --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --manifest-path rust/Cargo.toml
+
+  bridge:
+    name: Bridge (Dart bindings load and call into Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        run: rustup show
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter pub get
+      - run: flutter gen-l10n
+
+      # The bridge tests skip themselves unless this library exists on disk.
+      - name: Build the native library
+        run: cargo build --manifest-path rust/Cargo.toml
+
+      - name: Bridge tests
+        run: flutter test --tags rust
+
+  android:
+    name: Android build (proves the crate links into the APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        run: rustup show
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: cargo-android-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: cargo-android-${{ runner.os }}-
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter pub get
+      - run: flutter gen-l10n
+
+      # Puts sdkmanager on PATH; the runner ships the SDK but not its CLI.
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # Cargokit compiles the crate through the NDK, so the version the project
+      # pins must actually be installed — otherwise configuring the
+      # :rust_lib_choke project dies with a bare NullPointerException. Read it
+      # from build.gradle.kts so this can never drift out of sync with it.
+      - name: Install Android NDK
+        run: |
+          NDK=$(grep -oP 'ndkVersion = "\K[^"]+' android/app/build.gradle.kts)
+          echo "Installing NDK $NDK"
+          sdkmanager --install "ndk;$NDK"
+
+      # Cargokit cross-compiles the crate for the Android ABIs and packs the
+      # resulting .so into the APK. arm64 alone keeps CI quick; the release
+      # workflow builds every ABI.
+      - name: Build APK
+        run: flutter build apk --debug --target-platform android-arm64

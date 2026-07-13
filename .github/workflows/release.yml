@@ -155,6 +155,37 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # The APK now contains a Rust library (Nostr cryptography), which
+      # Cargokit cross-compiles during `flutter build apk`. Without a Rust
+      # toolchain the release build fails. The version and the Android
+      # targets come from rust-toolchain.toml.
+      - name: Setup Rust
+        run: rustup show
+
+      # Puts sdkmanager on PATH; the runner ships the SDK but not its CLI.
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # Cargokit compiles the crate through the NDK, so the version the project
+      # pins must actually be installed — otherwise configuring the
+      # :rust_lib_choke project dies with a bare NullPointerException. Read it
+      # from build.gradle.kts so this can never drift out of sync with it.
+      - name: Install Android NDK
+        run: |
+          NDK=$(grep -oP 'ndkVersion = "\K[^"]+' android/app/build.gradle.kts)
+          echo "Installing NDK $NDK"
+          sdkmanager --install "ndk;$NDK"
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: cargo-release-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: cargo-release-${{ runner.os }}-
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:

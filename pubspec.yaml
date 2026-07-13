@@ -5,7 +5,9 @@ publish_to: 'none'
 version: 1.3.0+163
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  # Floor is 3.5 because flutter_rust_bridge's generated web bindings use
+  # extension types (Dart 3.3+). See docs/specs/nostr-sdk-migration.md §0.4.3.
+  sdk: '>=3.5.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -44,6 +46,9 @@ dependencies:
 
   # URL launcher
   url_launcher: ^6.2.0
+  rust_lib_choke:
+    path: rust_builder
+  flutter_rust_bridge: 2.12.0
 
 dev_dependencies:
   mutation_test: ^1.8.0

@@ -1,12 +1,12 @@
 # Migration Spec: `nostr_tools` (Dart) → `nostr-sdk` (Rust) via `flutter_rust_bridge`
 
-**Status:** APPROVED — Phase 0 complete, Phase 1 next
+**Status:** APPROVED — Phases 0-1 complete, Phase 2 next
 **Author:** prepared with Claude Code
 **Date:** 2026-07-13
 **Decisions locked (2026-07-13):** web target frozen (§5, W1) · own thin Rust
 crate over official Flutter bindings (§9.2) · manual QA on Android (§9.3)
 
-**Progress:** Phase 0 ✅ · Phases 1–8 pending
+**Progress:** Phase 0 ✅ · Phase 1 ✅ · Phases 2–8 pending
 
 ---
 
@@ -183,6 +183,14 @@ Release APK, `--target-platform android-arm64`:
 FRB runtime + `nostr` + secp256k1. Well inside the ≤6 MB budget; no further
 size work needed.
 
+> **Updated in Phase 1 (2026-07-13):** the shipped crate measures **+2.1 MB**
+> (APK 41.7 → 43.8 MB; `librust_lib_choke.so` = 2.01 MB). The spike only
+> exercised key generation and bech32; `verify_event` additionally pulls in
+> event JSON parsing (serde and the full `Event` machinery), which accounts
+> for the difference. Still comfortably inside the ≤6 MB budget — but the
+> budget is now ~35% spent, so Phase 3 and Phase 6 should re-measure rather
+> than assume headroom.
+
 #### 0.4 Gotchas Phase 1 must handle (found the hard way)
 
 1. **`flutter_rust_bridge_codegen integrate` comments out the whole of
@@ -211,7 +219,7 @@ size work needed.
 
 ---
 
-### Phase 1 — Rust scaffolding, zero app impact *(PR ~small, mostly generated/build files)*
+### Phase 1 — Rust scaffolding, zero app impact — ✅ **DONE (2026-07-13)** *(PR: scaffolding)*
 
 **Goal:** the Rust toolchain lives in the repo and CI, invisible to the running app.
 
@@ -236,7 +244,7 @@ Steps (informed by the Phase 0 gotchas — read §0.4 first):
 native lib is unavailable, e.g. plain `flutter test` on CI without the built binary —
 use `@Tags(['rust'])` and a dedicated CI step).
 **Acceptance:** app builds and behaves identically with the crate present; suite green;
-release APK growth matches the ~0.8 MB measured in §0.3.
+release APK growth stays inside the ≤6 MB budget (measured: +2.1 MB — see the §0.3 note).
 **Rollback:** revert the PR — nothing references the crate.
 
 ---

@@ -104,14 +104,23 @@ void main() {
   });
 
   group('RelayConnection zombie detection', () {
-    late _FakeWebSocketChannel channel;
+    // Every connect() gets a brand-new socket, as it does in production —
+    // reusing one fake would let a reconnect silently listen to the old
+    // (single-subscription) stream and never exercise the reconnect path.
+    late List<_FakeWebSocketChannel> channels;
     late RelayConnection relay;
 
+    _FakeWebSocketChannel current() => channels.last;
+
     setUp(() async {
-      channel = _FakeWebSocketChannel();
+      channels = [];
       relay = RelayConnection(
         'wss://relay.test',
-        channelFactory: (_) => channel,
+        channelFactory: (_) {
+          final channel = _FakeWebSocketChannel();
+          channels.add(channel);
+          return channel;
+        },
         okTimeout: const Duration(milliseconds: 100),
       );
       await relay.connect();
@@ -126,12 +135,12 @@ void main() {
 
       // Act — the relay confirms the event
       final publishing = relay.publish(event);
-      channel.incoming.add(jsonEncode(['OK', 'e1', true, '']));
+      current().incoming.add(jsonEncode(['OK', 'e1', true, '']));
 
       // Assert
       expect(await publishing, isTrue);
       expect(relay.isConnected, isTrue);
-      expect(channel.sent, hasLength(1));
+      expect(current().sent, hasLength(1));
     });
 
     test('publish drops the connection when the relay never answers',
@@ -155,11 +164,48 @@ void main() {
         () async {
       // Arrange — the current socket may be a zombie after app resume
       expect(relay.isConnected, isTrue);
+      final old = current();
 
       // Act
       await relay.reconnectNow();
 
-      // Assert
+      // Assert — a genuinely new socket, and the connection is live on it
+      expect(channels, hasLength(2));
+      expect(current(), isNot(same(old)));
+      expect(relay.isConnected, isTrue);
+    });
+
+    test('a late close from the old socket does not kill the new connection',
+        () async {
+      // Arrange — the OS closes the backgrounded socket, but the close
+      // notification only lands after the app already reconnected
+      final old = current();
+      await relay.reconnectNow();
+      expect(relay.isConnected, isTrue);
+
+      // Act — the stale socket finally reports it is done
+      await old.incoming.close();
+      await Future<void>.delayed(Duration.zero);
+
+      // Assert — the fresh socket must survive its predecessor's funeral
+      expect(relay.isConnected, isTrue);
+    });
+
+    test('reconnecting frees a publish that was in flight on the old socket',
+        () async {
+      // Arrange — a publish is waiting for an OK the dead socket can never
+      // deliver when the app resumes and swaps the connection
+      final event = _event('e1');
+      final publishing = relay.publish(event);
+      expect(relay.isAwaitingOk('e1'), isTrue);
+
+      // Act
+      await relay.reconnectNow();
+      await expectLater(publishing, throwsA(isA<Exception>()));
+
+      // Assert — the event is no longer considered in flight, so the
+      // resend to the fresh socket is not suppressed as a duplicate
+      expect(relay.isAwaitingOk('e1'), isFalse);
       expect(relay.isConnected, isTrue);
     });
   });

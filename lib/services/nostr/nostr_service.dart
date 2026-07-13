@@ -131,10 +131,18 @@ class RelayConnection {
   Timer? _reconnectTimer;
   final Set<String> _activeSubscriptions = {};
   final Map<String, Filter> _subscriptionFilters = {};
-  final Set<String> _awaitingOk = {};
+
+  /// Publishes waiting for an OK on the *current* socket, by event id. A
+  /// socket swap fails them: the OK they wait for can never arrive.
+  final Map<String, Completer<List<dynamic>>> _inFlight = {};
+
+  /// Listener on the current socket. Held so it can be cancelled before a
+  /// new socket is installed — a stale `onDone` from the old one would
+  /// otherwise tear down its replacement.
+  StreamSubscription<dynamic>? _channelSub;
 
   /// Whether a publish of this event is already in flight on this relay.
-  bool isAwaitingOk(String eventId) => _awaitingOk.contains(eventId);
+  bool isAwaitingOk(String eventId) => _inFlight.containsKey(eventId);
 
   RelayConnection(
     this.url, {
@@ -161,7 +169,7 @@ class RelayConnection {
       _connectionController.add(true);
       debugPrint('NostrService: Connected to $url');
 
-      _channel!.stream.listen(
+      _channelSub = _channel!.stream.listen(
         (data) => _handleMessage(data),
         onError: (error) {
           debugPrint('NostrService: Error on $url: $error');
@@ -218,9 +226,28 @@ class RelayConnection {
     if (!isConnected) return;
     isConnected = false;
     _connectionController.add(false);
+    _teardownChannel();
+    _scheduleReconnect();
+  }
+
+  /// Detach from the current socket for good: stop listening (so its late
+  /// `onDone` cannot tear down whatever replaces it), close it, and fail
+  /// every publish still waiting on an OK it can no longer receive.
+  void _teardownChannel() {
+    _channelSub?.cancel();
+    _channelSub = null;
     _channel?.sink.close();
     _channel = null;
-    _scheduleReconnect();
+
+    final orphaned = List.of(_inFlight.values);
+    _inFlight.clear();
+    for (final completer in orphaned) {
+      if (!completer.isCompleted) {
+        completer.completeError(
+          Exception('Connection to $url closed before the relay answered'),
+        );
+      }
+    }
   }
 
   void _scheduleReconnect() {
@@ -290,14 +317,16 @@ class RelayConnection {
       }
     });
 
-    _awaitingOk.add(event.id);
+    _inFlight[event.id] = completer;
     channel.sink.add(message);
 
     List<dynamic> okMsg;
     try {
       okMsg = await completer.future;
     } finally {
-      _awaitingOk.remove(event.id);
+      // A socket swap may already have dropped (and failed) this entry —
+      // only clear it if it is still the one this publish registered.
+      if (identical(_inFlight[event.id], completer)) _inFlight.remove(event.id);
       timer.cancel();
       await subscription.cancel();
     }
@@ -321,15 +350,14 @@ class RelayConnection {
       isConnected = false;
       _connectionController.add(false);
     }
-    _channel?.sink.close();
-    _channel = null;
+    _teardownChannel();
     await connect();
   }
 
   void disconnect() {
     _reconnectTimer?.cancel();
-    _channel?.sink.close();
     isConnected = false;
+    _teardownChannel();
   }
 
   void dispose() {

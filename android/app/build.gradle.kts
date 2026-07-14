@@ -83,6 +83,25 @@ android {
                 storeFile = releaseKeystoreFile
                 storePassword = keystoreProperties["storePassword"] as String
             }
+
+            // Sign with v3 as well as v2 — releases were coming out v2-only.
+            //
+            // v3 is the scheme that carries a signing-key LINEAGE, and it is
+            // the only way a signing key is ever replaceable: with it, a future
+            // keystore can prove it descends from this one, and phones accept
+            // the update. Without it, the key below is Choke's identity
+            // forever, and losing it means every user reinstalls from scratch —
+            // which, since the nsec lives in app storage, means every user
+            // loses their identity too.
+            //
+            // Costs nothing: v3 is additive, the APK stays installable on
+            // anything that took the v2-only ones.
+            //
+            // v1 (JAR signing) stays off. It only matters below API 24 and
+            // minSdk is 24.
+            enableV1Signing = false
+            enableV2Signing = true
+            enableV3Signing = true
         }
     }
 

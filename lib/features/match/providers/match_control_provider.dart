@@ -337,7 +337,16 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
   /// match is read-only, and the event is out on the relays. The event is
   /// addressable, so republishing it replaces the old one, and the monotonic
   /// created_at makes sure the correction wins.
-  void amendOutcome(MatchOutcome outcome) => _setOutcome(outcome);
+  void amendOutcome(MatchOutcome outcome) {
+    // Keep the time the *match* ended. A correction is not an ending: the event
+    // is republished, and its Nostr created_at already records when the fix went
+    // out. Stamping the amendment over endedAt would tell every consumer that a
+    // match from yesterday ended the moment somebody edited it.
+    //
+    // A legacy result has no endedAt to keep, so it gets one now — which is the
+    // best available answer, and better than none.
+    _setOutcome(outcome, endedAt: state.match.endedAt);
+  }
 
   /// [endedAt] defaults to now, which is what a referee ending a match in front
   /// of them means. It is *not* what the clock means: a match whose time ran out

@@ -879,4 +879,49 @@ void main() {
       expect(notifier.state.match.status, MatchStatus.inProgress);
     });
   });
+
+  group('amending a result', () {
+    test('keeps the time the match actually ended', () {
+      // Arrange — a match that ended yesterday, decided against the wrong
+      // fighter
+      nostr = _FakeNostrService();
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final startAt = now - 86400;
+      final finished = _runningMatch().copyWith(
+        status: MatchStatus.finished,
+        startAt: startAt,
+        f1Pt2: 1,
+        winner: MatchWinner.f1,
+        method: MatchMethod.points,
+        endedAt: startAt + 300,
+      );
+      notifier = MatchControlNotifier(finished, nostr);
+
+      // Act — the referee corrects it today
+      notifier.amendOutcome(
+        const MatchOutcome.submissionBy(MatchWinner.f2, submission: 'armbar'),
+      );
+
+      // Assert — the result changes; when the match *ended* does not. A
+      // correction is not an ending, and the event's own created_at already
+      // records when the fix went out.
+      expect(notifier.state.match.winner, MatchWinner.f2);
+      expect(notifier.state.match.endedAt, startAt + 300);
+    });
+
+    test('gives a legacy result the only end time available', () {
+      // Arrange — an event from before ended_at existed
+      nostr = _FakeNostrService();
+      final legacy = _runningMatch().copyWith(status: MatchStatus.finished);
+      expect(legacy.endedAt, isNull);
+      notifier = MatchControlNotifier(legacy, nostr);
+
+      // Act
+      notifier.amendOutcome(const MatchOutcome.submissionBy(MatchWinner.f1));
+
+      // Assert — there is nothing to preserve, so now is the best answer there
+      // is, and better than none
+      expect(notifier.state.match.endedAt, isNotNull);
+    });
+  });
 }

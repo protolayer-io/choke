@@ -88,8 +88,14 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
         suggested: state.suggestedOutcome,
       );
       if (outcome == null || !mounted) return;
+
+      // Re-read the state: the clock can run out while the sheet is open, and
+      // the match may have finished itself behind it. Deciding from the state
+      // this sheet was *opened* with would call finishWith on an
+      // already-finished match — a silent no-op — and the referee's answer
+      // would simply vanish.
       final notifier = ref.read(matchControlProvider.notifier);
-      if (state.isFinished) {
+      if (ref.read(matchControlProvider).isFinished) {
         notifier.amendOutcome(outcome);
       } else {
         notifier.finishWith(outcome);

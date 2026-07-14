@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:choke/features/match/match_control_screen.dart';
 import 'package:choke/features/match/models/match.dart';
+import 'package:choke/features/match/models/match_outcome.dart';
 import 'package:choke/features/match/providers/match_control_provider.dart';
 import 'package:choke/l10n/generated/app_localizations.dart';
 import 'package:choke/services/key_management/key_manager.dart';
@@ -374,4 +375,37 @@ void main() {
     expect(notifier.state.awaitsOutcome, isTrue);
     expect(find.text(l10n.outcomeTitle), findsOneWidget);
   });
+
+  testWidgets('an outcome chosen after the match finished behind the sheet is '
+      'not lost', (tester) async {
+    // Arrange — the referee opens the sheet, and the clock runs out underneath
+    // it: the notifier finishes the match on points, on its own, while the
+    // sheet is still up. (Driven directly here, because the provider's clock
+    // reads the real wall clock and cannot be advanced by the test.)
+    await pumpScreen(tester, _runningMatch().copyWith(f1Pt2: 1));
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    await holdFinish(tester, l10n);
+
+    notifier.finishWith(
+      const MatchOutcome.onScoreboard(MatchWinner.f1, MatchMethod.points),
+    );
+    await tester.pump();
+
+    // Act — and *then* the referee says it was a submission, by the other man
+    await tester.tap(find.text(l10n.outcomeSubmission));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Buchecha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.skip));
+    await tester.pumpAndSettle();
+
+    // Assert — the referee's answer wins. Deciding from the state the sheet was
+    // *opened* with would have called finishWith on a match that was already
+    // finished — a silent no-op — and the submission would simply have
+    // vanished, leaving the wrong fighter published as the winner.
+    final match = notifier.state.match;
+    expect(match.winner, MatchWinner.f2);
+    expect(match.method, MatchMethod.submission);
+  });
+
 }

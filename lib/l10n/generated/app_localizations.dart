@@ -1079,6 +1079,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Submission ({technique})'**
   String outcomeSubmissionOf(String technique);
+
+  /// Submission technique: Armbar
+  ///
+  /// In en, this message translates to:
+  /// **'Armbar'**
+  String get subArmbar;
+
+  /// Submission technique: Rear naked choke
+  ///
+  /// In en, this message translates to:
+  /// **'Rear naked choke'**
+  String get subRearNakedChoke;
+
+  /// Submission technique: Triangle choke
+  ///
+  /// In en, this message translates to:
+  /// **'Triangle choke'**
+  String get subTriangle;
+
+  /// Submission technique: Guillotine
+  ///
+  /// In en, this message translates to:
+  /// **'Guillotine'**
+  String get subGuillotine;
+
+  /// Submission technique: Kimura
+  ///
+  /// In en, this message translates to:
+  /// **'Kimura'**
+  String get subKimura;
+
+  /// Submission technique: Americana
+  ///
+  /// In en, this message translates to:
+  /// **'Americana'**
+  String get subAmericana;
+
+  /// Submission technique: Cross collar choke
+  ///
+  /// In en, this message translates to:
+  /// **'Cross collar choke'**
+  String get subCrossCollarChoke;
+
+  /// Submission technique: Bow and arrow choke
+  ///
+  /// In en, this message translates to:
+  /// **'Bow and arrow choke'**
+  String get subBowAndArrow;
+
+  /// Submission technique: Ezekiel choke
+  ///
+  /// In en, this message translates to:
+  /// **'Ezekiel choke'**
+  String get subEzekiel;
+
+  /// Submission technique: Omoplata
+  ///
+  /// In en, this message translates to:
+  /// **'Omoplata'**
+  String get subOmoplata;
+
+  /// Submission technique: Arm triangle
+  ///
+  /// In en, this message translates to:
+  /// **'Arm triangle'**
+  String get subArmTriangle;
+
+  /// Submission technique: North–south choke
+  ///
+  /// In en, this message translates to:
+  /// **'North–south choke'**
+  String get subNorthSouthChoke;
+
+  /// Submission technique: Straight ankle lock
+  ///
+  /// In en, this message translates to:
+  /// **'Straight ankle lock'**
+  String get subStraightAnkleLock;
+
+  /// Submission technique: Heel hook
+  ///
+  /// In en, this message translates to:
+  /// **'Heel hook'**
+  String get subHeelHook;
+
+  /// Submission technique: Toe hold
+  ///
+  /// In en, this message translates to:
+  /// **'Toe hold'**
+  String get subToeHold;
+
+  /// Outcome sheet: opens free-text entry for a submission not on the list
+  ///
+  /// In en, this message translates to:
+  /// **'Other…'**
+  String get outcomeSubmissionOther;
+
+  /// Settings: submissions section title
+  ///
+  /// In en, this message translates to:
+  /// **'Submissions'**
+  String get settingsSubmissions;
+
+  /// Settings: submissions section description
+  ///
+  /// In en, this message translates to:
+  /// **'The techniques offered when a match ends by submission'**
+  String get settingsSubmissionsDesc;
+
+  /// Submissions editor: add button
+  ///
+  /// In en, this message translates to:
+  /// **'Add submission'**
+  String get submissionsAdd;
+
+  /// Submissions editor: technique name field label
+  ///
+  /// In en, this message translates to:
+  /// **'Technique'**
+  String get submissionsName;
+
+  /// Submissions editor: remove a submission from the list
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get submissionsRemove;
+
+  /// Submissions editor: bring back the built-in submissions
+  ///
+  /// In en, this message translates to:
+  /// **'Restore defaults'**
+  String get submissionsRestore;
+
+  /// Submissions editor: the technique is already on the list
+  ///
+  /// In en, this message translates to:
+  /// **'Already on the list'**
+  String get submissionsDuplicate;
+
+  /// Submissions picker/editor: every submission has been removed
+  ///
+  /// In en, this message translates to:
+  /// **'No submissions left. Add one, or restore the defaults.'**
+  String get submissionsEmpty;
 }
 
 class _AppLocalizationsDelegate

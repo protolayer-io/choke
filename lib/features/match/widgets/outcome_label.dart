@@ -1,6 +1,7 @@
 import 'package:choke/l10n/generated/app_localizations.dart';
 
 import '../models/match.dart';
+import '../models/submission_catalog.dart';
 
 /// How a finished match is described to a human: *"Buchecha · Submission
 /// (armbar)"*.
@@ -29,6 +30,10 @@ String? describeOutcome(AppLocalizations l10n, Match match) {
 }
 
 /// The method on its own — naming the submission when the referee recorded one.
+///
+/// The submission arrives as a canonical id (`armbar`) and is shown by its name
+/// in the reader's language. One the user invented comes back through
+/// [labelFor] unchanged, which is right: it is what they wrote down.
 String methodLabel(
   AppLocalizations l10n,
   MatchMethod method, {
@@ -37,7 +42,7 @@ String methodLabel(
   if (method == MatchMethod.submission &&
       submission != null &&
       submission.isNotEmpty) {
-    return l10n.outcomeSubmissionOf(submission);
+    return l10n.outcomeSubmissionOf(labelFor(l10n, submission));
   }
 
   return switch (method) {

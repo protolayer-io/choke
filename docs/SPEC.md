@@ -72,13 +72,33 @@ that forever.
 |---|---|
 | `winner` | `f1` \| `f2`. **Absent** while unfinished, when canceled, and on a draw. |
 | `method` | `submission` \| `points` \| `advantages` \| `decision` \| `dq` \| `forfeit` \| `draw` |
-| `submission` | Free text (`"armbar"`). Optional, and only with `method: submission`. |
+| `submission` | Free text (`"armbar"`). Optional, and only with `method: submission`. See *Submission ids* below. |
 | `dq_reason` | `accumulated_penalties` \| `technical_foul` \| `disciplinary_foul`. Required with `method: dq`. |
 | `dq_detail` | Free text (`"knee reap"`). Optional. |
 | `ended_at` | Unix seconds. Not derivable — `start_at + duration` is when the clock *would* have run out, which is exactly what a submission prevents. |
 
 `submission`, `dq` and `forfeit` **beat the scoreboard**: the winner is whoever
 `winner` says, whatever the numbers show. The rest *are* the scoreboard.
+
+### Submission ids
+
+The field is free text, but the techniques the app offers have agreed ids —
+lowercase, `snake_case`, English:
+
+```text
+armbar        rear_naked_choke     triangle       guillotine   kimura
+americana     cross_collar_choke   bow_and_arrow  ezekiel      omoplata
+arm_triangle  north_south_choke    heel_hook      toe_hold     straight_ankle_lock
+```
+
+The app is translated; the data is not. A referee taps *chave de braço* in São
+Paulo and 腕十字固め in Tokyo, and both events say `armbar` — so a dashboard
+counting armbars counts one technique, not three.
+
+Anything else is what the referee typed, verbatim (`"baratoplata"`). Show a known
+id by its localized name, show anything else as-is, and **never reject an event
+over a technique you have not heard of** — new ones are the sport working as
+intended.
 
 There is no `penalties` method. Penalties already became advantages and points
 (see the effective score above), so counting them again would count the same

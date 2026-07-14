@@ -528,4 +528,78 @@ class AppLocalizationsEs extends AppLocalizations {
   String outcomeSubmissionOf(String technique) {
     return 'Sumisión ($technique)';
   }
+
+  @override
+  String get subArmbar => 'Palanca de brazo';
+
+  @override
+  String get subRearNakedChoke => 'Mataleón';
+
+  @override
+  String get subTriangle => 'Triángulo';
+
+  @override
+  String get subGuillotine => 'Guillotina';
+
+  @override
+  String get subKimura => 'Kimura';
+
+  @override
+  String get subAmericana => 'Americana';
+
+  @override
+  String get subCrossCollarChoke => 'Estrangulación cruzada';
+
+  @override
+  String get subBowAndArrow => 'Arco y flecha';
+
+  @override
+  String get subEzekiel => 'Ezequiel';
+
+  @override
+  String get subOmoplata => 'Omoplata';
+
+  @override
+  String get subArmTriangle => 'Triángulo de brazo';
+
+  @override
+  String get subNorthSouthChoke => 'Estrangulación norte-sur';
+
+  @override
+  String get subStraightAnkleLock => 'Llave de tobillo';
+
+  @override
+  String get subHeelHook => 'Heel hook';
+
+  @override
+  String get subToeHold => 'Toe hold';
+
+  @override
+  String get outcomeSubmissionOther => 'Otra…';
+
+  @override
+  String get settingsSubmissions => 'Sumisiones';
+
+  @override
+  String get settingsSubmissionsDesc =>
+      'Las técnicas que se ofrecen cuando una lucha termina por sumisión';
+
+  @override
+  String get submissionsAdd => 'Agregar sumisión';
+
+  @override
+  String get submissionsName => 'Técnica';
+
+  @override
+  String get submissionsRemove => 'Quitar';
+
+  @override
+  String get submissionsRestore => 'Restaurar las predeterminadas';
+
+  @override
+  String get submissionsDuplicate => 'Ya está en la lista';
+
+  @override
+  String get submissionsEmpty =>
+      'No queda ninguna sumisión. Agrega una o restaura las predeterminadas.';
 }

@@ -448,4 +448,63 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get bjjBlackBelt => 'BJJの黒帯';
+
+  @override
+  String get outcomeTitle => '試合の終わり方は？';
+
+  @override
+  String get outcomeSubmission => '一本';
+
+  @override
+  String get outcomePoints => 'ポイント';
+
+  @override
+  String get outcomeAdvantages => 'アドバンテージ';
+
+  @override
+  String get outcomeDecision => '審判判定';
+
+  @override
+  String get outcomeDq => '反則失格';
+
+  @override
+  String get outcomeForfeit => '棄権';
+
+  @override
+  String get outcomeDraw => '引き分け';
+
+  @override
+  String get outcomeWhichFighter => '勝者はどちら？';
+
+  @override
+  String get outcomeTechnique => '技（任意）';
+
+  @override
+  String get outcomeDqCategory => '区分';
+
+  @override
+  String get outcomeDqAccumulated => '反則4回';
+
+  @override
+  String get outcomeDqTechnical => 'テクニカルファウル';
+
+  @override
+  String get outcomeDqDisciplinary => '非スポーツ的行為';
+
+  @override
+  String get outcomeDqDetail => '内容（任意）';
+
+  @override
+  String get outcomeConfirm => '確定';
+
+  @override
+  String get outcomeTimeUp => '時間終了 — 試合の終わり方は？';
+
+  @override
+  String outcomeWinsBy(String name) {
+    return '$name の勝ち';
+  }
+
+  @override
+  String get skip => 'スキップ';
 }

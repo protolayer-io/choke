@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:choke/l10n/generated/app_localizations.dart';
 import '../../shared/theme/app_theme.dart';
 import 'models/match.dart';
+import 'models/match_outcome.dart';
 import 'providers/match_control_provider.dart';
 import 'widgets/hold_button.dart';
+import 'widgets/match_outcome_sheet.dart';
 
 /// Parse hex color string (#RRGGBB) to Color with fallback
 Color _hexToColor(String hex, Color fallback) {
@@ -55,10 +57,44 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
     super.dispose();
   }
 
+  /// Guards against re-opening the sheet on every rebuild while it is already
+  /// up: `awaitsOutcome` stays true until the referee answers.
+  bool _askingOutcome = false;
+
+  /// Ask the referee how it ended, and end it with what they say.
+  ///
+  /// Dismissing the sheet leaves the match open — which is the honest state of
+  /// a match nobody has decided, and lets them go back and fix the scoreboard
+  /// before committing to a result.
+  Future<void> _askOutcome(MatchControlState state) async {
+    if (_askingOutcome) return;
+    _askingOutcome = true;
+    try {
+      final outcome = await showMatchOutcomeSheet(
+        context,
+        match: state.match,
+        suggested: state.suggestedOutcome,
+      );
+      if (outcome == null || !mounted) return;
+      ref.read(matchControlProvider.notifier).finishWith(outcome);
+    } finally {
+      _askingOutcome = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(matchControlProvider);
     final notifier = ref.read(matchControlProvider.notifier);
+
+    // The clock ran out on a match the scoreboard cannot decide — a level
+    // score, or a fighter on four penalties. Ask, rather than invent a winner.
+    ref.listen(matchControlProvider, (previous, next) {
+      if (next.awaitsOutcome && !(previous?.awaitsOutcome ?? false)) {
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _askOutcome(next));
+      }
+    });
     final match = state.match;
     final colors = Theme.of(context).colorScheme;
     final f1Color = _hexToColor(match.f1Color, colors.outline);
@@ -286,8 +322,13 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
                 child: _buildScorePanel(
                   context,
                   name: match.f1Name,
-                  score: match.f1Score,
-                  advantages: match.f1Adv,
+                  // The effective score: a penalty against the opponent has
+                  // already become points here, and seeing that jump is how the
+                  // referee knows the penalty landed. The penalty badge below
+                  // still shows the raw count — that is what *this* fighter was
+                  // given.
+                  score: match.f1EffectivePoints,
+                  advantages: match.f1EffectiveAdvantages,
                   penalties: match.f1Pen,
                   color: f1Color,
                 ),
@@ -297,8 +338,8 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
                 child: _buildScorePanel(
                   context,
                   name: match.f2Name,
-                  score: match.f2Score,
-                  advantages: match.f2Adv,
+                  score: match.f2EffectivePoints,
+                  advantages: match.f2EffectiveAdvantages,
                   penalties: match.f2Pen,
                   color: f2Color,
                 ),
@@ -582,7 +623,7 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
               backgroundColor: Colors.transparent,
               border: Border.all(color: colors.primary.withOpacity(.5)),
               borderRadius: const BorderRadius.all(Radius.circular(10)),
-              onHoldComplete: notifier.finishMatch,
+              onHoldComplete: () => _askOutcome(state),
               child: Text(
                 '${l10n.finish} · ${l10n.holdHint}',
                 maxLines: 1,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/match.dart';
+import '../models/match_outcome.dart';
 import '../../../services/nostr/nostr_service.dart';
 import '../../home/providers/home_providers.dart';
 
@@ -12,11 +13,20 @@ class MatchControlState {
   final bool isPublishing;
   final List<_UndoEntry> undoStack;
 
+  /// The clock has run out, and the match cannot be finished without asking.
+  ///
+  /// Either the fighters are level — a level scoreboard is a question, not an
+  /// answer — or someone has four penalties, and only a referee may call a
+  /// disqualification. The match stays [MatchStatus.inProgress] until they say
+  /// how it ended, because it genuinely has not been decided yet.
+  final bool awaitsOutcome;
+
   MatchControlState({
     required this.match,
     required this.remainingSeconds,
     this.isPublishing = false,
     this.undoStack = const [],
+    this.awaitsOutcome = false,
   });
 
   bool get isWaiting => match.status == MatchStatus.waiting;
@@ -29,17 +39,23 @@ class MatchControlState {
   /// The match is under way but its clock is stopped (fighters off the mat).
   bool get isPaused => isRunning && match.pausedAt != null;
 
+  /// What the scoreboard already says, or null when it says nothing — level, and
+  /// the referees' to call.
+  MatchOutcome? get suggestedOutcome => MatchOutcome.suggestedFor(match);
+
   MatchControlState copyWith({
     Match? match,
     int? remainingSeconds,
     bool? isPublishing,
     List<_UndoEntry>? undoStack,
+    bool? awaitsOutcome,
   }) {
     return MatchControlState(
       match: match ?? this.match,
       remainingSeconds: remainingSeconds ?? this.remainingSeconds,
       isPublishing: isPublishing ?? this.isPublishing,
       undoStack: undoStack ?? this.undoStack,
+      awaitsOutcome: awaitsOutcome ?? this.awaitsOutcome,
     );
   }
 }
@@ -100,7 +116,7 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
       // The clock may have run out while the app was closed — a match is
       // never left in progress past its own duration.
       if (state.remainingSeconds <= 0) {
-        _finish();
+        _onTimeUp();
       } else {
         _startTimer();
       }
@@ -153,9 +169,9 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
     // and a stale value would put seconds back on the clock.
     final remaining = _calculateRemaining(paused);
     if (remaining <= 0) {
-      // Time ran out while the timer was stalled — the match is over, and a
-      // finished match cannot be paused.
-      _finish();
+      // Time ran out while the timer was stalled — the clock is done, and a
+      // match whose clock is done cannot be paused.
+      _onTimeUp();
       return;
     }
 
@@ -300,19 +316,51 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
     };
   }
 
-  /// Finish the match
-  void finishMatch() => _finish();
-
-  void _finish() {
+  /// End the match with the outcome the referee chose.
+  ///
+  /// There is no way to finish a match without saying how it ended. That is the
+  /// whole point: a match that stops with only a status publishes a scoreboard
+  /// that can name the wrong fighter.
+  void finishWith(MatchOutcome outcome) {
     if (state.isFinished) return;
 
     _timer?.cancel();
     final updated = state.match.copyWith(
       status: MatchStatus.finished,
       pausedAt: null,
+      winner: outcome.winner,
+      method: outcome.method,
+      submission: outcome.submission,
+      dqReason: outcome.dqReason,
+      dqDetail: outcome.dqDetail,
+      endedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
-    state = state.copyWith(match: updated, remainingSeconds: 0);
+    state = state.copyWith(
+      match: updated,
+      remainingSeconds: 0,
+      awaitsOutcome: false,
+    );
     _publishState();
+  }
+
+  /// The clock has reached zero. Whether that ends the match depends on what
+  /// the scoreboard says — and sometimes it says nothing.
+  void _onTimeUp() {
+    _timer?.cancel();
+
+    final outcome = state.suggestedOutcome;
+
+    // A fighter on four penalties, or a level scoreboard: neither is the app's
+    // to decide. Stop the clock, keep the match open, and ask. Closing it "on
+    // points" would swallow a disqualification whole, or invent a winner the
+    // data does not have.
+    if (outcome == null || state.match.hasDisqualifyingPenalties) {
+      state = state.copyWith(remainingSeconds: 0, awaitsOutcome: true);
+      _publishState();
+      return;
+    }
+
+    finishWith(outcome);
   }
 
   /// Cancel the match
@@ -324,7 +372,7 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
       status: MatchStatus.canceled,
       pausedAt: null,
     );
-    state = state.copyWith(match: updated);
+    state = state.copyWith(match: updated, awaitsOutcome: false);
     _publishState();
   }
 
@@ -334,9 +382,9 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
       final remaining = _calculateRemaining(state.match);
       state = state.copyWith(remainingSeconds: remaining);
 
-      // Regulation time is over: the match finishes on its own.
+      // Regulation time is over.
       if (remaining <= 0) {
-        _finish();
+        _onTimeUp();
       }
     });
   }

@@ -569,5 +569,86 @@
   "bjjBlackBelt": "BJJ black belt",
   "@bjjBlackBelt": {
     "description": "Accessibility label for the black belt image in the settings footer"
+  },
+  "outcomeTitle": "How did it end?",
+  "@outcomeTitle": {
+    "description": "Title of the sheet asking the referee how the match ended"
+  },
+  "outcomeSubmission": "Submission",
+  "@outcomeSubmission": {
+    "description": "Outcome sheet: outcomeSubmission"
+  },
+  "outcomePoints": "Points",
+  "@outcomePoints": {
+    "description": "Outcome sheet: outcomePoints"
+  },
+  "outcomeAdvantages": "Advantages",
+  "@outcomeAdvantages": {
+    "description": "Outcome sheet: outcomeAdvantages"
+  },
+  "outcomeDecision": "Referee decision",
+  "@outcomeDecision": {
+    "description": "Outcome sheet: outcomeDecision"
+  },
+  "outcomeDq": "Disqualification",
+  "@outcomeDq": {
+    "description": "Outcome sheet: outcomeDq"
+  },
+  "outcomeForfeit": "Forfeit",
+  "@outcomeForfeit": {
+    "description": "Outcome sheet: outcomeForfeit"
+  },
+  "outcomeDraw": "Draw",
+  "@outcomeDraw": {
+    "description": "Outcome sheet: outcomeDraw"
+  },
+  "outcomeWhichFighter": "Which fighter won?",
+  "@outcomeWhichFighter": {
+    "description": "Outcome sheet: outcomeWhichFighter"
+  },
+  "outcomeTechnique": "Technique (optional)",
+  "@outcomeTechnique": {
+    "description": "Outcome sheet: outcomeTechnique"
+  },
+  "outcomeDqCategory": "Category",
+  "@outcomeDqCategory": {
+    "description": "Outcome sheet: outcomeDqCategory"
+  },
+  "outcomeDqAccumulated": "Four penalties",
+  "@outcomeDqAccumulated": {
+    "description": "Outcome sheet: outcomeDqAccumulated"
+  },
+  "outcomeDqTechnical": "Technical foul",
+  "@outcomeDqTechnical": {
+    "description": "Outcome sheet: outcomeDqTechnical"
+  },
+  "outcomeDqDisciplinary": "Disciplinary foul",
+  "@outcomeDqDisciplinary": {
+    "description": "Outcome sheet: outcomeDqDisciplinary"
+  },
+  "outcomeDqDetail": "What happened (optional)",
+  "@outcomeDqDetail": {
+    "description": "Outcome sheet: outcomeDqDetail"
+  },
+  "outcomeConfirm": "Confirm",
+  "@outcomeConfirm": {
+    "description": "Outcome sheet: outcomeConfirm"
+  },
+  "outcomeTimeUp": "Time is up — how did it end?",
+  "@outcomeTimeUp": {
+    "description": "Outcome sheet: outcomeTimeUp"
+  },
+  "outcomeWinsBy": "{name} wins",
+  "@outcomeWinsBy": {
+    "description": "Names the winner",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "skip": "Skip",
+  "@skip": {
+    "description": "Skip an optional field"
   }
 }

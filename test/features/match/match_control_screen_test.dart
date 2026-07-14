@@ -37,6 +37,16 @@ Match _runningMatch() {
   );
 }
 
+/// Hold the Finish button until it fires, as a referee does.
+Future<void> holdFinish(WidgetTester tester, AppLocalizations l10n) async {
+  final label = '${l10n.finish} · ${l10n.holdHint}';
+  final gesture = await tester.startGesture(tester.getCenter(find.text(label)));
+  await tester.pump(); // first ticker frame (t = 0)
+  await tester.pump(const Duration(milliseconds: 1100));
+  await gesture.up();
+  await tester.pumpAndSettle();
+}
+
 void main() {
   late MatchControlNotifier notifier;
 
@@ -109,26 +119,86 @@ void main() {
     expect(notifier.state.match.f1Score, 2);
   });
 
-  testWidgets('holding finish button ends the match', (tester) async {
+  testWidgets('holding finish asks how the match ended', (tester) async {
     // Arrange
     await pumpScreen(tester, _runningMatch());
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
-    final finishLabel = '${l10n.finish} · ${l10n.holdHint}';
 
     // Act
-    final gesture =
-        await tester.startGesture(tester.getCenter(find.text(finishLabel)));
-    await tester.pump(); // first ticker frame (t = 0)
-    await tester.pump(const Duration(milliseconds: 1100));
-    await gesture.up();
-    await tester.pump();
+    await holdFinish(tester, l10n);
+
+    // Assert — the hold no longer ends the match on its own. A match that
+    // stopped with only a status would publish a scoreboard that can name the
+    // wrong fighter, which is the bug this sheet exists to remove.
+    expect(notifier.state.match.status, MatchStatus.inProgress);
+    expect(find.text(l10n.outcomeTitle), findsOneWidget);
+  });
+
+  testWidgets('a submission ends the match against the scoreboard',
+      (tester) async {
+    // Arrange — Pana leads 4–0…
+    await pumpScreen(tester, _runningMatch().copyWith(f1Pt4: 1));
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Act — …and Buchecha submits him. Two taps: the method, then the fighter.
+    await holdFinish(tester, l10n);
+    await tester.tap(find.text(l10n.outcomeSubmission));
+    await tester.pumpAndSettle();
+    // The fighter's own colour, in a dialog — not the name on the scoreboard,
+    // which reads identically.
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Buchecha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.skip)); // the technique is optional
+    await tester.pumpAndSettle();
+
+    // Assert — the fighter who was losing on the scoreboard is the winner
+    final match = notifier.state.match;
+    expect(match.status, MatchStatus.finished);
+    expect(match.winner, MatchWinner.f2);
+    expect(match.method, MatchMethod.submission);
+    expect(match.f1Score, 4, reason: 'the raw record is still the record');
+  });
+
+  testWidgets('the scoreboard result is one tap', (tester) async {
+    // Arrange — Pana is ahead, so the sheet offers exactly that
+    await pumpScreen(tester, _runningMatch().copyWith(f1Pt2: 1));
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Act
+    await holdFinish(tester, l10n);
+    await tester.tap(find.textContaining(l10n.outcomePoints));
+    await tester.pumpAndSettle();
 
     // Assert
-    expect(notifier.state.match.status, MatchStatus.finished);
-    expect(
-      find.text('${l10n.matchFinished} · ${l10n.matchReadOnly}'),
-      findsOneWidget,
-    );
+    expect(notifier.state.match.winner, MatchWinner.f1);
+    expect(notifier.state.match.method, MatchMethod.points);
+  });
+
+  testWidgets('dismissing the sheet leaves the match open', (tester) async {
+    // Arrange — a referee who opened it by mistake, or who wants to fix the
+    // score first
+    await pumpScreen(tester, _runningMatch());
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    await holdFinish(tester, l10n);
+
+    // Act
+    await tester.tapAt(const Offset(10, 10)); // the scrim
+    await tester.pumpAndSettle();
+
+    // Assert — an undecided match is not a finished one
+    expect(notifier.state.match.status, MatchStatus.inProgress);
+    expect(notifier.state.match.winner, isNull);
+  });
+
+  testWidgets('the scoreboard shows the points a penalty conceded',
+      (tester) async {
+    // Arrange — Buchecha has three penalties, which give Pana two points
+    await pumpScreen(tester, _runningMatch().copyWith(f1Pt2: 1, f2Pen: 3));
+
+    // Assert — 2 scored + 2 conceded. Seeing that jump is how the referee knows
+    // the penalty landed; the penalty badge still shows Buchecha's raw count.
+    expect(find.text('4'), findsOneWidget);
+    expect(find.text('P:3'), findsOneWidget);
   });
 
   testWidgets('waiting match shows start overlay', (tester) async {

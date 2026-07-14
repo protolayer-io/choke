@@ -468,4 +468,63 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get bjjBlackBelt => 'Cinturón negro de BJJ';
+
+  @override
+  String get outcomeTitle => '¿Cómo terminó?';
+
+  @override
+  String get outcomeSubmission => 'Sumisión';
+
+  @override
+  String get outcomePoints => 'Puntos';
+
+  @override
+  String get outcomeAdvantages => 'Ventajas';
+
+  @override
+  String get outcomeDecision => 'Decisión arbitral';
+
+  @override
+  String get outcomeDq => 'Descalificación';
+
+  @override
+  String get outcomeForfeit => 'Abandono';
+
+  @override
+  String get outcomeDraw => 'Empate';
+
+  @override
+  String get outcomeWhichFighter => '¿Qué luchador ganó?';
+
+  @override
+  String get outcomeTechnique => 'Técnica (opcional)';
+
+  @override
+  String get outcomeDqCategory => 'Categoría';
+
+  @override
+  String get outcomeDqAccumulated => 'Cuatro penalidades';
+
+  @override
+  String get outcomeDqTechnical => 'Falta técnica';
+
+  @override
+  String get outcomeDqDisciplinary => 'Falta disciplinaria';
+
+  @override
+  String get outcomeDqDetail => 'Qué pasó (opcional)';
+
+  @override
+  String get outcomeConfirm => 'Confirmar';
+
+  @override
+  String get outcomeTimeUp => 'Se acabó el tiempo — ¿cómo terminó?';
+
+  @override
+  String outcomeWinsBy(String name) {
+    return 'Gana $name';
+  }
+
+  @override
+  String get skip => 'Omitir';
 }

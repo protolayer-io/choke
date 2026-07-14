@@ -400,6 +400,11 @@ class Match {
         'method "${method!.toJson()}" needs a winner',
       );
     }
+    if (winner != null && method == null) {
+      throw const FormatException(
+        'a winner without a method says who won but not what they won by',
+      );
+    }
     if (method == MatchMethod.dq && dqReason == null) {
       throw const FormatException('method "dq" needs a dq_reason');
     }
@@ -409,8 +414,16 @@ class Match {
     if (method != null && endedAt == null) {
       throw const FormatException('a match with an outcome needs an ended_at');
     }
-    if (endedAt != null && endedAt! < 0) {
-      throw FormatException('endedAt must be non-negative, got: $endedAt');
+    if (endedAt != null) {
+      if (endedAt! < 0) {
+        throw FormatException('endedAt must be non-negative, got: $endedAt');
+      }
+      // A match cannot have ended before it began.
+      if (startAt != null && endedAt! < startAt!) {
+        throw FormatException(
+          'endedAt ($endedAt) cannot precede startAt ($startAt)',
+        );
+      }
     }
 
     // A clock can only be stopped after it started
@@ -449,8 +462,15 @@ class Match {
   /// A match still in progress is **not** legacy, whatever it carries: it has
   /// no result to preserve, and it is being refereed *now*, by this app, under
   /// these rules.
+  ///
+  /// The test is [endedAt], not [method]. A legacy event has neither — but a
+  /// match *this* app ends always stamps [endedAt], even when it cannot yet
+  /// name a method (the referees have still to decide a level one). Keying off
+  /// [method] would therefore have made the app contradict itself the instant a
+  /// referee pressed Finish: a 0–0 match against three penalties reads 2–0
+  /// while it runs, and would have snapped back to 0–0 the moment it stopped.
   bool get isLegacyResult =>
-      method == null &&
+      endedAt == null &&
       (status == MatchStatus.finished || status == MatchStatus.canceled);
 
   /// Points fighter 1 has, including those their opponent's penalties conceded.

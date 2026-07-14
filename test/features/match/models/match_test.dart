@@ -1020,6 +1020,26 @@ void _outcomeTests() {
       expect(legacy.scoreboardWinner, MatchWinner.f2);
     });
 
+    test('a match this app finished is never legacy, even before phase 2', () {
+      // Arrange — finishing stamps ended_at even when it cannot yet name a
+      // method (a level scoreboard is the referees' to call). Keying the legacy
+      // rule off `method` would make the app contradict itself: this 0–0 match
+      // against three penalties reads 2–0 while it runs…
+      final live = _match(f2Pen: 3);
+      expect(live.f1EffectivePoints, 2);
+
+      // Act — …and the referee presses Finish
+      final finished = live.copyWith(
+        status: MatchStatus.finished,
+        endedAt: 1700000180,
+      );
+
+      // Assert — …and it still reads 2–0. The penalty points the referee
+      // watched land do not vanish the instant they stop the clock.
+      expect(finished.isLegacyResult, isFalse);
+      expect(finished.f1EffectivePoints, 2);
+    });
+
     test('a canceled match is legacy too', () {
       expect(
         _match(status: MatchStatus.canceled, f2Pen: 3).isLegacyResult,
@@ -1115,6 +1135,31 @@ void _outcomeTests() {
           status: MatchStatus.finished,
           method: MatchMethod.submission,
           winner: MatchWinner.f2,
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('a winner without a method is refused', () {
+      // Arrange — it says who won and not what they won by, which is half an
+      // answer: a consumer cannot tell a submission from a points decision
+      expect(
+        () => _match(
+          status: MatchStatus.finished,
+          winner: MatchWinner.f1,
+          endedAt: 1700000180,
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('a match cannot have ended before it began', () {
+      expect(
+        () => _match(
+          status: MatchStatus.finished,
+          method: MatchMethod.submission,
+          winner: MatchWinner.f2,
+          endedAt: 1699999999, // startAt is 1700000000
         ),
         throwsFormatException,
       );

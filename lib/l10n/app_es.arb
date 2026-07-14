@@ -162,5 +162,7 @@
   "outcomeConfirm": "Confirmar",
   "outcomeTimeUp": "Se acabó el tiempo — ¿cómo terminó?",
   "outcomeWinsBy": "Gana {name}",
-  "skip": "Omitir"
+  "skip": "Omitir",
+  "outcomeAmend": "Corregir resultado",
+  "outcomeSubmissionOf": "Sumisión ({technique})"
 }

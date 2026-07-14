@@ -527,4 +527,12 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get skip => 'Omitir';
+
+  @override
+  String get outcomeAmend => 'Corregir resultado';
+
+  @override
+  String outcomeSubmissionOf(String technique) {
+    return 'Sumisión ($technique)';
+  }
 }

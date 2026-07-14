@@ -526,4 +526,12 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get skip => 'Pular';
+
+  @override
+  String get outcomeAmend => 'Corrigir resultado';
+
+  @override
+  String outcomeSubmissionOf(String technique) {
+    return 'Finalização ($technique)';
+  }
 }

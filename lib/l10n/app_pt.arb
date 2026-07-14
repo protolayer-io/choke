@@ -162,5 +162,7 @@
   "outcomeConfirm": "Confirmar",
   "outcomeTimeUp": "Tempo esgotado — como terminou?",
   "outcomeWinsBy": "{name} vence",
-  "skip": "Pular"
+  "skip": "Pular",
+  "outcomeAmend": "Corrigir resultado",
+  "outcomeSubmissionOf": "Finalização ({technique})"
 }

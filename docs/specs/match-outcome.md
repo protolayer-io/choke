@@ -408,18 +408,20 @@ Today, holding *Finish* ends the match immediately. Proposed:
 
 ## 10. Open questions
 
-### 10.1 Amending a finished match — deferred to phase 3
+### 10.1 Amending a finished match — ✅ done (phase 3)
 
 A finished match is read-only today (`_buildReadOnlyFooter`; `finishMatch` and
 `cancelMatch` are no-ops once `isFinished`). So a match the clock closed with the
 wrong winner — a penalty entered against the wrong fighter, say — **stays wrong
 forever**.
 
-That is a real gap, and this spec deliberately does **not** promise otherwise:
-nothing in phases 1 or 2 lets a referee correct a finished match. The mechanics
-are cheap (the event is addressable, republishing is what the app already does,
-and the monotonic `created_at` already handles it) — the cost is the UI. It goes
-in phase 3, and until it exists the app should not pretend.
+Phase 3 fixes it: a finished match offers **Amend result**, which reopens the
+outcome sheet and republishes. The mechanics were cheap, as expected — the event
+is addressable, so the correction supersedes the mistake on every relay, and the
+monotonic `created_at` makes sure it wins.
+
+A **canceled** match has no amend button: it is not a result, it is the absence
+of one.
 
 ### 10.2 Everything else is decided.
 

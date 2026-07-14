@@ -284,4 +284,68 @@ void main() {
     // Assert
     expect(notifier.state.match.f1Score, 2);
   });
+
+  testWidgets('a finished match says how it ended, not just that it did',
+      (tester) async {
+    // Arrange — Pana leads 4–0 on the scoreboard, and lost to an armbar
+    final finished = _runningMatch().copyWith(
+      status: MatchStatus.finished,
+      f1Pt4: 1,
+      winner: MatchWinner.f2,
+      method: MatchMethod.submission,
+      submission: 'armbar',
+      endedAt: 1700000180,
+    );
+    await pumpScreen(tester, finished);
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Assert — the footer names the fighter who won, not the bigger number
+    expect(
+      find.text('Buchecha · ${l10n.outcomeSubmissionOf('armbar')}'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a wrong result can be corrected', (tester) async {
+    // Arrange — the clock closed it on points, against the wrong fighter (a
+    // penalty entered against the wrong man, say). Without this, the mistake is
+    // published and permanent.
+    final finished = _runningMatch().copyWith(
+      status: MatchStatus.finished,
+      f1Pt2: 1,
+      winner: MatchWinner.f1,
+      method: MatchMethod.points,
+      endedAt: 1700000180,
+    );
+    await pumpScreen(tester, finished);
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Act
+    await tester.tap(find.text(l10n.outcomeAmend));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.outcomeSubmission));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Buchecha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.skip));
+    await tester.pumpAndSettle();
+
+    // Assert — the result is replaced, and republished: the event is
+    // addressable, so the correction supersedes the mistake on every relay
+    final match = notifier.state.match;
+    expect(match.winner, MatchWinner.f2);
+    expect(match.method, MatchMethod.submission);
+    expect(match.status, MatchStatus.finished);
+  });
+
+  testWidgets('a canceled match has nothing to amend', (tester) async {
+    // Arrange — a canceled match is not a result; it is the absence of one
+    final canceled =
+        _runningMatch().copyWith(status: MatchStatus.canceled);
+    await pumpScreen(tester, canceled);
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Assert
+    expect(find.text(l10n.outcomeAmend), findsNothing);
+  });
 }

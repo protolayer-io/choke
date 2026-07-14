@@ -507,4 +507,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get skip => 'スキップ';
+
+  @override
+  String get outcomeAmend => '結果を修正';
+
+  @override
+  String outcomeSubmissionOf(String technique) {
+    return '一本（$technique）';
+  }
 }

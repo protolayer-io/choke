@@ -323,7 +323,19 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
   /// that can name the wrong fighter.
   void finishWith(MatchOutcome outcome) {
     if (state.isFinished) return;
+    _setOutcome(outcome);
+  }
 
+  /// Correct a result that is already published.
+  ///
+  /// A match the clock closed with the wrong winner — a penalty entered against
+  /// the wrong fighter, say — would otherwise stay wrong forever: a finished
+  /// match is read-only, and the event is out on the relays. The event is
+  /// addressable, so republishing it replaces the old one, and the monotonic
+  /// created_at makes sure the correction wins.
+  void amendOutcome(MatchOutcome outcome) => _setOutcome(outcome);
+
+  void _setOutcome(MatchOutcome outcome) {
     _timer?.cancel();
     final updated = state.match.copyWith(
       status: MatchStatus.finished,

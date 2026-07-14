@@ -18,16 +18,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get navHome => 'ホーム';
 
   @override
-  String get navMatch => '試合';
-
-  @override
   String get navAccount => 'アカウント';
 
   @override
   String get navSettings => '設定';
-
-  @override
-  String get matchListPlaceholder => 'ホーム画面から試合を作成してください';
 
   @override
   String get noMatchesYet => 'まだ試合がありません';

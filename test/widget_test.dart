@@ -32,25 +32,22 @@ void main() {
 
     // Verify that bottom navigation items exist.
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Match'), findsOneWidget);
     expect(find.text('Account'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
 
     // Verify app title in header.
     expect(find.text('Choke'), findsOneWidget);
+
+    // The Match tab is gone, and must stay gone. It could only ever tell you to
+    // go somewhere else — a nav item that costs a tap and returns nothing is
+    // worse than a missing feature, because a missing feature promises nothing.
+    expect(find.text('Match'), findsNothing);
   });
 
   testWidgets('Can navigate to different tabs', (WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(overrides: _fakeNostrStack(), child: const ChokeApp()),
     );
-
-    // Tap on Match tab.
-    await tester.tap(find.text('Match'));
-    await tester.pump();
-
-    // Verify Match screen content.
-    expect(find.text('Create a match from the Home screen'), findsOneWidget);
 
     // Tap on Account tab.
     await tester.tap(find.text('Account'));

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:choke/features/match/match_control_screen.dart';
 import 'package:choke/features/match/models/match.dart';
+import 'package:choke/features/match/models/match_outcome.dart';
 import 'package:choke/features/match/providers/match_control_provider.dart';
 import 'package:choke/l10n/generated/app_localizations.dart';
 import 'package:choke/services/key_management/key_manager.dart';
@@ -285,6 +286,74 @@ void main() {
     expect(notifier.state.match.f1Score, 2);
   });
 
+  testWidgets('a finished match says how it ended, not just that it did',
+      (tester) async {
+    // Arrange — Pana leads 4–0 on the scoreboard, and lost to an armbar
+    final startAt = DateTime.now().millisecondsSinceEpoch ~/ 1000 - 180;
+    final finished = _runningMatch().copyWith(
+      status: MatchStatus.finished,
+      startAt: startAt,
+      f1Pt4: 1,
+      winner: MatchWinner.f2,
+      method: MatchMethod.submission,
+      submission: 'armbar',
+      endedAt: startAt + 120,
+    );
+    await pumpScreen(tester, finished);
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Assert — the footer names the fighter who won, not the bigger number
+    expect(
+      find.text('Buchecha · ${l10n.outcomeSubmissionOf('armbar')}'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a wrong result can be corrected', (tester) async {
+    // Arrange — the clock closed it on points, against the wrong fighter (a
+    // penalty entered against the wrong man, say). Without this, the mistake is
+    // published and permanent.
+    final startAt = DateTime.now().millisecondsSinceEpoch ~/ 1000 - 300;
+    final finished = _runningMatch().copyWith(
+      status: MatchStatus.finished,
+      startAt: startAt,
+      f1Pt2: 1,
+      winner: MatchWinner.f1,
+      method: MatchMethod.points,
+      endedAt: startAt + 300,
+    );
+    await pumpScreen(tester, finished);
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Act
+    await tester.tap(find.text(l10n.outcomeAmend));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.outcomeSubmission));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Buchecha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.skip));
+    await tester.pumpAndSettle();
+
+    // Assert — the result is replaced, and republished: the event is
+    // addressable, so the correction supersedes the mistake on every relay
+    final match = notifier.state.match;
+    expect(match.winner, MatchWinner.f2);
+    expect(match.method, MatchMethod.submission);
+    expect(match.status, MatchStatus.finished);
+  });
+
+  testWidgets('a canceled match has nothing to amend', (tester) async {
+    // Arrange — a canceled match is not a result; it is the absence of one
+    final canceled =
+        _runningMatch().copyWith(status: MatchStatus.canceled);
+    await pumpScreen(tester, canceled);
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Assert
+    expect(find.text(l10n.outcomeAmend), findsNothing);
+  });
+
   testWidgets('reopening a match whose clock already expired asks at once',
       (tester) async {
     // Arrange — the referee closed the app mid-match and came back. The
@@ -306,4 +375,37 @@ void main() {
     expect(notifier.state.awaitsOutcome, isTrue);
     expect(find.text(l10n.outcomeTitle), findsOneWidget);
   });
+
+  testWidgets('an outcome chosen after the match finished behind the sheet is '
+      'not lost', (tester) async {
+    // Arrange — the referee opens the sheet, and the clock runs out underneath
+    // it: the notifier finishes the match on points, on its own, while the
+    // sheet is still up. (Driven directly here, because the provider's clock
+    // reads the real wall clock and cannot be advanced by the test.)
+    await pumpScreen(tester, _runningMatch().copyWith(f1Pt2: 1));
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    await holdFinish(tester, l10n);
+
+    notifier.finishWith(
+      const MatchOutcome.onScoreboard(MatchWinner.f1, MatchMethod.points),
+    );
+    await tester.pump();
+
+    // Act — and *then* the referee says it was a submission, by the other man
+    await tester.tap(find.text(l10n.outcomeSubmission));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Buchecha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.skip));
+    await tester.pumpAndSettle();
+
+    // Assert — the referee's answer wins. Deciding from the state the sheet was
+    // *opened* with would have called finishWith on a match that was already
+    // finished — a silent no-op — and the submission would simply have
+    // vanished, leaving the wrong fighter published as the winner.
+    final match = notifier.state.match;
+    expect(match.winner, MatchWinner.f2);
+    expect(match.method, MatchMethod.submission);
+  });
+
 }

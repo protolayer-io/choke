@@ -5,6 +5,7 @@ import '../../shared/theme/app_theme.dart';
 import '../match/create_match_screen.dart';
 import '../match/match_control_screen.dart';
 import '../match/models/match.dart';
+import '../match/widgets/outcome_label.dart';
 import '../match/providers/match_control_provider.dart';
 import 'providers/home_providers.dart';
 
@@ -341,9 +342,12 @@ class HomeScreen extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (match.f1Adv > 0) ...[
+                    if (match.f1EffectiveAdvantages > 0) ...[
                       const SizedBox(width: 6),
-                      _buildSmallBadge('A:${match.f1Adv}', tk.goldFg),
+                      _buildSmallBadge(
+                        'A:${match.f1EffectiveAdvantages}',
+                        tk.goldFg,
+                      ),
                     ],
                     if (match.f1Pen > 0) ...[
                       const SizedBox(width: 4),
@@ -357,9 +361,9 @@ class HomeScreen extends ConsumerWidget {
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    '${match.f1Score}',
+                    '${match.f1EffectivePoints}',
                     style: TextStyle(
-                      color: match.f1Score > match.f2Score && !isCanceled
+                      color: _isWinning(match, MatchWinner.f1, isCanceled)
                           ? tk.accent
                           : tk.muted,
                       fontWeight: FontWeight.bold,
@@ -375,9 +379,9 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    '${match.f2Score}',
+                    '${match.f2EffectivePoints}',
                     style: TextStyle(
-                      color: match.f2Score > match.f1Score && !isCanceled
+                      color: _isWinning(match, MatchWinner.f2, isCanceled)
                           ? tk.accent
                           : tk.muted,
                       fontWeight: FontWeight.bold,
@@ -391,8 +395,11 @@ class HomeScreen extends ConsumerWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    if (match.f2Adv > 0) ...[
-                      _buildSmallBadge('A:${match.f2Adv}', tk.goldFg),
+                    if (match.f2EffectiveAdvantages > 0) ...[
+                      _buildSmallBadge(
+                        'A:${match.f2EffectiveAdvantages}',
+                        tk.goldFg,
+                      ),
                       const SizedBox(width: 6),
                     ],
                     if (match.f2Pen > 0) ...[
@@ -423,6 +430,31 @@ class HomeScreen extends ConsumerWidget {
               ),
             ],
           ),
+
+          // How it ended — because the scoreboard above cannot say. A match
+          // that finished on a submission shows the loser's numbers as the
+          // bigger ones, and only this line names the fighter who actually won.
+          if (describeOutcome(l10n, match) case final outcome?) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.emoji_events_outlined, size: 13, color: tk.goldFg),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    outcome,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: tk.goldFg,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -480,6 +512,22 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Whether to light this fighter's number up.
+  ///
+  /// A finished match names its winner, and that name is the only thing worth
+  /// believing: Bob can lead 4–0 and still lose to an armbar. Only while a
+  /// match is undecided does the scoreboard get to speak for itself — and a
+  /// canceled match has no winner at all.
+  bool _isWinning(Match match, MatchWinner fighter, bool isCanceled) {
+    if (isCanceled) return false;
+
+    final winner = match.winner;
+    if (winner != null) return winner == fighter;
+    if (match.method != null) return false; // a draw: nobody won
+
+    return match.scoreboardWinner == fighter;
   }
 
   Widget _buildSmallBadge(String text, Color color) {

@@ -8,6 +8,7 @@ import 'models/match_outcome.dart';
 import 'providers/match_control_provider.dart';
 import 'widgets/hold_button.dart';
 import 'widgets/match_outcome_sheet.dart';
+import 'widgets/outcome_label.dart';
 
 /// Parse hex color string (#RRGGBB) to Color with fallback
 Color _hexToColor(String hex, Color fallback) {
@@ -87,7 +88,18 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
         suggested: state.suggestedOutcome,
       );
       if (outcome == null || !mounted) return;
-      ref.read(matchControlProvider.notifier).finishWith(outcome);
+
+      // Re-read the state: the clock can run out while the sheet is open, and
+      // the match may have finished itself behind it. Deciding from the state
+      // this sheet was *opened* with would call finishWith on an
+      // already-finished match — a silent no-op — and the referee's answer
+      // would simply vanish.
+      final notifier = ref.read(matchControlProvider.notifier);
+      if (ref.read(matchControlProvider).isFinished) {
+        notifier.amendOutcome(outcome);
+      } else {
+        notifier.finishWith(outcome);
+      }
     } finally {
       _askingOutcome = false;
     }
@@ -728,46 +740,77 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
     );
   }
 
-  /// Read-only footer shown in place of the scoring controls once a match is
-  /// finished or canceled. The match detail stays fully visible above it.
+  /// Shown in place of the scoring controls once a match is finished or
+  /// canceled. It says *how* it ended — a score row alone would show the loser
+  /// of a submission with the bigger numbers — and offers to correct it.
   Widget _buildReadOnlyFooter(BuildContext context, MatchControlState state) {
     final l10n = AppLocalizations.of(context);
     final tk = ChokeTokens.of(context);
     final finished = state.match.status == MatchStatus.finished;
     final accent = finished ? tk.statusFinishedFg : tk.dangerFg;
-    final label = finished ? l10n.matchFinished : l10n.matchCanceled;
+
+    final outcome = describeOutcome(l10n, state.match);
+    final label = outcome ??
+        (finished ? l10n.matchFinished : l10n.matchCanceled);
 
     return SizedBox(
       height: 44,
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: accent.withOpacity(.12),
-            borderRadius: BorderRadius.circular(99),
-            border: Border.all(color: accent.withOpacity(.4)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                finished ? Icons.emoji_events_outlined : Icons.cancel_outlined,
-                size: 16,
-                color: accent,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Flexible(
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(color: accent.withValues(alpha: .4)),
               ),
-              const SizedBox(width: 8),
-              Text(
-                '$label · ${l10n.matchReadOnly}',
-                style: TextStyle(
-                  color: accent,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: .5,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    finished
+                        ? Icons.emoji_events_outlined
+                        : Icons.cancel_outlined,
+                    size: 16,
+                    color: accent,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: .5,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+
+          // A result the clock got wrong would otherwise stay wrong forever.
+          // Canceled matches are not results, so there is nothing to amend.
+          if (finished) ...[
+            const SizedBox(width: 8),
+            TextButton.icon(
+              onPressed: () => _askOutcome(state),
+              icon: const Icon(Icons.edit_outlined, size: 15),
+              label: Text(
+                l10n.outcomeAmend,
+                style: const TextStyle(fontSize: 11),
+              ),
+              style: TextButton.styleFrom(foregroundColor: tk.faint),
+            ),
+          ],
+        ],
       ),
     );
   }

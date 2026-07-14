@@ -45,11 +45,56 @@ Fetch events from nostr relays in real time, the events we are fetching are auth
   "f1_adv": 0,
   "f2_adv": 0,
   "f1_pen": 0,
-  "f2_pen": 0
+  "f2_pen": 0,
+
+  "winner": "f1",
+  "method": "submission",
+  "submission": "armbar",
+  "dq_reason": null,
+  "dq_detail": null,
+  "ended_at": 1700000180
 }
 ```
 
-> **Score = pt2×2 + pt3×3 + pt4×4** (per fighter)
+> **Raw score = pt2×2 + pt3×3 + pt4×4** (per fighter)
+>
+> **Effective score = raw score + 2 if the *opponent* has 3+ penalties**
+> **Effective advantages = adv + 1 if the *opponent* has 2+ penalties**
+
+### Outcome (how the match was won)
+
+The scoreboard cannot name the winner on its own: a fighter can lead 4–0 and
+lose to an armbar. These fields say what actually happened, and they are
+**absent** from events published before they existed — a consumer must tolerate
+that forever.
+
+| Field | Values |
+|---|---|
+| `winner` | `f1` \| `f2`. **Absent** while unfinished, when canceled, and on a draw. |
+| `method` | `submission` \| `points` \| `advantages` \| `decision` \| `dq` \| `forfeit` \| `draw` |
+| `submission` | Free text (`"armbar"`). Optional, and only with `method: submission`. |
+| `dq_reason` | `accumulated_penalties` \| `technical_foul` \| `disciplinary_foul`. Required with `method: dq`. |
+| `dq_detail` | Free text (`"knee reap"`). Optional. |
+| `ended_at` | Unix seconds. Not derivable — `start_at + duration` is when the clock *would* have run out, which is exactly what a submission prevents. |
+
+`submission`, `dq` and `forfeit` **beat the scoreboard**: the winner is whoever
+`winner` says, whatever the numbers show. The rest *are* the scoreboard.
+
+There is no `penalties` method. Penalties already became advantages and points
+(see the effective score above), so counting them again would count the same
+penalty twice.
+
+**Penalties (IBJJF):** the 2nd concedes an advantage to the opponent, the 3rd
+concedes two points, the 4th is a disqualification — which the referee calls,
+not the app. The raw counters stay raw: the conceded points are derived, never
+folded into `f1_pt2`, or the record would claim a takedown that never happened.
+
+**Legacy events are not re-refereed.** A *finished* match with no `method`
+predates all of this: read it with the raw scoreboard and no penalty
+consequences. Applying the ladder retroactively would rewrite results people
+have already seen.
+
+See `docs/specs/match-outcome.md`.
 
 ### Field Definitions
 

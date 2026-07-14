@@ -1079,6 +1079,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Skip'**
   String get skip;
+
+  /// Outcome: outcomeAmend
+  ///
+  /// In en, this message translates to:
+  /// **'Amend result'**
+  String get outcomeAmend;
+
+  /// Outcome: outcomeSubmissionOf
+  ///
+  /// In en, this message translates to:
+  /// **'Submission ({technique})'**
+  String outcomeSubmissionOf(String technique);
 }
 
 class _AppLocalizationsDelegate

@@ -650,5 +650,18 @@
   "skip": "Skip",
   "@skip": {
     "description": "Skip an optional field"
+  },
+  "outcomeAmend": "Amend result",
+  "@outcomeAmend": {
+    "description": "Outcome: outcomeAmend"
+  },
+  "outcomeSubmissionOf": "Submission ({technique})",
+  "@outcomeSubmissionOf": {
+    "description": "Outcome: outcomeSubmissionOf",
+    "placeholders": {
+      "technique": {
+        "type": "String"
+      }
+    }
   }
 }

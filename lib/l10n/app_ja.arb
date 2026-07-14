@@ -162,5 +162,7 @@
   "outcomeConfirm": "確定",
   "outcomeTimeUp": "時間終了 — 試合の終わり方は？",
   "outcomeWinsBy": "{name} の勝ち",
-  "skip": "スキップ"
+  "skip": "スキップ",
+  "outcomeAmend": "結果を修正",
+  "outcomeSubmissionOf": "一本（{technique}）"
 }

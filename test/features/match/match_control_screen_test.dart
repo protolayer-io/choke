@@ -288,13 +288,15 @@ void main() {
   testWidgets('a finished match says how it ended, not just that it did',
       (tester) async {
     // Arrange — Pana leads 4–0 on the scoreboard, and lost to an armbar
+    final startAt = DateTime.now().millisecondsSinceEpoch ~/ 1000 - 180;
     final finished = _runningMatch().copyWith(
       status: MatchStatus.finished,
+      startAt: startAt,
       f1Pt4: 1,
       winner: MatchWinner.f2,
       method: MatchMethod.submission,
       submission: 'armbar',
-      endedAt: 1700000180,
+      endedAt: startAt + 120,
     );
     await pumpScreen(tester, finished);
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
@@ -310,12 +312,14 @@ void main() {
     // Arrange — the clock closed it on points, against the wrong fighter (a
     // penalty entered against the wrong man, say). Without this, the mistake is
     // published and permanent.
+    final startAt = DateTime.now().millisecondsSinceEpoch ~/ 1000 - 300;
     final finished = _runningMatch().copyWith(
       status: MatchStatus.finished,
+      startAt: startAt,
       f1Pt2: 1,
       winner: MatchWinner.f1,
       method: MatchMethod.points,
-      endedAt: 1700000180,
+      endedAt: startAt + 300,
     );
     await pumpScreen(tester, finished);
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));

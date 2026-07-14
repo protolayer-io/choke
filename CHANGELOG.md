@@ -1,5 +1,62 @@
 # Changelog
 
+## [v1.4.0] - 2026-07-14
+
+### Added
+- feat: tap the submission instead of typing it (1ed817b)
+- feat(match): show the result, and let a wrong one be corrected (9e8550c)
+- feat(match): ask the referee how the match ended (a2a5b62)
+- feat(match): record how a match was won, and make penalties count (c286a94)
+- add lib/**/test/** paths to rust CI (71471ee)
+- feat(relay): make nostr-sdk the default transport (481c35b)
+- feat(relay): add the nostr-sdk relay backend, proven by a transport contract (b8cc3b7)
+- feat(crypto): make the Rust nostr crate the default backend (6b1b62b)
+- feat(rust): implement NostrCrypto in Rust, proven equivalent by differential tests (2d58158)
+- feat(rust): scaffold the Rust/flutter_rust_bridge toolchain (92737c0)
+
+### Fixed
+- fix: read the value of -PdebugSignRelease, not just its presence (8705b28)
+- fix: sign releases with v3 as well as v2 (ff2d72d)
+- fix: stop local builds from poisoning release updates (9b419f8)
+- fix: make saving the submission list durable and ordered (cb65d24)
+- fix(match): a correction is not an ending, and an answer must not vanish (cfea5fb)
+- fix(match): carry the phase-2 fixes through the amend refactor (06c8b7a)
+- fix(match): three ways the sheet could fail a referee (5fe4c97)
+- fix(match): a match this app finished is not a legacy event (0ab6c8a)
+- fix(ci): scope the arm64 filter to the release variant, not the Gradle run (b393cc5)
+- fix(relay): closing a dead socket must not block the reconnect (e7c14ac)
+- fix(relay): honest publish verdict, gated status, and fmt (755dc09)
+- fix(relay): a connect still shaking hands must not hijack its replacement (50db868)
+- fix(security): keep private-key material out of the device log (3dbb6e7)
+- fix(ci): commit the Cargokit Gradle wiring the APK build needs (cfbe52f)
+- fix: a socket swap must not poison the connection that replaces it (c5f481f)
+- fix: every relay converges to the latest match state (1e1ca92)
+
+### Documentation
+- docs(spec): do not apply the penalty ladder to matches already refereed (fd7f8fa)
+- docs(spec): the fourth penalty records, it does not decide (f9aa23c)
+- docs(spec): tag the code fences with a language (MD040) (e384fd7)
+- docs(spec): draws are real, and penalties cannot be a tiebreak (f5af9c6)
+- docs(spec): apply the penalty ladder, categorise DQ reasons, always record ended_at (4be6bc2)
+- docs: spec for recording how a match was won (9e891cd)
+- docs(relay): document the transport interface; make Filter const (49f34f5)
+- docs(migration): phase 0 spike results — pins, size budget, gotchas (7c89a4e)
+- docs: spec for migrating nostr_tools to rust nostr-sdk via flutter_rust_bridge (fd1b1f0)
+
+### Changed
+- chore: rename the app id to io.protolayer.choke (8e7d13d)
+- chore: remove the Match tab, which could only tell you to go somewhere else (c889878)
+- test(match): a match cannot end before it starts (561ec57)
+- ci: ship an arm64-only release APK (bd92427)
+- test(relay): wait for the transport to connect, don't guess how long it takes (2a4b104)
+- refactor(nostr): put a NostrRelayBackend seam under the relay layer (569567c)
+- test,docs: close review gaps in the Rust crypto phase (5220df0)
+- refactor(nostr): put a NostrCrypto seam between the app and its crypto library (472ba7f)
+- ci: put sdkmanager on PATH before installing the NDK (62e1040)
+- ci: give the runners what the Rust build actually needs (1c83061)
+- chore: update changelog and version for v1.3.0 (13fc2a2)
+
+
 ## [v1.3.0] - 2026-07-12
 
 ### Added

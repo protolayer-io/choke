@@ -18,7 +18,13 @@ val releaseKeystoreFile =
 val hasReleaseKeystore = releaseKeystoreFile?.exists() == true
 
 /// Opt in to a debug-signed release: `flutter build apk --release -PdebugSignRelease`.
-val debugSignRelease = project.hasProperty("debugSignRelease")
+///
+/// The VALUE is what counts, not the presence of the flag: `-PdebugSignRelease=false`
+/// has to mean false, or a `gradle.properties` line someone added months ago
+/// silently keeps the guard down forever. Bare `-PdebugSignRelease` (no value)
+/// still means true, which is how everyone expects a Gradle flag to read.
+val debugSignRelease = (project.findProperty("debugSignRelease") as String?)
+    ?.let { it.isEmpty() || it.toBoolean() } == true
 
 // Refuse to BUILD a release we cannot sign properly — and refuse it here, when
 // the task graph is known, rather than while configuring: a check in the

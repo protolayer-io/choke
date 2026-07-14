@@ -803,4 +803,80 @@ void main() {
       expect(notifier.state.suggestedOutcome!.method, isNot(MatchMethod.dq));
     });
   });
+
+  group('the clock and the calendar', () {
+    test('a match the clock ended is stamped with the expiry, not the reopen',
+        () async {
+      // Arrange — a match whose five minutes ran out *yesterday*, opened again
+      // today. It ended when regulation time ran out; nobody was there.
+      nostr = _FakeNostrService();
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final startAt = now - 86400;
+      final yesterday = _runningMatch().copyWith(
+        duration: 300,
+        startAt: startAt,
+        f1Pt2: 1,
+      );
+
+      // Act
+      notifier = MatchControlNotifier(yesterday, nostr);
+      await Future<void>.delayed(Duration.zero);
+
+      // Assert — stamping "now" would put the end of the match a day after it
+      // actually ended, and every consumer would believe it
+      expect(notifier.state.match.status, MatchStatus.finished);
+      expect(notifier.state.match.endedAt, startAt + 300);
+    });
+
+    test('a referee ending a match in front of them stamps now', () {
+      // Arrange
+      nostr = _FakeNostrService();
+      final before = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+
+      // Act
+      notifier.finishWith(const MatchOutcome.submissionBy(MatchWinner.f1));
+
+      // Assert
+      expect(notifier.state.match.endedAt, greaterThanOrEqualTo(before));
+    });
+  });
+
+  group('when both fighters are disqualified', () {
+    test('the app offers no winner at all', () {
+      // Arrange — reachable precisely because a fourth penalty leaves the match
+      // running: both fighters can get there.
+      nostr = _FakeNostrService();
+      notifier = MatchControlNotifier(_runningMatch(), nostr);
+      for (var i = 0; i < 4; i++) {
+        notifier.scorePen(1);
+        notifier.scorePen(2);
+      }
+
+      // Assert — the scoreboard names no single offender, and picking one
+      // anyway would hand the referee a one-tap result that is arbitrary. That
+      // is the worst kind, because it looks decided.
+      expect(notifier.state.match.hasDisqualifyingPenalties, isTrue);
+      expect(notifier.state.suggestedOutcome, isNull);
+    });
+
+    test('the clock will not finish it either', () async {
+      // Arrange
+      nostr = _FakeNostrService();
+      final almostOver = _runningMatch().copyWith(
+        duration: 1,
+        startAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        f1Pen: 4,
+        f2Pen: 4,
+      );
+      notifier = MatchControlNotifier(almostOver, nostr);
+
+      // Act
+      await Future<void>.delayed(const Duration(milliseconds: 1600));
+
+      // Assert
+      expect(notifier.state.awaitsOutcome, isTrue);
+      expect(notifier.state.match.status, MatchStatus.inProgress);
+    });
+  });
 }

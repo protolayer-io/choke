@@ -49,6 +49,17 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
+
+    // A match whose clock expired while the app was closed arrives here already
+    // waiting: the notifier settles that in its constructor, before this widget
+    // exists. `ref.listen` only reports *changes*, so it would never fire for
+    // that, and the match would sit dead at 00:00 until someone thought to hold
+    // Finish. Ask on the first frame instead.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final state = ref.read(matchControlProvider);
+      if (state.awaitsOutcome) _askOutcome(state);
+    });
   }
 
   @override

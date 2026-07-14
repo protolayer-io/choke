@@ -83,11 +83,19 @@ class MatchOutcome {
   /// A fighter on four penalties is *not* null: the disqualification is on the
   /// scoreboard in plain sight, so it comes back pre-selected. Offered, never
   /// imposed — the referee still has to end the match.
+  ///
+  /// Unless *both* of them are on four. That is reachable, precisely because a
+  /// fourth penalty leaves the match running, and the scoreboard then names no
+  /// single offender. Picking one anyway would hand a referee a one-tap result
+  /// that is arbitrary — the worst kind, because it looks decided.
   static MatchOutcome? suggestedFor(Match match) {
-    if (match.hasDisqualifyingPenalties) {
-      final offender = match.f1Pen >= 4 ? MatchWinner.f1 : MatchWinner.f2;
-      final winner =
-          offender == MatchWinner.f1 ? MatchWinner.f2 : MatchWinner.f1;
+    final f1Disqualified = match.f1Pen >= 4;
+    final f2Disqualified = match.f2Pen >= 4;
+
+    if (f1Disqualified && f2Disqualified) return null;
+
+    if (f1Disqualified || f2Disqualified) {
+      final winner = f1Disqualified ? MatchWinner.f2 : MatchWinner.f1;
       return MatchOutcome.disqualifying(winner, DqReason.accumulatedPenalties);
     }
 

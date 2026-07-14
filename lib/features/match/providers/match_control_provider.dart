@@ -321,19 +321,16 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
   /// There is no way to finish a match without saying how it ended. That is the
   /// whole point: a match that stops with only a status publishes a scoreboard
   /// that can name the wrong fighter.
-  void finishWith(MatchOutcome outcome) {
+  /// [endedAt] defaults to now, which is right for a referee ending a match in
+  /// front of them. It is *not* right for a match the clock ended while the app
+  /// was closed: that one ended when regulation time ran out, not when someone
+  /// happened to reopen it — see [_onTimeUp].
+  void finishWith(MatchOutcome outcome, {int? endedAt}) {
     if (state.isFinished) return;
 
     _timer?.cancel();
     final match = state.match;
 
-    // Stamp what the scoreboard already knows. Finishing silently would leave
-    // the match indistinguishable from an event published before outcomes
-    // existed — and the penalty points the referee watched land would vanish
-    // the instant they pressed Finish.
-    //
-    // A level scoreboard names nobody: that is the referees' to call, and
-    // asking them is Phase 2's job.
     final updated = match.copyWith(
       status: MatchStatus.finished,
       pausedAt: null,
@@ -342,7 +339,7 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
       submission: outcome.submission,
       dqReason: outcome.dqReason,
       dqDetail: outcome.dqDetail,
-      endedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      endedAt: endedAt ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
     state = state.copyWith(
       match: updated,
@@ -359,17 +356,25 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
 
     final outcome = state.suggestedOutcome;
 
+    // The match ended when regulation time ran out — not when the app noticed.
+    // Reopening a match whose clock expired yesterday must not stamp today.
+    // (startAt is moved forward by any stoppage, so this is the real expiry.)
+    final match = state.match;
+    final expiry = match.startAt != null
+        ? match.startAt! + match.duration
+        : DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
     // A fighter on four penalties, or a level scoreboard: neither is the app's
     // to decide. Stop the clock, keep the match open, and ask. Closing it "on
     // points" would swallow a disqualification whole, or invent a winner the
     // data does not have.
-    if (outcome == null || state.match.hasDisqualifyingPenalties) {
+    if (outcome == null || match.hasDisqualifyingPenalties) {
       state = state.copyWith(remainingSeconds: 0, awaitsOutcome: true);
       _publishState();
       return;
     }
 
-    finishWith(outcome);
+    finishWith(outcome, endedAt: expiry);
   }
 
   /// Cancel the match

@@ -337,7 +337,16 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
 
   void _setOutcome(MatchOutcome outcome) {
     _timer?.cancel();
-    final updated = state.match.copyWith(
+    final match = state.match;
+
+    // Stamp what the scoreboard already knows. Finishing silently would leave
+    // the match indistinguishable from an event published before outcomes
+    // existed — and the penalty points the referee watched land would vanish
+    // the instant they pressed Finish.
+    //
+    // A level scoreboard names nobody: that is the referees' to call, and
+    // asking them is Phase 2's job.
+    final updated = match.copyWith(
       status: MatchStatus.finished,
       pausedAt: null,
       winner: outcome.winner,

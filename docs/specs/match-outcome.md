@@ -335,11 +335,19 @@ at the time is, at worst, **incomplete**. Rewriting it is **asserting something
 new about a match nobody re-refereed**. So:
 
 > **The boundary is the presence of the new fields, not a version number.**
-> A **finished or canceled** match with no `method` is a legacy event: raw
+> A **finished or canceled** match with no `ended_at` is a legacy event: raw
 > scoreboard, no penalty consequences, no computed winner beyond what the old
-> app showed. Anything else — a match still in progress, or a finished one that
-> states its method — uses effective scoring (§5) and, where it has one, the
-> winner it states outright.
+> app showed. Anything else — a match still in progress, or one this app ended —
+> uses effective scoring (§5) and, where it has one, the winner it states
+> outright.
+
+The test is **`ended_at`**, not `method`. A legacy event has neither, but a
+match *this* app ends always stamps `ended_at` — even in the one case where it
+cannot yet name a method, because the fighters are level and that is the
+referees' to call (§6.2). Keying the rule off `method` would make the app
+contradict itself the instant a referee pressed Finish: a 0–0 match against
+three penalties reads 2–0 while it runs, and would snap back to 0–0 the moment
+it stopped.
 
 **A live match is never legacy.** Taken literally, "no `method` and no
 `ended_at`" would describe the app's *own* match while it is being refereed:

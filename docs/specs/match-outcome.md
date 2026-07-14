@@ -2,10 +2,10 @@
 
 **Status:** DRAFT — for review (round 2)
 **Date:** 2026-07-13
-**Decisions taken:** apply the IBJJF penalty ladder (§5) · `dq_reason` as a
-standard category plus optional free-text detail (§3.4) · always record
-`ended_at` (§3.5) · draws exist, and a level match is the referee's to call
-(§6)
+**Decisions taken:** apply the IBJJF penalty ladder (§5) · **the fourth penalty
+does not end the match — the referee does** (§5.2) · `dq_reason` as a standard
+category plus optional free-text detail (§3.4) · always record `ended_at` (§3.5)
+· draws exist, and a level match is the referee's to call (§6)
 
 ---
 
@@ -64,10 +64,15 @@ Six new fields, all optional, all only meaningful once the match is over.
 }
 ```
 
-### 3.1 `winner` — `"f1" | "f2" | "draw"`, absent while unfinished
+### 3.1 `winner` — `"f1" | "f2"`, absent when there is nobody
 
-Who won. Absent (or null) for a match that is `waiting`, `in-progress`, or
-`canceled`.
+Who won. **Absent** for a match that is `waiting`, `in-progress`, `canceled`, or
+**drawn**.
+
+A draw is expressed by `method: "draw"` with **no** `winner` — not by a third
+`winner` value. Encoding it twice would let an event say `winner: "f1"` and
+`method: "draw"` at the same time, and every consumer would resolve that
+contradiction differently. One fact, one field.
 
 ### 3.2 `method` — how they won
 
@@ -79,7 +84,7 @@ Who won. Absent (or null) for a match that is `waiting`, `in-progress`, or
 | `decision` | Points **and** advantages were level, and the referees gave it to one fighter | No |
 | `dq` | The **loser** was disqualified | **Yes** |
 | `forfeit` | The loser withdrew, no-showed, or could not continue (injury) | **Yes** |
-| `draw` | Points and advantages were level, and the referees called it even | — |
+| `draw` | Points and advantages were level, and the referees called it even. **No `winner`.** | — |
 
 ### 3.3 `submission` — the technique, optional free text
 
@@ -121,8 +126,9 @@ Plus `dq_detail`, optional free text, same shape as `submission`:
 { "method": "dq", "winner": "f1", "dq_reason": "technical_foul", "dq_detail": "knee reap" }
 ```
 
-An `accumulated_penalties` DQ is the only one the app can raise **by itself**;
-the other two are the referee's judgment and must be chosen.
+`accumulated_penalties` is the one the app can **recognise** on its own — four
+penalties are on the scoreboard, in plain sight — so it is **pre-selected** when
+the referee finishes such a match. It is never *imposed*: see §5.2.
 
 ### 3.5 `ended_at` — unix seconds
 
@@ -184,13 +190,42 @@ Folding the two points into `f1_pt2` instead would corrupt the record — it wou
 claim fighter 1 scored a takedown they never scored, and the mistake would be
 unrecoverable, because nothing would remember where the points came from.
 
-### 5.2 The fourth penalty ends the match
+The **fourth** penalty adds nothing to the arithmetic: the ladder tops out at the
+third. What a fourth penalty means is §5.2.
 
-Awarding a fourth penalty disqualifies the offender **immediately**: the app sets
-`status: "finished"`, `method: "dq"`, `dq_reason: "accumulated_penalties"`, and
-`winner` to the *other* fighter. It should say so plainly on screen — a referee
-who did not realize they were on the third penalty must not be surprised by a
-match that simply stops.
+**The referee sees the effective score.** When Carlos's third penalty gives Bob
+two points, Bob's number on screen goes from 4 to 6 — that jump *is* the
+confirmation that the penalty landed. Carlos's penalty badge still shows the raw
+count, because that is what he was actually given. Holding the penalty button to
+take that third penalty back removes the two points again, for the same reason:
+they were never Bob's, they were Carlos's penalty.
+
+### 5.2 The fourth penalty does **not** end the match
+
+Under IBJJF the fourth penalty is a disqualification. The app will **not** act on
+that by itself.
+
+The reason is what being wrong would cost. Today the penalty button is harmless —
+it adds a number. An auto-disqualifying fourth penalty would make it the one
+button on the mat that **ends a match and decides who loses**, and a mis-tap
+would disqualify a fighter, publish it to Nostr instantly, and be
+unrecoverable: the match would be `finished`, the screen read-only, and undo is
+switched off the moment a match stops running (`canUndo => undoStack.isNotEmpty
+&& isRunning`).
+
+So the fourth penalty does exactly what the first three do: it goes on the
+scoreboard. Then:
+
+- **A mis-tap is just a mis-tap.** Holding the penalty button takes it back, as
+  it always has, because the match is still running.
+- **The referee ends the match**, deliberately, with the Finish button — and the
+  outcome sheet **pre-selects** `dq` / `accumulated_penalties`, with the other
+  fighter as winner. One tap to confirm what the scoreboard already says.
+- **A consumer can read it too.** Four penalties are right there in the event. A
+  dashboard that wants to render "disqualified" needs no permission from us.
+
+The referee is the authority on what happened. The app's job is to make what
+happened easy to record — and impossible to record by accident.
 
 ### 5.3 What is *not* in scope
 
@@ -282,15 +317,15 @@ Today, holding *Finish* ends the match immediately. Proposed:
 
 - **Hold-to-finish opens this sheet** rather than ending the match outright. The
   hold stays: it is what keeps a stray thumb from ending a live match.
-- **Points is pre-computed and pre-selected**, showing the result the scoreboard
-  implies. A match that goes to the clock is one tap.
+- **The likely outcome is pre-selected**, showing what the scoreboard already
+  says: `points` (or `advantages`) normally, and **`dq` / accumulated penalties**
+  when a fighter has four (§5.2). A match that goes to the clock is one tap.
 - **Submission asks which fighter, in their own colours** — the same two colours
   the referee has been tapping all match. The technique is an optional text
   field, skippable.
 - **The clock running out** opens the sheet **only when the fighters are level**
   (§6.2) — otherwise it finishes automatically on points or advantages, as it
-  does today. A referee who wants to correct an automatic result can still amend
-  it.
+  does today.
 - **Cancel** stays exactly as it is: a voided match, no winner, no method. It is
   not a result — it is the absence of one.
 
@@ -303,7 +338,20 @@ Today, holding *Finish* ends the match immediately. Proposed:
 
 ## 10. Open questions
 
-All four are decided.
+### 10.1 Amending a finished match — deferred to phase 3
+
+A finished match is read-only today (`_buildReadOnlyFooter`; `finishMatch` and
+`cancelMatch` are no-ops once `isFinished`). So a match the clock closed with the
+wrong winner — a penalty entered against the wrong fighter, say — **stays wrong
+forever**.
+
+That is a real gap, and this spec deliberately does **not** promise otherwise:
+nothing in phases 1 or 2 lets a referee correct a finished match. The mechanics
+are cheap (the event is addressable, republishing is what the app already does,
+and the monotonic `created_at` already handles it) — the cost is the UI. It goes
+in phase 3, and until it exists the app should not pretend.
+
+### 10.2 Everything else is decided.
 
 - ~~**Penalties are only counted.**~~ → **Fixed.** §5 applies the IBJJF ladder.
 - ~~**Should `dq` carry a reason?**~~ → **Yes: a category, plus free text.** §3.4.
@@ -314,6 +362,8 @@ All four are decided.
   draw, and the referees call it. §6 — which also removed `penalties` as a
   tiebreak, since §5 already turned them into the very points and advantages
   being compared.
+- ~~**Should the fourth penalty disqualify automatically?**~~ → **No.** §5.2. The
+  app records; the referee decides.
 
 Ready to implement.
 
@@ -332,11 +382,16 @@ Each phase is a PR that leaves `main` shippable.
 
    No UI: nothing sets the new fields yet.
 2. **The outcome sheet.** Hold-to-finish opens it; the match finishes with an
-   outcome. The fourth penalty ends the match on its own (§5.2), and a clock that
-   expires on a level scoreboard asks instead of guessing (§6.2). Strings in all
-   four locales (`en`, `es`, `pt`, `ja`).
-3. **Showing it.** The match list and the match screen say *"Carlos won by
-   submission (armbar)"* instead of showing a scoreboard that lies, and the
-   scoreboard itself shows the **effective** points and advantages, so a referee
-   can see the penalty they just gave turn into the opponent's advantage. Update
-   `docs/SPEC.md`, the event schema other clients read.
+   outcome, pre-selecting what the scoreboard implies — including `dq` when a
+   fighter has four penalties (§5.2). A clock that expires on a level scoreboard
+   asks instead of guessing (§6.2). Strings in all four locales (`en`, `es`,
+   `pt`, `ja`).
+3. **Showing it, and fixing it.** The match list and the match screen say
+   *"Carlos won by submission (armbar)"* instead of showing a scoreboard that
+   lies. **Amending a finished match** (§10.1) lands here — until it does, a
+   wrong result is permanent. Update `docs/SPEC.md`, the event schema other
+   clients read.
+
+   (The **effective** scoreboard — a penalty turning into the opponent's points —
+   is *not* deferred: the referee has to see it *during* the match, so it ships
+   with phase 1's model and phase 2's screen.)

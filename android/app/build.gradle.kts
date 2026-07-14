@@ -15,6 +15,45 @@ if (keystorePropertiesFile.exists()) {
 }
 val releaseKeystoreFile =
     keystoreProperties["storeFile"]?.toString()?.let { file(it) }
+val hasReleaseKeystore = releaseKeystoreFile?.exists() == true
+
+/// Opt in to a debug-signed release: `flutter build apk --release -PdebugSignRelease`.
+///
+/// The VALUE is what counts, not the presence of the flag: `-PdebugSignRelease=false`
+/// has to mean false, or a `gradle.properties` line someone added months ago
+/// silently keeps the guard down forever. Bare `-PdebugSignRelease` (no value)
+/// still means true, which is how everyone expects a Gradle flag to read.
+val debugSignRelease = (project.findProperty("debugSignRelease") as String?)
+    ?.let { it.isEmpty() || it.toBoolean() } == true
+
+// Refuse to BUILD a release we cannot sign properly — and refuse it here, when
+// the task graph is known, rather than while configuring: a check in the
+// `release {}` block runs for every build in the project, so it would break
+// `flutter run` for anyone without a keystore.
+//
+// What it prevents: a silently debug-signed `app-release.apk`. It looks like a
+// real release and installs like one, but the debug key is regenerated per
+// machine (and per run on a CI runner), so once it is on a phone, every genuine
+// release afterwards is rejected — an update must carry the same signature as
+// the install it replaces. The only way out is uninstalling, which here means
+// losing the nsec.
+gradle.taskGraph.whenReady {
+    if (hasReleaseKeystore || debugSignRelease) return@whenReady
+
+    val buildingRelease = allTasks.any { task ->
+        task.project.path == ":app" &&
+            Regex("^(assemble|bundle|package).*Release$").matches(task.name)
+    }
+    if (buildingRelease) {
+        throw GradleException(
+            "No release keystore: expected android/key.properties pointing at one " +
+                "(CI writes it from the KEYSTORE_BASE64 secret).\n" +
+                "To build a release locally without it, pass -PdebugSignRelease — the " +
+                "result is DEBUG-SIGNED, cannot update a real install, and must never be " +
+                "distributed."
+        )
+    }
+}
 
 android {
     namespace = "io.protolayer.choke"
@@ -50,12 +89,62 @@ android {
                 storeFile = releaseKeystoreFile
                 storePassword = keystoreProperties["storePassword"] as String
             }
+
+            // Sign with v3 as well as v2 — releases were coming out v2-only.
+            //
+            // v3 is the scheme that carries a signing-key LINEAGE, and it is
+            // the only way a signing key is ever replaceable: with it, a future
+            // keystore can prove it descends from this one, and phones accept
+            // the update. Without it, the key below is Choke's identity
+            // forever, and losing it means every user reinstalls from scratch —
+            // which, since the nsec lives in app storage, means every user
+            // loses their identity too.
+            //
+            // Costs nothing: v3 is additive, the APK stays installable on
+            // anything that took the v2-only ones.
+            //
+            // v1 (JAR signing) stays off. It only matters below API 24 and
+            // minSdk is 24.
+            enableV1Signing = false
+            enableV2Signing = true
+            enableV3Signing = true
         }
     }
 
     buildTypes {
+        debug {
+            // A debug build installs as a SEPARATE app, beside the real one.
+            //
+            // Without this, `flutter run` overwrites the release install — same
+            // id, but signed with the machine's debug key. Android then refuses
+            // every future release, and the only way out is uninstalling and
+            // losing the app's data, which here is the nsec. Developing on the
+            // phone you referee with should not cost you your identity.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+
         release {
-            signingConfig = if (releaseKeystoreFile?.exists() == true) {
+            // Fail rather than fall back to the debug key.
+            //
+            // The fallback used to be silent, and it produced a file called
+            // `app-release.apk` signed with a key that is regenerated per
+            // machine — and, on a CI runner, per run. Install one of those and
+            // every real release afterwards is rejected, because an update must
+            // carry the same signature as the install it replaces. A build that
+            // cannot sign properly should say so, not hand over a poisoned
+            // artifact that looks exactly like a good one.
+            //
+            // Escape hatch for a contributor with no keystore:
+            //   flutter build apk --release -PdebugSignRelease
+            // What that produces is fine to run and must never be distributed.
+            //
+            // The refusal itself lives in `assembleRelease` below, NOT here:
+            // this block runs at CONFIGURATION time, so throwing from it would
+            // fail every build in the project — `flutter run` included — for
+            // anyone without a keystore. That is a worse footgun than the one
+            // being fixed.
+            signingConfig = if (hasReleaseKeystore) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")

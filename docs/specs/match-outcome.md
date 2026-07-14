@@ -51,7 +51,25 @@ Everything about **how the match ended** is absent: who won, and by what.
 
 ## 3. Proposal
 
-Six new fields, all optional, all only meaningful once the match is over.
+Six new fields, all only meaningful once the match is over.
+
+**Optional to *read*, required to *write*.** Every one of them is absent from
+every event published before this change, so a consumer must tolerate their
+absence forever (§7). But an event this app writes for a `finished` match must
+carry them:
+
+| Field | Required on a newly written `finished` event? |
+|---|---|
+| `method` | **Yes**, always |
+| `ended_at` | **Yes**, always |
+| `winner` | **Yes**, except when `method: "draw"` — where it must be **absent** |
+| `submission` | Optional (only meaningful with `method: "submission"`) |
+| `dq_reason` | **Yes** when `method: "dq"`, absent otherwise |
+| `dq_detail` | Optional |
+
+Without that, the app could publish a `finished` match that still says nothing
+about how it ended — which is the bug this spec exists to remove, wearing a new
+hat.
 
 ```json
 {
@@ -141,8 +159,10 @@ one.
 
 ## 4. Why store the winner rather than compute it
 
-The obvious objection: for `points`, `advantages` and `penalties`, the winner is
-already implied by the numbers. Why write it down?
+The obvious objection: for `points` and `advantages`, the winner is already
+implied by the numbers. Why write it down?
+
+(Not for `penalties` — those are no longer a way to win at all. §6.1.)
 
 **Because for `submission`, `dq` and `forfeit`, it is implied by nothing.** A
 consumer that computes the winner from the scoreboard gets Bob. The entire point
@@ -265,15 +285,22 @@ always do that: if the fighters are level on effective points **and** effective
 advantages, there is **no winner in the data**, and inventing one is exactly the
 class of lie this spec exists to remove.
 
-So:
+So, when the clock reaches zero:
 
-- **Clock expires, one fighter ahead** → finish automatically, as today, with
+- **A fighter has four or more penalties** → **never finish automatically**, even
+  if the other fighter is comfortably ahead on points. Open the sheet with `dq` /
+  `accumulated_penalties` pre-selected. Closing such a match "on points" would
+  swallow the disqualification whole: the scoreboard would name a winner and say
+  nothing about *why* the other fighter is not one. This rung comes first,
+  because §5.2 gave the disqualification to the referee, and an automatic finish
+  would take it back.
+- **Otherwise, one fighter ahead** → finish automatically, as today, with
   `method: "points"` or `"advantages"` and the winner filled in.
-- **Clock expires, fighters level** → finish the clock, keep the match on screen,
-  and **ask**: *decision (which fighter?)* or *draw*. The match is not `finished`
+- **Otherwise, fighters level** → finish the clock, keep the match on screen, and
+  **ask**: *decision (which fighter?)* or *draw*. The match is not `finished`
   until the referee says how it ended.
 
-That is one extra tap in the rarest case, and it is the only honest option: a
+That is one extra tap in the rare cases, and it is the only honest option: a
 level scoreboard is a question, not an answer.
 
 ## 7. Backwards and forwards compatibility
@@ -283,13 +310,40 @@ The fields are **additive**, and both directions already behave correctly:
 - **An old app reading a new event.** `Match.fromJson` reads named keys and
   ignores everything else, so a new event parses fine. The old app shows the
   score and "finished" — no worse than today, and no crash.
-- **A new app reading an old event.** The fields are absent → `winner` and
-  `method` are null. The app falls back to computing the winner from the
-  scoreboard, which is exactly what it does today.
+- **A new app reading an old event.** The fields are absent. The app shows the
+  match exactly as the app that published it did — see §7.1. It does **not**
+  retro-fit the new rules onto it.
 
-No version bump on the event kind. No migration. Matches published before this
-change stay readable; they simply cannot say how they ended — which is the truth
-about them.
+### 7.1 The penalty ladder is not applied retroactively
+
+This is the sharpest compatibility question in the spec, and the answer is *no*.
+
+A match published before this change has raw penalty counts and no penalty
+consequences — because the app that refereed it applied none. Reading such an
+event with §5's ladder would **rewrite a result that has already been seen**: a
+match Bob won 2–0 while Carlos carried three penalties becomes 2–2 on effective
+points, goes to advantages, and can flip to Carlos or to a draw.
+
+The argument for doing it anyway is not stupid — those matches *were* refereed
+under real IBJJF rules, where the third penalty really did concede two points, so
+the ladder arguably recovers the truth the old app failed to model. But we do not
+know what the referee did with that knowledge. They may have compensated by hand,
+in which case we would now count the same penalty twice.
+
+The costs are asymmetric. Leaving an old result showing the scoreboard it showed
+at the time is, at worst, **incomplete**. Rewriting it is **asserting something
+new about a match nobody re-refereed**. So:
+
+> **The boundary is the presence of the new fields, not a version number.**
+> An event with no `method` and no `ended_at` is a legacy event: raw scoreboard,
+> no penalty consequences, no computed winner beyond what the old app showed.
+> An event that carries them is a new event: effective scoring (§5), and a winner
+> it states outright.
+
+No `schema_version`. No bump on the event kind. No migration. The fields the app
+writes *are* the version — which is what "additive" was supposed to mean in the
+first place. Matches published before this change stay readable; they simply
+cannot say how they ended, which is the truth about them.
 
 ## 8. The referee's hands
 
@@ -331,7 +385,14 @@ Today, holding *Finish* ends the match immediately. Proposed:
 
 ## 9. What this does *not* change
 
-- Scoring, penalties, advantages: untouched.
+- **The raw record and the referee's inputs:** untouched. The scoring buttons,
+  the advantage and penalty buttons, and the counters they write (`f1_pt2` …
+  `f2_pen`) all mean exactly what they meant before. What a referee presses, and
+  what the event stores, is unchanged.
+- **What those numbers *add up to*: this does change.** Penalties now concede
+  advantages and points (§5), so the *effective* scoreboard — what the referee
+  reads, and what decides a match on the clock — is different. That is the point
+  of the spec, not an accident of it.
 - The `canceled` status: untouched.
 - The event kind, the d-tag, addressable replacement, the convergence
   guarantees: untouched.
@@ -373,7 +434,8 @@ Each phase is a PR that leaves `main` shippable.
 
 1. **Schema + model.** `winner`, `method`, `submission`, `dq_reason`,
    `dq_detail`, `ended_at` on `Match`, with JSON round-trips and the
-   compatibility cases in §6 pinned as tests.
+   compatibility cases in §7 pinned as tests — including §7.1: a legacy event
+   must **not** acquire penalty consequences it never had.
 
    The **penalty ladder** (§5) lands here too, as effective-score getters, and
    so does the **tie-break ladder** (§6) — both tested on their own, including

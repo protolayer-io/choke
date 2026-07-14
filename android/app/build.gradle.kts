@@ -17,7 +17,7 @@ val releaseKeystoreFile =
     keystoreProperties["storeFile"]?.toString()?.let { file(it) }
 
 android {
-    namespace = "com.grunch.choke"
+    namespace = "io.protolayer.choke"
     compileSdk = flutter.compileSdkVersion
     // Pinned rather than inherited from `flutter.ndkVersion`: Cargokit builds
     // the Rust crate through the NDK, and CI installs this exact version by
@@ -35,7 +35,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.grunch.choke"
+        applicationId = "io.protolayer.choke"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

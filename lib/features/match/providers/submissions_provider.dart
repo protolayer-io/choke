@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,6 +29,7 @@ class SubmissionsState {
         ...custom,
       ];
 
+  /// A copy with either half replaced.
   SubmissionsState copyWith({List<String>? custom, Set<String>? hidden}) {
     return SubmissionsState(
       custom: custom ?? this.custom,
@@ -46,9 +48,30 @@ final submissionsProvider =
   return SubmissionsNotifier();
 });
 
+/// Reads, edits and saves the referee's submission list.
 class SubmissionsNotifier extends StateNotifier<SubmissionsState> {
+  /// Starts from [initial], or from the catalog we ship.
+  ///
+  /// Pass the result of [loadSaved] via [hydrate] rather than here when the
+  /// app is starting up; the provider builds this with no argument.
   SubmissionsNotifier([SubmissionsState? initial])
       : super(initial ?? const SubmissionsState());
+
+  /// Every save so far, chained.
+  ///
+  /// The state is two preference keys, and a save has to leave them agreeing
+  /// with each other. Two `_persist()` calls racing — a referee removing a
+  /// technique and adding one in the same second — could otherwise land the
+  /// custom list of one snapshot beside the hidden set of the other, and the
+  /// list they see on the next launch would be a state that never existed.
+  Future<void> _saves = Future.value();
+
+  /// Resolves when every edit made so far is on disk.
+  ///
+  /// Mutations do not block on this: a chip must never wait for a write. This
+  /// exists for the code that genuinely has to know — chiefly tests, which
+  /// would otherwise sleep and hope.
+  Future<void> get saved => _saves;
 
   /// Read the saved list. Call before runApp().
   static Future<SubmissionsState> loadSaved() async {
@@ -59,6 +82,7 @@ class SubmissionsNotifier extends StateNotifier<SubmissionsState> {
     );
   }
 
+  /// Adopt the state read back from disk, before the first frame.
   void hydrate(SubmissionsState saved) => state = saved;
 
   /// Add a submission the user typed.
@@ -116,9 +140,25 @@ class SubmissionsNotifier extends StateNotifier<SubmissionsState> {
     return null;
   }
 
-  Future<void> _persist() async {
+  /// Save the state as it is *now*, after every save already queued.
+  ///
+  /// The snapshot is taken here rather than read inside the write, so a save
+  /// always writes the state it was asked to write — not whatever the referee
+  /// has tapped since. Chaining onto [_saves] keeps the two keys from
+  /// interleaving across concurrent edits.
+  void _persist() {
+    final snapshot = state;
+    _saves = _saves.then((_) => _write(snapshot)).catchError((Object e, StackTrace st) {
+      // A failed write must not poison the chain: the next edit still deserves
+      // its chance to be saved. Losing a submission from a list is a nuisance;
+      // silently refusing to save anything ever again is a broken app.
+      debugPrint('Saving submissions failed: $e\n$st');
+    });
+  }
+
+  Future<void> _write(SubmissionsState snapshot) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_kCustomKey, state.custom);
-    await prefs.setStringList(_kHiddenKey, state.hidden.toList());
+    await prefs.setStringList(_kCustomKey, snapshot.custom);
+    await prefs.setStringList(_kHiddenKey, snapshot.hidden.toList());
   }
 }

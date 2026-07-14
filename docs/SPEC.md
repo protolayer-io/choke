@@ -85,7 +85,7 @@ that forever.
 The field is free text, but the techniques the app offers have agreed ids —
 lowercase, `snake_case`, English:
 
-```
+```text
 armbar        rear_naked_choke     triangle       guillotine   kimura
 americana     cross_collar_choke   bow_and_arrow  ezekiel      omoplata
 arm_triangle  north_south_choke    heel_hook      toe_hold     straight_ankle_lock

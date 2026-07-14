@@ -111,7 +111,7 @@ void main() {
       final notifier = SubmissionsNotifier();
       notifier.add('baratoplata');
       notifier.remove('heel_hook');
-      await Future<void>.delayed(Duration.zero); // let the write settle
+      await notifier.saved;
 
       // Act — the app is killed and comes back
       final reloaded = await SubmissionsNotifier.loadSaved();
@@ -122,6 +122,28 @@ void main() {
       expect(reloaded.hidden, {'heel_hook'});
       expect(reloaded.visible, isNot(contains('heel_hook')));
       expect(reloaded.visible.last, 'baratoplata');
+    });
+
+    test('edits made in the same breath are saved as one state', () async {
+      // Arrange — the state is two preference keys, and they have to agree with
+      // each other. A referee editing quickly fires overlapping saves.
+      final notifier = SubmissionsNotifier();
+
+      // Act — no awaits between them, exactly as the UI calls them
+      notifier.add('baratoplata');
+      notifier.remove('heel_hook');
+      notifier.add('cejudo choke');
+      notifier.remove('toe_hold');
+      await notifier.saved;
+
+      // Assert — what is on disk is the state the referee is looking at, not
+      // the custom list of one snapshot beside the hidden set of another. That
+      // combination is a state that never existed, and it is what they would
+      // have found on the next launch.
+      final reloaded = await SubmissionsNotifier.loadSaved();
+      expect(reloaded.custom, notifier.state.custom);
+      expect(reloaded.hidden, notifier.state.hidden);
+      expect(reloaded.visible, notifier.state.visible);
     });
 
     test('a fresh install gets the catalog', () async {

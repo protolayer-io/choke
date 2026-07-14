@@ -61,6 +61,10 @@ class _SubmissionsScreenState extends ConsumerState<SubmissionsScreen> {
               itemBuilder: (context, i) {
                 final submission = submissions[i];
                 return ListTile(
+                  // Removing from the middle of the list shifts every index
+                  // below it; without a stable key Flutter reuses elements by
+                  // position and the wrong row can carry the old one's state.
+                  key: ValueKey(submission),
                   title: Text(labelFor(l10n, submission)),
                   trailing: IconButton(
                     icon: const Icon(Icons.close),

@@ -327,7 +327,7 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
   /// happened to reopen it — see [_onTimeUp].
   void finishWith(MatchOutcome outcome, {int? endedAt}) {
     if (state.isFinished) return;
-    _setOutcome(outcome);
+    _setOutcome(outcome, endedAt: endedAt);
   }
 
   /// Correct a result that is already published.
@@ -339,7 +339,10 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
   /// created_at makes sure the correction wins.
   void amendOutcome(MatchOutcome outcome) => _setOutcome(outcome);
 
-  void _setOutcome(MatchOutcome outcome) {
+  /// [endedAt] defaults to now, which is what a referee ending a match in front
+  /// of them means. It is *not* what the clock means: a match whose time ran out
+  /// while the app was closed ended then, not when someone reopened it.
+  void _setOutcome(MatchOutcome outcome, {int? endedAt}) {
     _timer?.cancel();
     final match = state.match;
 

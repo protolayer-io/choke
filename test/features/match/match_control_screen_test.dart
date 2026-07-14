@@ -351,6 +351,8 @@ void main() {
 
     // Assert
     expect(find.text(l10n.outcomeAmend), findsNothing);
+  });
+
   testWidgets('reopening a match whose clock already expired asks at once',
       (tester) async {
     // Arrange — the referee closed the app mid-match and came back. The

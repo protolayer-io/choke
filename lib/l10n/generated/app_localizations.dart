@@ -120,12 +120,6 @@ abstract class AppLocalizations {
   /// **'Home'**
   String get navHome;
 
-  /// Bottom navigation label for Match tab
-  ///
-  /// In en, this message translates to:
-  /// **'Match'**
-  String get navMatch;
-
   /// Bottom navigation label for Account tab
   ///
   /// In en, this message translates to:
@@ -137,12 +131,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get navSettings;
-
-  /// Placeholder text in Match tab
-  ///
-  /// In en, this message translates to:
-  /// **'Create a match from the Home screen'**
-  String get matchListPlaceholder;
 
   /// Empty state title on home screen
   ///

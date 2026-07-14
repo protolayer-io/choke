@@ -12,10 +12,6 @@
   "@navHome": {
     "description": "Bottom navigation label for Home tab"
   },
-  "navMatch": "Match",
-  "@navMatch": {
-    "description": "Bottom navigation label for Match tab"
-  },
   "navAccount": "Account",
   "@navAccount": {
     "description": "Bottom navigation label for Account tab"
@@ -23,10 +19,6 @@
   "navSettings": "Settings",
   "@navSettings": {
     "description": "Bottom navigation label for Settings tab"
-  },
-  "matchListPlaceholder": "Create a match from the Home screen",
-  "@matchListPlaceholder": {
-    "description": "Placeholder text in Match tab"
   },
   "noMatchesYet": "No matches yet",
   "@noMatchesYet": {

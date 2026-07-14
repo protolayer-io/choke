@@ -167,7 +167,6 @@ class _MainNavigationState extends State<MainNavigation> {
 
   final List<Widget> _screens = [
     const HomeScreen(),
-    const _MatchListPlaceholder(),
     const AccountScreen(),
     const SettingsScreen(),
   ];
@@ -184,7 +183,6 @@ class _MainNavigationState extends State<MainNavigation> {
         onTap: (index) => setState(() => _currentIndex = index),
         items: [
           (Icons.home_outlined, l10n.navHome),
-          (Icons.sports_martial_arts, l10n.navMatch),
           (Icons.person_outline, l10n.navAccount),
           (Icons.settings_outlined, l10n.navSettings),
         ],
@@ -260,25 +258,6 @@ class _ChokeNavBar extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Placeholder for the Match tab — will show match list in future
-class _MatchListPlaceholder extends StatelessWidget {
-  const _MatchListPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return Scaffold(
-      body: Center(
-        child: Text(
-          l10n.matchListPlaceholder,
-          style: const TextStyle(color: BJJColors.grey, fontSize: 16),
         ),
       ),
     );

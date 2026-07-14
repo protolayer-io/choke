@@ -18,16 +18,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navHome => 'Home';
 
   @override
-  String get navMatch => 'Match';
-
-  @override
   String get navAccount => 'Account';
 
   @override
   String get navSettings => 'Settings';
-
-  @override
-  String get matchListPlaceholder => 'Create a match from the Home screen';
 
   @override
   String get noMatchesYet => 'No matches yet';

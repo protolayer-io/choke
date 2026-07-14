@@ -18,16 +18,10 @@ class AppLocalizationsPt extends AppLocalizations {
   String get navHome => 'Início';
 
   @override
-  String get navMatch => 'Luta';
-
-  @override
   String get navAccount => 'Conta';
 
   @override
   String get navSettings => 'Configurações';
-
-  @override
-  String get matchListPlaceholder => 'Crie uma luta na tela inicial';
 
   @override
   String get noMatchesYet => 'Nenhuma luta ainda';

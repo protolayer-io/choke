@@ -8,6 +8,7 @@ import '../../shared/providers/theme_provider.dart';
 import '../../shared/providers/match_duration_provider.dart';
 import '../../shared/theme/app_theme.dart';
 import 'screens/relay_management_screen.dart';
+import 'screens/submissions_screen.dart';
 
 /// Provider for package info
 final packageInfoProvider = FutureProvider<PackageInfo>((ref) {
@@ -143,6 +144,20 @@ class SettingsScreen extends ConsumerWidget {
                     fontFamily: 'monospace',
                   ),
                   onTap: () => _showDurationPicker(context, ref, duration),
+                );
+              },
+            ),
+            _buildListRow(
+              context: context,
+              tk: tk,
+              icon: Icons.sports_martial_arts_outlined,
+              title: l10n.settingsSubmissions,
+              subtitle: l10n.settingsSubmissionsDesc,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SubmissionsScreen(),
+                  ),
                 );
               },
             ),

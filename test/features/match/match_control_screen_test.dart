@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:choke/features/match/match_control_screen.dart';
 import 'package:choke/features/match/models/match.dart';
 import 'package:choke/features/match/models/match_outcome.dart';
@@ -50,6 +51,13 @@ Future<void> holdFinish(WidgetTester tester, AppLocalizations l10n) async {
 
 void main() {
   late MatchControlNotifier notifier;
+
+  setUp(() {
+    // The submission list is persisted, so adding one from the picker writes to
+    // SharedPreferences — a plugin that does not exist in a widget test unless
+    // it is mocked.
+    SharedPreferences.setMockInitialValues({});
+  });
 
   Future<void> pumpScreen(WidgetTester tester, Match match) async {
     // Landscape phone viewport
@@ -158,6 +166,69 @@ void main() {
     expect(match.winner, MatchWinner.f2);
     expect(match.method, MatchMethod.submission);
     expect(match.f1Score, 4, reason: 'the raw record is still the record');
+  });
+
+  testWidgets('the technique is tapped, never typed', (tester) async {
+    // Arrange — the screen is locked to landscape, where the on-screen keyboard
+    // covers the dialog and a referee is typing one-handed over two people on
+    // the mat. That is the whole reason the techniques are chips.
+    await pumpScreen(tester, _runningMatch());
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Act — finish by submission, pick the fighter
+    await holdFinish(tester, l10n);
+    await tester.tap(find.text(l10n.outcomeSubmission));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Buchecha'));
+    await tester.pumpAndSettle();
+
+    // Assert — the techniques are there to tap, and nothing asks for the keyboard
+    expect(find.text(l10n.subArmbar), findsOneWidget);
+    expect(find.text(l10n.subRearNakedChoke), findsOneWidget);
+    expect(
+      find.byType(TextField),
+      findsNothing,
+      reason: 'a keyboard in landscape is exactly what this replaced',
+    );
+
+    // Act — one tap on the technique
+    await tester.tap(find.text(l10n.subArmbar));
+    await tester.pumpAndSettle();
+
+    // Assert — the referee tapped 'Armbar'; the event says `armbar`, which is
+    // what a scoreboard in any language reads back.
+    final match = notifier.state.match;
+    expect(match.method, MatchMethod.submission);
+    expect(match.submission, 'armbar');
+  });
+
+  testWidgets('a technique the app has never heard of is still recordable',
+      (tester) async {
+    // Arrange — no list survives contact with BJJ, so the escape hatch lives in
+    // the picker itself: a referee finds out a technique is missing at the
+    // moment they look for it, with two fighters waiting. Settings is not an
+    // answer to that.
+    await pumpScreen(tester, _runningMatch());
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    await holdFinish(tester, l10n);
+    await tester.tap(find.text(l10n.outcomeSubmission));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Buchecha'));
+    await tester.pumpAndSettle();
+
+    // Act — 'Other…', then type it
+    await tester.tap(find.text(l10n.outcomeSubmissionOther));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'baratoplata');
+    await tester.tap(find.text(l10n.outcomeConfirm));
+    await tester.pumpAndSettle();
+
+    // Assert — recorded verbatim, in one pass, without leaving the mat
+    final match = notifier.state.match;
+    expect(match.status, MatchStatus.finished);
+    expect(match.method, MatchMethod.submission);
+    expect(match.submission, 'baratoplata');
   });
 
   testWidgets('the scoreboard result is one tap', (tester) async {
@@ -302,11 +373,15 @@ void main() {
     await pumpScreen(tester, finished);
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
 
-    // Assert — the footer names the fighter who won, not the bigger number
+    // Assert — the footer names the fighter who won, not the bigger number, and
+    // names the technique in the reader's language. The event carries the
+    // canonical `armbar`; a human reads 'Armbar' here and 腕十字固め in Tokyo,
+    // off the same event.
     expect(
-      find.text('Buchecha · ${l10n.outcomeSubmissionOf('armbar')}'),
+      find.text('Buchecha · ${l10n.outcomeSubmissionOf(l10n.subArmbar)}'),
       findsOneWidget,
     );
+    expect(finished.submission, 'armbar', reason: 'the wire stays canonical');
   });
 
   testWidgets('a wrong result can be corrected', (tester) async {

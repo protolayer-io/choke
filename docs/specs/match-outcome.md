@@ -106,11 +106,35 @@ contradiction differently. One fact, one field.
 
 ### 3.3 `submission` — the technique, optional free text
 
-`"armbar"`, `"rear naked choke"`, `"triangle"`, … Present only when
+`"armbar"`, `"rear_naked_choke"`, `"triangle"`, … Present only when
 `method: "submission"`, and only if the referee bothered to record it.
 Deliberately **not** an enum: BJJ invents submissions faster than any spec can
 enumerate them, and a referee must never be blocked from finishing a match
 because the app has never heard of a *baratoplata*.
+
+**Canonical ids, by convention.** The field stays free text, but the techniques
+the app ships with have agreed ids — lowercase, `snake_case`, English:
+
+```
+armbar        rear_naked_choke     triangle       guillotine   kimura
+americana     cross_collar_choke   bow_and_arrow  ezekiel      omoplata
+arm_triangle  north_south_choke    heel_hook      toe_hold     straight_ankle_lock
+```
+
+The reason: the app is translated and the data is not. A referee in São Paulo
+taps *chave de braço*, one in Tokyo taps 腕十字固め, and **both events say
+`armbar`** — so a dashboard counting armbars across a tournament counts one
+technique, not three. Publishing the localized string instead would fragment the
+data at the exact moment we started collecting it. The id travels; the name in
+the reader's language is a display concern, at both ends.
+
+A technique outside that list is published **verbatim, as the referee typed
+it** — which is the entire point of the field being free text. So a consumer
+should:
+
+- show a known id by its localized name;
+- show anything else **as-is**, because it is what a human actually wrote down;
+- never reject an event over an id it does not recognise.
 
 ### 3.4 `dq_reason` — why they were disqualified
 

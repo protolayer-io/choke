@@ -509,4 +509,76 @@ class AppLocalizationsJa extends AppLocalizations {
   String outcomeSubmissionOf(String technique) {
     return '一本（$technique）';
   }
+
+  @override
+  String get subArmbar => '腕十字固め';
+
+  @override
+  String get subRearNakedChoke => '裸絞め';
+
+  @override
+  String get subTriangle => '三角絞め';
+
+  @override
+  String get subGuillotine => 'ギロチンチョーク';
+
+  @override
+  String get subKimura => 'キムラロック';
+
+  @override
+  String get subAmericana => 'アメリカーナ';
+
+  @override
+  String get subCrossCollarChoke => '十字絞め';
+
+  @override
+  String get subBowAndArrow => '弓矢絞め';
+
+  @override
+  String get subEzekiel => 'エゼキエル絞め';
+
+  @override
+  String get subOmoplata => 'オモプラータ';
+
+  @override
+  String get subArmTriangle => '肩固め';
+
+  @override
+  String get subNorthSouthChoke => 'ノースサウスチョーク';
+
+  @override
+  String get subStraightAnkleLock => 'アキレス腱固め';
+
+  @override
+  String get subHeelHook => 'ヒールフック';
+
+  @override
+  String get subToeHold => 'トーホールド';
+
+  @override
+  String get outcomeSubmissionOther => 'その他…';
+
+  @override
+  String get settingsSubmissions => 'サブミッション';
+
+  @override
+  String get settingsSubmissionsDesc => '一本勝ちで試合が終わったときに表示される技';
+
+  @override
+  String get submissionsAdd => 'サブミッションを追加';
+
+  @override
+  String get submissionsName => '技名';
+
+  @override
+  String get submissionsRemove => '削除';
+
+  @override
+  String get submissionsRestore => '初期設定に戻す';
+
+  @override
+  String get submissionsDuplicate => 'すでにリストにあります';
+
+  @override
+  String get submissionsEmpty => 'サブミッションがありません。追加するか、初期設定に戻してください。';
 }

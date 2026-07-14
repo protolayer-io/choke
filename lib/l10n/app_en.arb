@@ -655,5 +655,101 @@
         "type": "String"
       }
     }
+  },
+  "subArmbar": "Armbar",
+  "@subArmbar": {
+    "description": "Submission technique: Armbar"
+  },
+  "subRearNakedChoke": "Rear naked choke",
+  "@subRearNakedChoke": {
+    "description": "Submission technique: Rear naked choke"
+  },
+  "subTriangle": "Triangle choke",
+  "@subTriangle": {
+    "description": "Submission technique: Triangle choke"
+  },
+  "subGuillotine": "Guillotine",
+  "@subGuillotine": {
+    "description": "Submission technique: Guillotine"
+  },
+  "subKimura": "Kimura",
+  "@subKimura": {
+    "description": "Submission technique: Kimura"
+  },
+  "subAmericana": "Americana",
+  "@subAmericana": {
+    "description": "Submission technique: Americana"
+  },
+  "subCrossCollarChoke": "Cross collar choke",
+  "@subCrossCollarChoke": {
+    "description": "Submission technique: Cross collar choke"
+  },
+  "subBowAndArrow": "Bow and arrow choke",
+  "@subBowAndArrow": {
+    "description": "Submission technique: Bow and arrow choke"
+  },
+  "subEzekiel": "Ezekiel choke",
+  "@subEzekiel": {
+    "description": "Submission technique: Ezekiel choke"
+  },
+  "subOmoplata": "Omoplata",
+  "@subOmoplata": {
+    "description": "Submission technique: Omoplata"
+  },
+  "subArmTriangle": "Arm triangle",
+  "@subArmTriangle": {
+    "description": "Submission technique: Arm triangle"
+  },
+  "subNorthSouthChoke": "North–south choke",
+  "@subNorthSouthChoke": {
+    "description": "Submission technique: North–south choke"
+  },
+  "subStraightAnkleLock": "Straight ankle lock",
+  "@subStraightAnkleLock": {
+    "description": "Submission technique: Straight ankle lock"
+  },
+  "subHeelHook": "Heel hook",
+  "@subHeelHook": {
+    "description": "Submission technique: Heel hook"
+  },
+  "subToeHold": "Toe hold",
+  "@subToeHold": {
+    "description": "Submission technique: Toe hold"
+  },
+  "outcomeSubmissionOther": "Other…",
+  "@outcomeSubmissionOther": {
+    "description": "Outcome sheet: opens free-text entry for a submission not on the list"
+  },
+  "settingsSubmissions": "Submissions",
+  "@settingsSubmissions": {
+    "description": "Settings: submissions section title"
+  },
+  "settingsSubmissionsDesc": "The techniques offered when a match ends by submission",
+  "@settingsSubmissionsDesc": {
+    "description": "Settings: submissions section description"
+  },
+  "submissionsAdd": "Add submission",
+  "@submissionsAdd": {
+    "description": "Submissions editor: add button"
+  },
+  "submissionsName": "Technique",
+  "@submissionsName": {
+    "description": "Submissions editor: technique name field label"
+  },
+  "submissionsRemove": "Remove",
+  "@submissionsRemove": {
+    "description": "Submissions editor: remove a submission from the list"
+  },
+  "submissionsRestore": "Restore defaults",
+  "@submissionsRestore": {
+    "description": "Submissions editor: bring back the built-in submissions"
+  },
+  "submissionsDuplicate": "Already on the list",
+  "@submissionsDuplicate": {
+    "description": "Submissions editor: the technique is already on the list"
+  },
+  "submissionsEmpty": "No submissions left. Add one, or restore the defaults.",
+  "@submissionsEmpty": {
+    "description": "Submissions picker/editor: every submission has been removed"
   }
 }

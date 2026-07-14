@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:choke/l10n/generated/app_localizations.dart';
 
 import '../../../shared/theme/app_theme.dart';
 import '../models/match.dart';
 import '../models/match_outcome.dart';
+import '../models/submission_catalog.dart';
+import '../providers/submissions_provider.dart';
 
 /// Asks the referee how the match ended, and will not let them not answer.
 ///
@@ -38,17 +41,17 @@ Future<MatchOutcome?> showMatchOutcomeSheet(
   );
 }
 
-class _MatchOutcomeSheet extends StatefulWidget {
+class _MatchOutcomeSheet extends ConsumerStatefulWidget {
   final Match match;
   final MatchOutcome? suggested;
 
   const _MatchOutcomeSheet({required this.match, this.suggested});
 
   @override
-  State<_MatchOutcomeSheet> createState() => _MatchOutcomeSheetState();
+  ConsumerState<_MatchOutcomeSheet> createState() => _MatchOutcomeSheetState();
 }
 
-class _MatchOutcomeSheetState extends State<_MatchOutcomeSheet> {
+class _MatchOutcomeSheetState extends ConsumerState<_MatchOutcomeSheet> {
   final _text = TextEditingController();
 
   @override
@@ -166,11 +169,83 @@ class _MatchOutcomeSheetState extends State<_MatchOutcomeSheet> {
     final winner = await _pickFighter();
     if (winner == null || !mounted) return;
 
-    final technique =
-        await _askText(AppLocalizations.of(context).outcomeTechnique);
+    final technique = await _pickSubmission();
     if (!mounted) return;
 
     _finish(MatchOutcome.submissionBy(winner, submission: _clean(technique)));
+  }
+
+  /// Which submission — tapped, not typed.
+  ///
+  /// The match-control screen is locked to landscape, where the on-screen
+  /// keyboard eats the dialog and a referee is typing one-handed over two
+  /// people on the mat. So the techniques are chips: one tap, no keyboard.
+  ///
+  /// Dismissing records the submission with no technique named, which is the
+  /// same thing the free-text dialog did on Skip. A submission that happened is
+  /// a fact; which one it was is a detail, and no detail is worth blocking the
+  /// end of a match over.
+  Future<String?> _pickSubmission() {
+    final l10n = AppLocalizations.of(context);
+    final submissions = ref.read(submissionsProvider).visible;
+
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.outcomeTechnique),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: submissions.isEmpty
+              ? Text(l10n.submissionsEmpty)
+              : SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final submission in submissions)
+                        ActionChip(
+                          label: Text(labelFor(l10n, submission)),
+                          onPressed: () => Navigator.of(ctx).pop(submission),
+                        ),
+                    ],
+                  ),
+                ),
+        ),
+
+        // "Other…" lives in the actions, NOT among the chips. In landscape the
+        // dialog is barely 370pt tall, so the chips scroll — and an escape
+        // hatch at the bottom of a scrolling list is an escape hatch a referee
+        // in a hurry never reaches. (It was there, below the fold, and did not
+        // even hit-test.) Actions stay pinned no matter how long the list gets.
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.skip),
+          ),
+          TextButton.icon(
+            onPressed: () => _addAndPick(ctx),
+            icon: const Icon(Icons.add, size: 18),
+            label: Text(l10n.outcomeSubmissionOther),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Type a technique the app has never heard of: it is kept for next time, and
+  /// selected now.
+  Future<void> _addAndPick(BuildContext pickerContext) async {
+    final l10n = AppLocalizations.of(context);
+
+    final typed = _clean(await _askText(l10n.submissionsName));
+    if (typed == null || !pickerContext.mounted) return; // back to the chips
+
+    // Somebody typing a technique we already have gets ours, so the same
+    // submission does not go out under two spellings.
+    final submission = canonicalize(l10n, typed) ?? typed;
+    ref.read(submissionsProvider.notifier).add(submission);
+
+    if (pickerContext.mounted) Navigator.of(pickerContext).pop(submission);
   }
 
   Future<void> _askForfeit() async {

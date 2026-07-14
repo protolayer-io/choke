@@ -11,6 +11,7 @@ import 'features/home/home_screen.dart';
 
 import 'features/account/account_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/match/providers/submissions_provider.dart';
 import 'features/settings/providers/relay_config_provider.dart';
 import 'services/key_management/key_manager.dart';
 import 'services/nostr/crypto/nostr_crypto.dart';
@@ -77,10 +78,12 @@ void main() async {
   // Load saved preferences before first frame to avoid flash
   final savedThemeMode = await ThemeModeNotifier.loadSavedThemeMode();
   final savedDuration = await MatchDurationNotifier.loadSavedDuration();
+  final savedSubmissions = await SubmissionsNotifier.loadSaved();
 
   // Create notifiers with hydrated values (no flash on startup)
   final themeNotifier = ThemeModeNotifier()..hydrate(savedThemeMode);
   final durationNotifier = MatchDurationNotifier()..hydrate(savedDuration);
+  final submissionsNotifier = SubmissionsNotifier()..hydrate(savedSubmissions);
 
   runApp(
     ProviderScope(
@@ -91,6 +94,7 @@ void main() async {
         relayConfigServiceProvider.overrideWithValue(relayConfigService),
         themeModeProvider.overrideWith((_) => themeNotifier),
         matchDurationProvider.overrideWith((_) => durationNotifier),
+        submissionsProvider.overrideWith((_) => submissionsNotifier),
       ],
       child: const ChokeApp(),
     ),

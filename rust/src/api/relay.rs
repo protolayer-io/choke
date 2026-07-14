@@ -73,14 +73,30 @@ pub async fn relay_add(url: String) -> Result<(), String> {
     let mut notifications = relay.notifications();
     let relay_url = url.clone();
     tokio::spawn(async move {
-        while let Ok(notification) = notifications.recv().await {
-            if let RelayNotification::RelayStatus { status } = notification {
-                // No receivers yet is not an error: Dart may not have opened
-                // the stream, and the relay's status is what it is regardless.
-                let _ = status_tx().send(RelayStatusData {
-                    url: relay_url.clone(),
-                    connected: status == RelayStatus::Connected,
-                });
+        loop {
+            match notifications.recv().await {
+                Ok(RelayNotification::RelayStatus { status }) => {
+                    // No receivers yet is not an error: Dart may not have
+                    // opened the stream, and the relay's status is what it is
+                    // regardless.
+                    let _ = status_tx().send(RelayStatusData {
+                        url: relay_url.clone(),
+                        connected: status == RelayStatus::Connected,
+                    });
+                }
+                Ok(_) => {}
+                // Fell behind and skipped notifications. `while let Ok` here
+                // used to KILL the watcher — and a dead watcher is a Dart-side
+                // connection view frozen until the process restarts. Report
+                // the status we may have skipped past, and keep watching.
+                Err(broadcast::error::RecvError::Lagged(_)) => {
+                    let _ = status_tx().send(RelayStatusData {
+                        url: relay_url.clone(),
+                        connected: relay.status() == RelayStatus::Connected,
+                    });
+                }
+                // The relay was removed from the pool; the watch is over.
+                Err(broadcast::error::RecvError::Closed) => break,
             }
         }
     });
@@ -112,9 +128,41 @@ pub async fn relay_disconnect() {
 /// TCP timeouts. When the app resumes we already know the sockets are suspect —
 /// the OS kills them without a close frame — and the referee's next tap must
 /// not wait for the kernel to work that out.
+///
+/// ## Why this rebuilds the relays instead of calling disconnect + connect
+///
+/// `nostr-sdk` 0.44's revival races its own teardown, and losing that race
+/// **strands the relay permanently**. `disconnect()` stores a termination
+/// permit (a tokio `Notify`) and returns with the status already `Terminated`;
+/// `connect()` then flips it to `Pending` and spawns a task — which sees the
+/// OLD task still registered and declines. The old task meanwhile wakes from
+/// `connect_and_run`, reads `Pending` (not terminated, so it keeps going),
+/// marks the relay `Disconnected`, and dies in its backoff sleep by consuming
+/// the stored permit. End state: status `Disconnected`, **no task**, and
+/// `connect()` is a no-op on `Disconnected` — nothing dials again until the
+/// process restarts. That is the app's "no connection until I kill it" bug,
+/// reproduced by the `resume never strands the transport` drill.
+///
+/// Nudging stragglers back to life with more disconnect/connect pairs just
+/// re-enters the same race (the drill stayed red under a 20-round nudge loop).
+/// The only sequence that cannot lose it is the one with no revival in it at
+/// all: **remove the relay and add it back**. A removed relay's watcher ends
+/// (its channel closes), and `relay_add` builds a fresh `Relay` — new `Notify`
+/// with no stored permit, no zombie task, a new watcher — and dials. Pool
+/// subscriptions survive by design: a newly added relay inherits them
+/// (`nostr-relay-pool` inherits pool subscriptions on `add_relay`).
 pub async fn relay_reconnect_all() {
-    client().disconnect().await;
-    client().connect().await;
+    let urls = relay_urls().await;
+
+    for url in &urls {
+        let _ = client().remove_relay(url).await;
+    }
+    for url in urls {
+        // Re-registers the status watcher too. If an add fails outright the
+        // relay is gone from the pool; the caller's own relay list still holds
+        // it, and the next resume retries the add.
+        let _ = relay_add(url).await;
+    }
 }
 
 /// Publish to **one** relay and report that relay's verdict.
@@ -229,16 +277,22 @@ pub async fn relay_connected() -> Vec<String> {
 pub async fn relay_event_stream(sink: StreamSink<SignedEventData>) {
     let mut notifications = client().notifications();
 
-    while let Ok(notification) = notifications.recv().await {
-        if let RelayPoolNotification::Message {
-            message: RelayMessage::Event { event, .. },
-            ..
-        } = notification
-        {
-            if sink.add(to_signed_data(&event)).is_err() {
-                // Dart dropped the stream; nobody is listening any more.
-                break;
+    loop {
+        match notifications.recv().await {
+            Ok(RelayPoolNotification::Message {
+                message: RelayMessage::Event { event, .. },
+                ..
+            }) => {
+                if sink.add(to_signed_data(&event)).is_err() {
+                    // Dart dropped the stream; nobody is listening any more.
+                    break;
+                }
             }
+            Ok(_) => {}
+            // Skipped events are tolerable — subscriptions redeliver and the
+            // resend sweep converges — but a dead stream is forever.
+            Err(broadcast::error::RecvError::Lagged(_)) => {}
+            Err(broadcast::error::RecvError::Closed) => break,
         }
     }
 }
@@ -250,9 +304,19 @@ pub async fn relay_event_stream(sink: StreamSink<SignedEventData>) {
 pub async fn relay_status_stream(sink: StreamSink<RelayStatusData>) {
     let mut status = status_tx().subscribe();
 
-    while let Ok(change) = status.recv().await {
-        if sink.add(change).is_err() {
-            break;
+    loop {
+        match status.recv().await {
+            Ok(change) => {
+                if sink.add(change).is_err() {
+                    break;
+                }
+            }
+            // Missed some transitions. The per-relay watchers re-report after
+            // their own lag, and the reconnect verifier re-nudges stragglers —
+            // what must not happen here is the stream dying and taking Dart's
+            // connection view with it.
+            Err(broadcast::error::RecvError::Lagged(_)) => {}
+            Err(broadcast::error::RecvError::Closed) => break,
         }
     }
 }

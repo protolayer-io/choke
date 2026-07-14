@@ -177,6 +177,38 @@ void runConvergenceDrills(
       expect(relayB.received.single['content'], 'f1: 7');
     });
 
+    test('resume never strands the transport', () async {
+      // Arrange — a healthy, connected relay.
+      await service.addRelay(relayA.url);
+      await connected(relayA.url);
+
+      // Act — what main.dart does every time the app returns to the
+      // foreground: reconnectAll(), i.e. disconnect + connect. Hammered,
+      // because the failure being hunted is a race — the user's report is
+      // "a veces": sometimes the app comes back, sometimes it needs a kill.
+      for (var i = 0; i < 20; i++) {
+        await service.reconnectAll();
+        // Vary the phase: half the iterations give the old connection task a
+        // beat to reach its next await, half fire into it mid-flight.
+        if (i.isOdd) {
+          await Future<void>.delayed(const Duration(milliseconds: 25));
+        }
+      }
+
+      // Assert — however the coin lands, the transport must come back on its
+      // own. When this fails, connectedRelays stays empty forever, every
+      // publish throws "No connected relays", and no retry can fix it —
+      // exactly the referee tapping Retry against a dead app.
+      await eventually(
+        () => backend.connectedRelays.contains(relayA.url),
+        timeout: const Duration(seconds: 20),
+      );
+
+      // And the next score must actually land.
+      await service.publishEvent(score(1700000000, 'f1 leads'));
+      await eventually(() => relayA.received.isNotEmpty);
+    });
+
     test('with nothing reachable, the score survives until the relay returns',
         () async {
       // Arrange — airplane mode: the app knows its relay, and nothing answers

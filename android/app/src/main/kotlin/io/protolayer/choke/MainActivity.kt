@@ -1,4 +1,4 @@
-package com.grunch.choke
+package io.protolayer.choke
 
 import io.flutter.embedding.android.FlutterActivity
 

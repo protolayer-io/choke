@@ -8,7 +8,7 @@
 PRODUCT_NAME = choke
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.grunch.choke
+PRODUCT_BUNDLE_IDENTIFIER = io.protolayer.choke
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.grunch. All rights reserved.

@@ -965,6 +965,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'BJJ black belt'**
   String get bjjBlackBelt;
+
+  /// Title of the sheet asking the referee how the match ended
+  ///
+  /// In en, this message translates to:
+  /// **'How did it end?'**
+  String get outcomeTitle;
+
+  /// Outcome sheet: outcomeSubmission
+  ///
+  /// In en, this message translates to:
+  /// **'Submission'**
+  String get outcomeSubmission;
+
+  /// Outcome sheet: outcomePoints
+  ///
+  /// In en, this message translates to:
+  /// **'Points'**
+  String get outcomePoints;
+
+  /// Outcome sheet: outcomeAdvantages
+  ///
+  /// In en, this message translates to:
+  /// **'Advantages'**
+  String get outcomeAdvantages;
+
+  /// Outcome sheet: outcomeDecision
+  ///
+  /// In en, this message translates to:
+  /// **'Referee decision'**
+  String get outcomeDecision;
+
+  /// Outcome sheet: outcomeDq
+  ///
+  /// In en, this message translates to:
+  /// **'Disqualification'**
+  String get outcomeDq;
+
+  /// Outcome sheet: outcomeForfeit
+  ///
+  /// In en, this message translates to:
+  /// **'Forfeit'**
+  String get outcomeForfeit;
+
+  /// Outcome sheet: outcomeDraw
+  ///
+  /// In en, this message translates to:
+  /// **'Draw'**
+  String get outcomeDraw;
+
+  /// Outcome sheet: outcomeWhichFighter
+  ///
+  /// In en, this message translates to:
+  /// **'Which fighter won?'**
+  String get outcomeWhichFighter;
+
+  /// Outcome sheet: outcomeTechnique
+  ///
+  /// In en, this message translates to:
+  /// **'Technique (optional)'**
+  String get outcomeTechnique;
+
+  /// Outcome sheet: outcomeDqCategory
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get outcomeDqCategory;
+
+  /// Outcome sheet: outcomeDqAccumulated
+  ///
+  /// In en, this message translates to:
+  /// **'Four penalties'**
+  String get outcomeDqAccumulated;
+
+  /// Outcome sheet: outcomeDqTechnical
+  ///
+  /// In en, this message translates to:
+  /// **'Technical foul'**
+  String get outcomeDqTechnical;
+
+  /// Outcome sheet: outcomeDqDisciplinary
+  ///
+  /// In en, this message translates to:
+  /// **'Disciplinary foul'**
+  String get outcomeDqDisciplinary;
+
+  /// Outcome sheet: outcomeDqDetail
+  ///
+  /// In en, this message translates to:
+  /// **'What happened (optional)'**
+  String get outcomeDqDetail;
+
+  /// Outcome sheet: outcomeConfirm
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get outcomeConfirm;
+
+  /// Outcome sheet: outcomeTimeUp
+  ///
+  /// In en, this message translates to:
+  /// **'Time is up — how did it end?'**
+  String get outcomeTimeUp;
+
+  /// Names the winner
+  ///
+  /// In en, this message translates to:
+  /// **'{name} wins'**
+  String outcomeWinsBy(String name);
+
+  /// Skip an optional field
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get skip;
 }
 
 class _AppLocalizationsDelegate

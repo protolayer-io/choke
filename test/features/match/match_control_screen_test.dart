@@ -351,5 +351,25 @@ void main() {
 
     // Assert
     expect(find.text(l10n.outcomeAmend), findsNothing);
+  testWidgets('reopening a match whose clock already expired asks at once',
+      (tester) async {
+    // Arrange — the referee closed the app mid-match and came back. The
+    // notifier settles the expiry in its constructor, before this screen
+    // exists, so a listener that only reports *changes* would never fire — and
+    // the match would sit dead at 00:00 until someone thought to hold Finish.
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final expired = _runningMatch().copyWith(
+      duration: 300,
+      startAt: now - 600, // level, so it cannot decide itself
+    );
+
+    // Act
+    await pumpScreen(tester, expired);
+    await tester.pumpAndSettle();
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Assert
+    expect(notifier.state.awaitsOutcome, isTrue);
+    expect(find.text(l10n.outcomeTitle), findsOneWidget);
   });
 }

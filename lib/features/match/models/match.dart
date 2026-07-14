@@ -34,6 +34,114 @@ enum MatchStatus {
   }
 }
 
+/// Who won a match.
+///
+/// There is no `draw` here on purpose. A draw is [MatchMethod.draw] with **no**
+/// winner — encoding it twice would let an event claim `winner: "f1"` and
+/// `method: "draw"` at once, and every consumer would resolve that
+/// contradiction differently. One fact, one field.
+enum MatchWinner {
+  f1,
+  f2;
+
+  String toJson() => name;
+
+  static MatchWinner? fromJson(Object? json) {
+    return switch (json) {
+      null => null,
+      'f1' => MatchWinner.f1,
+      'f2' => MatchWinner.f2,
+      _ => throw FormatException('Unknown winner: $json'),
+    };
+  }
+}
+
+/// How a match was won.
+///
+/// Three of these beat the scoreboard outright — [submission], [dq] and
+/// [forfeit]. The fighter who was ahead can still lose, which is the whole
+/// reason this exists: a match that ends on a submission and says only
+/// "finished" publishes a scoreboard naming the wrong winner.
+///
+/// Note there is no `penalties`. Penalties are not a way to win: they have
+/// already become advantages and points (see [Match.f1EffectivePoints]), so
+/// counting them again would count the same penalty twice.
+enum MatchMethod {
+  /// The opponent tapped, submitted verbally, or the referee stopped it.
+  submission,
+
+  /// The clock ran out and one fighter had more points.
+  points,
+
+  /// Points were level; advantages decided it.
+  advantages,
+
+  /// Points and advantages were level, and the referees named a winner.
+  decision,
+
+  /// The **loser** was disqualified.
+  dq,
+
+  /// The loser withdrew, no-showed, or could not continue.
+  forfeit,
+
+  /// Points and advantages were level and the referees called it even. No
+  /// winner.
+  draw;
+
+  String toJson() => name;
+
+  static MatchMethod? fromJson(Object? json) {
+    if (json == null) return null;
+    for (final method in MatchMethod.values) {
+      if (method.name == json) return method;
+    }
+    throw FormatException('Unknown method: $json');
+  }
+
+  /// Whether this method decides the match regardless of the scoreboard.
+  bool get overridesScoreboard =>
+      this == submission || this == dq || this == forfeit;
+}
+
+/// Why a fighter was disqualified.
+///
+/// The categories are standard; the infractions are not. Whether a knee reap is
+/// illegal depends on the ruleset, the belt and the age division, and ADCC's
+/// list differs from the IBJJF's again — so what actually happened goes in
+/// [Match.dqDetail] as free text, and only the category is enumerated here.
+enum DqReason {
+  /// The fourth penalty. The app never raises this by itself: the referee ends
+  /// the match, and the app offers this as what the scoreboard already says.
+  accumulatedPenalties,
+
+  /// Severe technical foul — illegal technique, illegal grip, improper attire.
+  /// Disqualified from the **match**.
+  technicalFoul,
+
+  /// Severe disciplinary foul — unsportsmanlike conduct. Disqualified from the
+  /// **competition**.
+  disciplinaryFoul;
+
+  String toJson() {
+    return switch (this) {
+      DqReason.accumulatedPenalties => 'accumulated_penalties',
+      DqReason.technicalFoul => 'technical_foul',
+      DqReason.disciplinaryFoul => 'disciplinary_foul',
+    };
+  }
+
+  static DqReason? fromJson(Object? json) {
+    return switch (json) {
+      null => null,
+      'accumulated_penalties' => DqReason.accumulatedPenalties,
+      'technical_foul' => DqReason.technicalFoul,
+      'disciplinary_foul' => DqReason.disciplinaryFoul,
+      _ => throw FormatException('Unknown dq_reason: $json'),
+    };
+  }
+}
+
 /// Represents a BJJ match with scoring data
 ///
 /// Maps to Nostr event kind 31415 (addressable events) with the following
@@ -53,9 +161,23 @@ enum MatchStatus {
 ///   "f1_pt3": 0, "f2_pt3": 0,
 ///   "f1_pt4": 0, "f2_pt4": 0,
 ///   "f1_adv": 0, "f2_adv": 0,
-///   "f1_pen": 0, "f2_pen": 0
+///   "f1_pen": 0, "f2_pen": 0,
+///
+///   "winner": "f1 | f2",
+///   "method": "submission | points | advantages | decision | dq | forfeit | draw",
+///   "submission": "armbar",
+///   "dq_reason": "accumulated_penalties | technical_foul | disciplinary_foul",
+///   "dq_detail": "knee reap",
+///   "ended_at": 123456889
 /// }
 /// ```
+///
+/// The outcome fields are absent from every event published before they
+/// existed, so a consumer must tolerate their absence forever. An event this
+/// app writes for a finished match always carries `method` and `ended_at`, and
+/// a `winner` unless the match was drawn.
+///
+/// See docs/specs/match-outcome.md.
 class Match {
   /// 4-character hex identifier for the match
   final String id;
@@ -120,6 +242,35 @@ class Match {
   /// Fighter 2 penalty count
   final int f2Pen;
 
+  /// Who won. Null while the match is unfinished, when it was canceled, and
+  /// when it was a draw — a draw is [MatchMethod.draw] with no winner.
+  final MatchWinner? winner;
+
+  /// How the match was won. Null on a match that has not ended, and on every
+  /// event published before outcomes existed (see [isLegacyResult]).
+  final MatchMethod? method;
+
+  /// The submission, as free text: 'armbar', 'rear naked choke'. Only
+  /// meaningful with [MatchMethod.submission], and always optional — a referee
+  /// must never be blocked from ending a match because the app has never heard
+  /// of a baratoplata.
+  final String? submission;
+
+  /// Why the loser was disqualified. Required when [method] is
+  /// [MatchMethod.dq].
+  final DqReason? dqReason;
+
+  /// What the disqualified fighter actually did: 'knee reap', 'slam'. Free
+  /// text, always optional — the categories are standard, the infractions are
+  /// not.
+  final String? dqDetail;
+
+  /// When the match ended, in unix seconds.
+  ///
+  /// Not derivable: `startAt + duration` is when the clock *would* have run
+  /// out, which is exactly what a submission prevents.
+  final int? endedAt;
+
   static const _hexChars = '0123456789abcdef';
   static final _random = Random.secure();
 
@@ -143,6 +294,12 @@ class Match {
     this.f2Adv = 0,
     this.f1Pen = 0,
     this.f2Pen = 0,
+    this.winner,
+    this.method,
+    this.submission,
+    this.dqReason,
+    this.dqDetail,
+    this.endedAt,
   }) {
     _validate();
   }
@@ -231,6 +388,31 @@ class Match {
       );
     }
 
+    // An outcome has to be internally consistent, or it is worse than none:
+    // a consumer would have to guess which half of it to believe.
+    if (method == MatchMethod.draw && winner != null) {
+      throw const FormatException(
+        'A draw has no winner: method "draw" with a winner is a contradiction',
+      );
+    }
+    if (method != null && method != MatchMethod.draw && winner == null) {
+      throw FormatException(
+        'method "${method!.toJson()}" needs a winner',
+      );
+    }
+    if (method == MatchMethod.dq && dqReason == null) {
+      throw const FormatException('method "dq" needs a dq_reason');
+    }
+    if (dqReason != null && method != MatchMethod.dq) {
+      throw const FormatException('dq_reason without method "dq"');
+    }
+    if (method != null && endedAt == null) {
+      throw const FormatException('a match with an outcome needs an ended_at');
+    }
+    if (endedAt != null && endedAt! < 0) {
+      throw FormatException('endedAt must be non-negative, got: $endedAt');
+    }
+
     // A clock can only be stopped after it started
     if (pausedAt != null) {
       if (pausedAt! < 0) {
@@ -253,6 +435,92 @@ class Match {
   /// Calculate total score for fighter 2
   /// Formula: pt2*2 + pt3*3 + pt4*4
   int get f2Score => f2Pt2 * 2 + f2Pt3 * 3 + f2Pt4 * 4;
+
+  /// True for a match that ended before outcomes existed: finished (or
+  /// canceled), and silent about how.
+  ///
+  /// Such an event was refereed by an app that applied no penalty consequences
+  /// at all, so applying them now would **rewrite a result that has already
+  /// been seen** — a match won 2–0 while the loser carried three penalties
+  /// becomes 2–2, goes to advantages, and can flip. Leaving an old result
+  /// showing the scoreboard it showed at the time is at worst incomplete;
+  /// rewriting it asserts something new about a match nobody re-refereed.
+  ///
+  /// A match still in progress is **not** legacy, whatever it carries: it has
+  /// no result to preserve, and it is being refereed *now*, by this app, under
+  /// these rules.
+  bool get isLegacyResult =>
+      method == null &&
+      (status == MatchStatus.finished || status == MatchStatus.canceled);
+
+  /// Points fighter 1 has, including those their opponent's penalties conceded.
+  ///
+  /// The raw counters stay raw: [f1Pt2] still means "takedowns fighter 1
+  /// scored". Folding the penalty points into them would claim a takedown that
+  /// never happened, and nothing would remember where the points came from.
+  int get f1EffectivePoints => f1Score + _penaltyPoints(f2Pen);
+
+  int get f2EffectivePoints => f2Score + _penaltyPoints(f1Pen);
+
+  /// Advantages fighter 1 has, including the one their opponent's second
+  /// penalty conceded.
+  int get f1EffectiveAdvantages => f1Adv + _penaltyAdvantages(f2Pen);
+
+  int get f2EffectiveAdvantages => f2Adv + _penaltyAdvantages(f1Pen);
+
+  /// The IBJJF ladder: the opponent's 3rd penalty concedes two points. The 4th
+  /// adds nothing to the arithmetic — it is a disqualification, and only the
+  /// referee may call one ([hasDisqualifyingPenalties]).
+  int _penaltyPoints(int opponentPenalties) =>
+      isLegacyResult ? 0 : (opponentPenalties >= 3 ? 2 : 0);
+
+  /// The opponent's 2nd penalty concedes an advantage.
+  int _penaltyAdvantages(int opponentPenalties) =>
+      isLegacyResult ? 0 : (opponentPenalties >= 2 ? 1 : 0);
+
+  /// Whether either fighter has earned a disqualification by accumulating four
+  /// penalties.
+  ///
+  /// The app does **not** act on this: a fourth penalty that ended the match by
+  /// itself would make the penalty button the one control on the mat that
+  /// decides who loses, and a mis-tap would be unrecoverable. The referee ends
+  /// the match; this only tells the UI what to offer them.
+  bool get hasDisqualifyingPenalties => f1Pen >= 4 || f2Pen >= 4;
+
+  /// The winner the scoreboard implies, or null when the fighters are level.
+  ///
+  /// Null is not a failure — it is the honest answer. A level match has no
+  /// winner in the data, and inventing one is exactly the lie this model exists
+  /// to prevent. The referees decide: [MatchMethod.decision] or
+  /// [MatchMethod.draw].
+  MatchWinner? get scoreboardWinner {
+    if (f1EffectivePoints != f2EffectivePoints) {
+      return f1EffectivePoints > f2EffectivePoints
+          ? MatchWinner.f1
+          : MatchWinner.f2;
+    }
+    if (f1EffectiveAdvantages != f2EffectiveAdvantages) {
+      return f1EffectiveAdvantages > f2EffectiveAdvantages
+          ? MatchWinner.f1
+          : MatchWinner.f2;
+    }
+    return null;
+  }
+
+  /// How the scoreboard would decide it, or null when it cannot.
+  ///
+  /// Penalties are never the answer: they are already inside the points and
+  /// advantages being compared, and using the raw count as a further tiebreak
+  /// would count the same penalty twice — a fighter whose third penalty already
+  /// handed their opponent two points could then lose *again* for having the
+  /// higher count.
+  MatchMethod? get scoreboardMethod {
+    if (f1EffectivePoints != f2EffectivePoints) return MatchMethod.points;
+    if (f1EffectiveAdvantages != f2EffectiveAdvantages) {
+      return MatchMethod.advantages;
+    }
+    return null;
+  }
 
   /// Convert score to display format (includes advantages/penalties notation)
   String getF1ScoreDisplay() => _buildScoreDisplay(f1Score, f1Adv, f1Pen);
@@ -289,6 +557,12 @@ class Match {
       'f2_adv': f2Adv,
       'f1_pen': f1Pen,
       'f2_pen': f2Pen,
+      if (winner != null) 'winner': winner!.toJson(),
+      if (method != null) 'method': method!.toJson(),
+      if (submission != null) 'submission': submission,
+      if (dqReason != null) 'dq_reason': dqReason!.toJson(),
+      if (dqDetail != null) 'dq_detail': dqDetail,
+      if (endedAt != null) 'ended_at': endedAt,
     };
   }
 
@@ -314,6 +588,12 @@ class Match {
       f2Adv: json['f2_adv'] as int? ?? 0,
       f1Pen: json['f1_pen'] as int? ?? 0,
       f2Pen: json['f2_pen'] as int? ?? 0,
+      winner: MatchWinner.fromJson(json['winner']),
+      method: MatchMethod.fromJson(json['method']),
+      submission: json['submission'] as String?,
+      dqReason: DqReason.fromJson(json['dq_reason']),
+      dqDetail: json['dq_detail'] as String?,
+      endedAt: json['ended_at'] as int?,
     );
   }
 
@@ -425,6 +705,12 @@ class Match {
     int? f2Adv,
     int? f1Pen,
     int? f2Pen,
+    dynamic winner = _sentinel,
+    dynamic method = _sentinel,
+    dynamic submission = _sentinel,
+    dynamic dqReason = _sentinel,
+    dynamic dqDetail = _sentinel,
+    dynamic endedAt = _sentinel,
   }) {
     return Match(
       id: id ?? this.id,
@@ -446,6 +732,13 @@ class Match {
       f2Adv: f2Adv ?? this.f2Adv,
       f1Pen: f1Pen ?? this.f1Pen,
       f2Pen: f2Pen ?? this.f2Pen,
+      winner: winner == _sentinel ? this.winner : winner as MatchWinner?,
+      method: method == _sentinel ? this.method : method as MatchMethod?,
+      submission:
+          submission == _sentinel ? this.submission : submission as String?,
+      dqReason: dqReason == _sentinel ? this.dqReason : dqReason as DqReason?,
+      dqDetail: dqDetail == _sentinel ? this.dqDetail : dqDetail as String?,
+      endedAt: endedAt == _sentinel ? this.endedAt : endedAt as int?,
     );
   }
 
@@ -466,7 +759,14 @@ class Match {
           f1Adv == other.f1Adv &&
           f2Adv == other.f2Adv &&
           f1Pen == other.f1Pen &&
-          f2Pen == other.f2Pen;
+          f2Pen == other.f2Pen &&
+          // A match that has gained an outcome is not the match it was: the
+          // score can be identical and the winner the opposite fighter.
+          winner == other.winner &&
+          method == other.method &&
+          submission == other.submission &&
+          dqReason == other.dqReason &&
+          dqDetail == other.dqDetail;
 
   @override
   int get hashCode => Object.hash(
@@ -477,5 +777,10 @@ class Match {
         f2Adv,
         f1Pen,
         f2Pen,
+        winner,
+        method,
+        submission,
+        dqReason,
+        dqDetail,
       );
 }

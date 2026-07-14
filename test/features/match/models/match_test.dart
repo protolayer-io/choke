@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:choke/features/match/models/match.dart';
 
 void main() {
+  _outcomeTests();
+
   group('Match', () {
     // Valid test data
     final validMatchData = {
@@ -819,6 +822,455 @@ void main() {
 
         expect(match1, equals(match2));
       });
+    });
+  });
+}
+
+// ─── Outcomes, penalties, and who actually won ─────────────────────────────
+//
+// See docs/specs/match-outcome.md. The bug that started this: Bob leads 4–0,
+// Carlos submits him, and the app publishes a scoreboard naming Bob.
+
+Match _match({
+  MatchStatus status = MatchStatus.inProgress,
+  int f1Pt2 = 0,
+  int f2Pt2 = 0,
+  int f1Adv = 0,
+  int f2Adv = 0,
+  int f1Pen = 0,
+  int f2Pen = 0,
+  MatchWinner? winner,
+  MatchMethod? method,
+  String? submission,
+  DqReason? dqReason,
+  String? dqDetail,
+  int? endedAt,
+}) {
+  return Match(
+    id: 'abcd',
+    status: status,
+    startAt: 1700000000,
+    duration: 300,
+    f1Name: 'Bob',
+    f2Name: 'Carlos',
+    f1Color: '#1BA34E',
+    f2Color: '#F5B800',
+    f1Pt2: f1Pt2,
+    f2Pt2: f2Pt2,
+    f1Adv: f1Adv,
+    f2Adv: f2Adv,
+    f1Pen: f1Pen,
+    f2Pen: f2Pen,
+    winner: winner,
+    method: method,
+    submission: submission,
+    dqReason: dqReason,
+    dqDetail: dqDetail,
+    endedAt: endedAt,
+  );
+}
+
+void _outcomeTests() {
+  group('the penalty ladder', () {
+    test('a first penalty concedes nothing', () {
+      // Arrange & Act — a warning, and nothing more
+      final match = _match(f2Pen: 1);
+
+      // Assert
+      expect(match.f1EffectivePoints, 0);
+      expect(match.f1EffectiveAdvantages, 0);
+    });
+
+    test('a second penalty concedes an advantage to the opponent', () {
+      // Act
+      final match = _match(f2Pen: 2);
+
+      // Assert
+      expect(match.f1EffectiveAdvantages, 1);
+      expect(match.f1EffectivePoints, 0, reason: 'points come at the third');
+    });
+
+    test('a third penalty concedes two points to the opponent', () {
+      // Act
+      final match = _match(f2Pen: 3);
+
+      // Assert — this is the rung that changes who wins
+      expect(match.f1EffectivePoints, 2);
+      expect(match.f1EffectiveAdvantages, 1, reason: 'the second still stands');
+    });
+
+    test('a fourth penalty adds nothing to the arithmetic', () {
+      // Arrange — it is a disqualification, and only a referee may call one
+      final third = _match(f2Pen: 3);
+
+      // Act
+      final fourth = _match(f2Pen: 4);
+
+      // Assert
+      expect(fourth.f1EffectivePoints, third.f1EffectivePoints);
+      expect(fourth.f1EffectiveAdvantages, third.f1EffectiveAdvantages);
+    });
+
+    test('the penalty points are added, not folded into the raw counters', () {
+      // Arrange — Carlos's third penalty gives Bob two points
+      final match = _match(f1Pt2: 1, f2Pen: 3);
+
+      // Assert — Bob is credited with the points, but the record still says he
+      // scored one takedown. Folding them in would claim a takedown that never
+      // happened, and nothing would remember where the points came from.
+      expect(match.f1EffectivePoints, 4);
+      expect(match.f1Score, 2);
+      expect(match.f1Pt2, 1);
+    });
+
+    test('both fighters can be penalised independently', () {
+      // Act
+      final match = _match(f1Pen: 3, f2Pen: 2);
+
+      // Assert
+      expect(match.f2EffectivePoints, 2, reason: "Bob's third penalty");
+      expect(match.f2EffectiveAdvantages, 1);
+      expect(match.f1EffectivePoints, 0, reason: 'Carlos only has two');
+      expect(match.f1EffectiveAdvantages, 1);
+    });
+
+    test('four penalties are recognised, but not acted on', () {
+      // Assert — the app offers the disqualification; it never imposes it
+      expect(_match(f2Pen: 4).hasDisqualifyingPenalties, isTrue);
+      expect(_match(f1Pen: 4).hasDisqualifyingPenalties, isTrue);
+      expect(_match(f1Pen: 3, f2Pen: 3).hasDisqualifyingPenalties, isFalse);
+    });
+  });
+
+  group('who the scoreboard says won', () {
+    test('more points wins', () {
+      // Act
+      final match = _match(f1Pt2: 2);
+
+      // Assert
+      expect(match.scoreboardWinner, MatchWinner.f1);
+      expect(match.scoreboardMethod, MatchMethod.points);
+    });
+
+    test('level on points, more advantages wins', () {
+      // Act
+      final match = _match(f1Pt2: 1, f2Pt2: 1, f2Adv: 1);
+
+      // Assert
+      expect(match.scoreboardWinner, MatchWinner.f2);
+      expect(match.scoreboardMethod, MatchMethod.advantages);
+    });
+
+    test('level on both refuses to name a winner', () {
+      // Arrange — the referees decide: a decision, or a draw
+      final match = _match(f1Pt2: 1, f2Pt2: 1, f1Adv: 1, f2Adv: 1);
+
+      // Assert — null is the honest answer, not a failure. Inventing a winner
+      // here is exactly the lie this model exists to prevent.
+      expect(match.scoreboardWinner, isNull);
+      expect(match.scoreboardMethod, isNull);
+    });
+
+    test('a penalty can hand the match to the fighter who was behind', () {
+      // Arrange — Bob leads 2–0 on the raw scoreboard…
+      final match = _match(f1Pt2: 1, f2Pt2: 2, f2Pen: 0);
+      expect(match.scoreboardWinner, MatchWinner.f2);
+
+      // Act — …and now Carlos, who was winning 4–2, takes a third penalty
+      final penalised = _match(f1Pt2: 1, f2Pt2: 2, f2Pen: 3);
+
+      // Assert — 2 + 2 = 4 apiece on points, and Bob's conceded advantage
+      // decides it. The penalty ladder is not cosmetic.
+      expect(penalised.f1EffectivePoints, 4);
+      expect(penalised.f2EffectivePoints, 4);
+      expect(penalised.scoreboardWinner, MatchWinner.f1);
+      expect(penalised.scoreboardMethod, MatchMethod.advantages);
+    });
+
+    test('penalties are never a tiebreak of their own', () {
+      // Arrange — level on effective points and advantages, but Carlos has one
+      // penalty (which concedes nothing).
+      final match = _match(f2Pen: 1);
+
+      // Assert — it stays level. Using the raw count as a further tiebreak
+      // would count the same penalty twice: a fighter whose third penalty had
+      // already handed two points away would then lose *again* for the count.
+      expect(match.scoreboardWinner, isNull);
+    });
+  });
+
+  group('legacy events are not re-refereed', () {
+    test('a finished match with no method keeps its old arithmetic', () {
+      // Arrange — an event published before outcomes existed: Bob won 2–0 while
+      // Carlos carried three penalties, and the app that refereed it applied no
+      // consequences at all.
+      final legacy = _match(
+        status: MatchStatus.finished,
+        f1Pt2: 1,
+        f2Pt2: 2,
+        f2Pen: 3,
+      );
+
+      // Assert — reading it with the new ladder would make it 4–4, send it to
+      // advantages, and flip the winner. Rewriting a result nobody re-refereed
+      // is not our call.
+      expect(legacy.isLegacyResult, isTrue);
+      expect(legacy.f1EffectivePoints, 2);
+      expect(legacy.f2EffectivePoints, 4);
+      expect(legacy.scoreboardWinner, MatchWinner.f2);
+    });
+
+    test('a canceled match is legacy too', () {
+      expect(
+        _match(status: MatchStatus.canceled, f2Pen: 3).isLegacyResult,
+        isTrue,
+      );
+    });
+
+    test('a match in progress is never legacy, whatever it carries', () {
+      // Arrange — this is the case the field-presence rule alone gets wrong: a
+      // live match has no method or ended_at *yet*, but it is being refereed
+      // right now, by this app, under these rules. The referee has to see the
+      // penalty they just gave turn into the opponent's points.
+      final live = _match(f2Pen: 3);
+
+      // Assert
+      expect(live.isLegacyResult, isFalse);
+      expect(live.f1EffectivePoints, 2);
+    });
+
+    test('a finished match that states its method uses the new ladder', () {
+      // Act
+      final modern = _match(
+        status: MatchStatus.finished,
+        f1Pt2: 1,
+        f2Pen: 3,
+        winner: MatchWinner.f1,
+        method: MatchMethod.points,
+        endedAt: 1700000180,
+      );
+
+      // Assert
+      expect(modern.isLegacyResult, isFalse);
+      expect(modern.f1EffectivePoints, 4);
+    });
+  });
+
+  group('an outcome must be internally consistent', () {
+    test('a draw has no winner', () {
+      // Assert — a consumer handed both would have to guess which half to
+      // believe
+      expect(
+        () => _match(
+          status: MatchStatus.finished,
+          method: MatchMethod.draw,
+          winner: MatchWinner.f1,
+          endedAt: 1700000180,
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('every other method needs a winner', () {
+      expect(
+        () => _match(
+          status: MatchStatus.finished,
+          method: MatchMethod.submission,
+          endedAt: 1700000180,
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('a disqualification needs a reason', () {
+      expect(
+        () => _match(
+          status: MatchStatus.finished,
+          method: MatchMethod.dq,
+          winner: MatchWinner.f1,
+          endedAt: 1700000180,
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('a reason without a disqualification is meaningless', () {
+      expect(
+        () => _match(
+          status: MatchStatus.finished,
+          method: MatchMethod.points,
+          winner: MatchWinner.f1,
+          dqReason: DqReason.technicalFoul,
+          endedAt: 1700000180,
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('an outcome needs an ending time', () {
+      // Arrange — start_at + duration is when the clock *would* have run out,
+      // which is exactly what a submission prevents
+      expect(
+        () => _match(
+          status: MatchStatus.finished,
+          method: MatchMethod.submission,
+          winner: MatchWinner.f2,
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('a draw is valid with no winner', () {
+      expect(
+        () => _match(
+          status: MatchStatus.finished,
+          method: MatchMethod.draw,
+          endedAt: 1700000180,
+        ),
+        returnsNormally,
+      );
+    });
+  });
+
+  group('the outcome survives the wire', () {
+    test('Carlos beat Bob by armbar, and the JSON says so', () {
+      // Arrange — the bug, fixed: Bob leads 4–0 and still loses
+      final match = _match(
+        status: MatchStatus.finished,
+        f1Pt2: 2,
+        winner: MatchWinner.f2,
+        method: MatchMethod.submission,
+        submission: 'armbar',
+        endedAt: 1700000180,
+      );
+
+      // Act
+      final json = jsonDecode(match.toJsonString()) as Map<String, dynamic>;
+
+      // Assert
+      expect(json['winner'], 'f2');
+      expect(json['method'], 'submission');
+      expect(json['submission'], 'armbar');
+      expect(json['ended_at'], 1700000180);
+      expect(json['f1_pt2'], 2, reason: 'the raw record is still the record');
+    });
+
+    test('a disqualification round-trips whole', () {
+      // Arrange
+      final match = _match(
+        status: MatchStatus.finished,
+        winner: MatchWinner.f1,
+        method: MatchMethod.dq,
+        dqReason: DqReason.technicalFoul,
+        dqDetail: 'knee reap',
+        endedAt: 1700000180,
+      );
+
+      // Act
+      final parsed = Match.fromJsonString(match.toJsonString());
+
+      // Assert
+      expect(parsed.method, MatchMethod.dq);
+      expect(parsed.dqReason, DqReason.technicalFoul);
+      expect(parsed.dqDetail, 'knee reap');
+      expect(parsed.winner, MatchWinner.f1);
+      expect(parsed.endedAt, 1700000180);
+    });
+
+    test('an unfinished match carries no outcome at all', () {
+      // Assert — the keys are absent, not null: an old client reading them
+      // must see nothing, not a null it has to interpret
+      final json = jsonDecode(_match().toJsonString()) as Map<String, dynamic>;
+      expect(json.containsKey('winner'), isFalse);
+      expect(json.containsKey('method'), isFalse);
+      expect(json.containsKey('ended_at'), isFalse);
+    });
+
+    test('an event from before outcomes existed still parses', () {
+      // Arrange — exactly what an old app published
+      const legacy = '{"id":"abcd","status":"finished","start_at":1700000000,'
+          '"duration":300,"f1_name":"Bob","f2_name":"Carlos",'
+          '"f1_color":"#1BA34E","f2_color":"#F5B800",'
+          '"f1_pt2":2,"f2_pt2":0,"f1_pt3":0,"f2_pt3":0,"f1_pt4":0,"f2_pt4":0,'
+          '"f1_adv":0,"f2_adv":0,"f1_pen":0,"f2_pen":3}';
+
+      // Act
+      final match = Match.fromJsonString(legacy);
+
+      // Assert — it parses, it knows it is legacy, and it is left alone
+      expect(match.method, isNull);
+      expect(match.winner, isNull);
+      expect(match.isLegacyResult, isTrue);
+      expect(match.f1EffectivePoints, 4, reason: 'raw score, no penalty points');
+    });
+
+    test('an unknown method is a hard error, not a silent null', () {
+      // Arrange — a future client publishing something we do not understand.
+      // Guessing would mean rendering a match whose result we cannot read.
+      const unknown = '{"id":"abcd","status":"finished","duration":300,'
+          '"f1_name":"Bob","f2_name":"Carlos",'
+          '"f1_color":"#1BA34E","f2_color":"#F5B800","method":"telepathy"}';
+
+      // Act & Assert
+      expect(() => Match.fromJsonString(unknown), throwsFormatException);
+    });
+  });
+
+  group('copyWith', () {
+    test('records an outcome on a match that had none', () {
+      // Act
+      final finished = _match().copyWith(
+        status: MatchStatus.finished,
+        winner: MatchWinner.f2,
+        method: MatchMethod.submission,
+        submission: 'triangle',
+        endedAt: 1700000180,
+      );
+
+      // Assert
+      expect(finished.winner, MatchWinner.f2);
+      expect(finished.method, MatchMethod.submission);
+      expect(finished.submission, 'triangle');
+    });
+
+    test('clears an outcome when passed null explicitly', () {
+      // Arrange — amending a result (phase 3) has to be able to take one back
+      final finished = _match(
+        status: MatchStatus.finished,
+        winner: MatchWinner.f2,
+        method: MatchMethod.submission,
+        endedAt: 1700000180,
+      );
+
+      // Act
+      final reopened = finished.copyWith(
+        status: MatchStatus.inProgress,
+        winner: null,
+        method: null,
+        endedAt: null,
+      );
+
+      // Assert
+      expect(reopened.winner, isNull);
+      expect(reopened.method, isNull);
+    });
+
+    test('a match that gains an outcome is not equal to the one it was', () {
+      // Arrange — the scores are identical and the winner is the *other*
+      // fighter. Equality that ignored the outcome would let a stale card sit
+      // on the home feed showing Bob winning a match Carlos submitted him in.
+      final live = _match(f1Pt2: 2);
+
+      // Act
+      final finished = live.copyWith(
+        status: MatchStatus.finished,
+        winner: MatchWinner.f2,
+        method: MatchMethod.submission,
+        endedAt: 1700000180,
+      );
+
+      // Assert
+      expect(finished, isNot(live));
     });
   });
 }

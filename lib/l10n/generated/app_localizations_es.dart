@@ -551,7 +551,7 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get subArmbar => 'Palanca de brazo';
+  String get subArmbar => 'Llave de brazo';
 
   @override
   String get subRearNakedChoke => 'Mataleón';
@@ -593,7 +593,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get subHeelHook => 'Heel hook';
 
   @override
-  String get subToeHold => 'Toe hold';
+  String get subToeHold => 'Americana de pie';
 
   @override
   String get outcomeSubmissionOther => 'Otra…';

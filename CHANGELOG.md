@@ -1,5 +1,34 @@
 # Changelog
 
+## [v1.5.0] - 2026-07-15
+
+### Added
+- feat: compact home status filters, default to active matches (978cf4d)
+- feat: link black belt box to protolayer.io and drop credit underline (b9b6a6c)
+- feat: rebrand settings footer to ProtoLayer with website link (c10cde1)
+- feat(account): generate a new keypair from the account screen (1cdd7cb)
+
+### Fixed
+- fix: 44px min tap target for filter chips; free CI disk space (90380c1)
+- Fix spanish submission translations (fb9e7fc)
+- fix(account): refresh identity and handle errors on keypair generation (93b2201)
+- fix: serialize relay operations and mute superseded watchers (2a914a6)
+- fix: address review findings on the reconnect rebuild (eb8ffbf)
+- fix: resume must never strand the relay transport (6bbb8c5)
+
+### Documentation
+- docs: clarify which files to commit after gen-l10n (4b55dbb)
+- docs: add translations/i18n contributor guide and link it from README (f8bbe77)
+- docs: add translations/i18n contributor guide and link it from README (cd4a7a7)
+
+### Changed
+- chore: relicense under GPL-3.0 and set copyright to ProtoLayer OÜ (73dfa0b)
+- chore: point grunch/choke references to protolayer-io/choke (31b04c5)
+- refactor: use InkWell + link semantics for footer credit (92fb57e)
+- Revert "docs: add translations/i18n contributor guide and link it from README" (578f400)
+- chore: update changelog and version for v1.4.0 (b0f514f)
+
+
 ## [Unreleased]
 
 ### Added

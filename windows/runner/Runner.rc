@@ -89,11 +89,11 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.grunch" "\0"
+            VALUE "CompanyName", "ProtoLayer OÜ" "\0"
             VALUE "FileDescription", "choke" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "choke" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.grunch. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 ProtoLayer OÜ. All rights reserved." "\0"
             VALUE "OriginalFilename", "choke.exe" "\0"
             VALUE "ProductName", "choke" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

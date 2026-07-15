@@ -11,4 +11,4 @@ PRODUCT_NAME = choke
 PRODUCT_BUNDLE_IDENTIFIER = io.protolayer.choke
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.grunch. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 ProtoLayer OÜ. All rights reserved.

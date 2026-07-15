@@ -435,13 +435,13 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get licenseText =>
-      'Licença MIT\n\nCopyright (c) 2026 Negrunch\n\nÉ concedida permissão, gratuitamente, a qualquer pessoa que obtenha uma cópia deste software e dos arquivos de documentação associados (o \"Software\"), para usar, copiar, modificar, fundir, publicar, distribuir, sublicenciar e/ou vender cópias do Software, e às pessoas a quem o Software é fornecido para fazê-lo, sujeito às seguintes condições:\n\nO aviso de copyright acima e este aviso de permissão serão incluídos em todas as cópias ou porções substanciais do Software.\n\nO SOFTWARE É FORNECIDO \"COMO ESTÁ\", SEM GARANTIA DE NENHUM TIPO, EXPRESA OU IMPLÍCITA, INCLUINDO, MAS NÃO LIMITADA A, GARANTIAS DE COMERCIALIZAÇÃO, ADEQUAÇÃO A UM PROPÓSITO ESPECÍFICO E NÃO VIOLAÇÃO. EM NENHUM CASO OS AUTORES OU TITULARES DE DIREITOS AUTORAIS SERÃO RESPONSÁVEIS POR QUALQUER RECLAMAÇÃO, DANO OU OUTRA RESPONSABILIDADE, SEJA EM UMA AÇÃO DE CONTRATO, DELITO OU DE OUTRA FORMA, ORIGINADA POR, OU EM CONEXÃO COM O SOFTWARE OU O USO OU OUTRAS NEGOCIAÇÕES NO SOFTWARE.';
+      'Choke\nCopyright (C) 2026 ProtoLayer OÜ\n\nEste programa é software livre: você pode redistribuí-lo e/ou modificá-lo sob os termos da Licença Pública Geral GNU, conforme publicada pela Free Software Foundation, seja a versão 3 da Licença ou (a seu critério) qualquer versão posterior.\n\nEste programa é distribuído na esperança de que seja útil, mas SEM NENHUMA GARANTIA; sem mesmo a garantia implícita de COMERCIALIZAÇÃO ou ADEQUAÇÃO A UM PROPÓSITO ESPECÍFICO. Consulte a Licença Pública Geral GNU para mais detalhes.\n\nVocê deve ter recebido uma cópia da Licença Pública Geral GNU junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.';
 
   @override
   String get licenseLabel => 'Licença';
 
   @override
-  String get licenseSubtitle => 'Licença MIT';
+  String get licenseSubtitle => 'GNU GPL v3.0';
 
   @override
   String get relayErrorLoadFailed =>

@@ -419,13 +419,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get licenseText =>
-      'MIT ライセンス\n\nCopyright (c) 2026 Negrunch\n\n本ソフトウェアと関連ドキュメントファイル（以下「ソフトウェア」）のコピーを取得した者は、以下に示す条件に従い、ソフトウェアを自由に使用、複製、変更、統合、公開、配布、サブライセンスし、またはコピーを販売する権利を無償で付与されます。\n\n上記の著作権表示および本免責条項は、ソフトウェアのすべてのコピーまたは重要な部分に含まれるものとします。\n\nソフトウェアは「現状のまま」提供され、商品性、特定目的への適合性、および非侵害に関する明示的または黙示的な保証は一切ありません。いかなる場合においても、著作者または著作権者は、契約、不法行為、その他の理由から、ソフトウェアの使用その他の取引に起因または関連して発生した請求、損害またはその他の責任を負わないものとします。';
+      'Choke\nCopyright (C) 2026 ProtoLayer OÜ\n\nこのプログラムはフリーソフトウェアです。フリーソフトウェア財団が公表するGNU一般公衆利用許諾書（バージョン3、または任意でそれ以降のバージョン）の条件の下で、再配布および改変することができます。\n\nこのプログラムは有用であることを願って配布されますが、商品性や特定目的への適合性の暗黙的な保証を含め、いかなる保証もありません。詳細はGNU一般公衆利用許諾書をご覧ください。\n\nこのプログラムとともにGNU一般公衆利用許諾書のコピーを受け取っているはずです。受け取っていない場合は <https://www.gnu.org/licenses/> をご覧ください。';
 
   @override
   String get licenseLabel => 'ライセンス';
 
   @override
-  String get licenseSubtitle => 'MIT ライセンス';
+  String get licenseSubtitle => 'GNU GPL v3.0';
 
   @override
   String get relayErrorLoadFailed => 'リレー設定の読み込みに失敗しました';

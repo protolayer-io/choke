@@ -177,6 +177,63 @@ void runConvergenceDrills(
       expect(relayB.received.single['content'], 'f1: 7');
     });
 
+    test('resume never strands the transport', () async {
+      // Arrange — a healthy, connected relay.
+      await service.addRelay(relayA.url);
+      await connected(relayA.url);
+
+      // Act — what main.dart does every time the app returns to the
+      // foreground: reconnectAll(), i.e. disconnect + connect. Hammered,
+      // because the failure being hunted is a race — the user's report is
+      // "a veces": sometimes the app comes back, sometimes it needs a kill.
+      for (var i = 0; i < 20; i++) {
+        await service.reconnectAll();
+        // Vary the phase: half the iterations give the old connection task a
+        // beat to reach its next await, half fire into it mid-flight.
+        if (i.isOdd) {
+          await Future<void>.delayed(const Duration(milliseconds: 25));
+        }
+      }
+
+      // Assert — however the coin lands, the transport must come back on its
+      // own. When this fails, connectedRelays stays empty forever, every
+      // publish throws "No connected relays", and no retry can fix it —
+      // exactly the referee tapping Retry against a dead app.
+      await eventually(
+        () => backend.connectedRelays.contains(relayA.url),
+        timeout: const Duration(seconds: 20),
+      );
+
+      // And the next score must actually land.
+      await service.publishEvent(score(1700000000, 'f1 leads'));
+      await eventually(() => relayA.received.isNotEmpty);
+    });
+
+    test('a score given right after resume lands anyway', () async {
+      // Arrange — a healthy relay, and the app freshly resumed. This is the
+      // literal sequence from the bug report: reopen the app (the lifecycle
+      // hook fires reconnectAll) and immediately create a match.
+      await service.addRelay(relayA.url);
+      await connected(relayA.url);
+      await service.reconnectAll();
+
+      // Act — publish with no settling delay. Mid-rebuild there may be no
+      // connected relay yet, and then the publish throws; that is the honest
+      // answer at that instant, and the referee sees a retry option. What must
+      // NOT happen is the score silently never arriving.
+      try {
+        await service.publishEvent(score(1700000000, 'f1 leads'));
+      } catch (_) {
+        // Registered as pending before the throw; the reconnect listener
+        // delivers it the moment the rebuilt relay comes up.
+      }
+
+      // Assert — the score lands without the referee doing anything else.
+      await eventually(() => relayA.received.isNotEmpty,
+          timeout: const Duration(seconds: 20));
+      expect(relayA.received.last['content'], 'f1 leads');
+    });
+
     test('with nothing reachable, the score survives until the relay returns',
         () async {
       // Arrange — airplane mode: the app knows its relay, and nothing answers

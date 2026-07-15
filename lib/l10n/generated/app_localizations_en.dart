@@ -67,6 +67,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get keyGeneratedSuccessfully => 'New keypair generated successfully';
 
   @override
+  String get failedToGenerateKey =>
+      'Failed to generate new key. Please try again.';
+
+  @override
   String get yourNostrIdentity => 'Your Nostr Identity';
 
   @override

@@ -19,6 +19,7 @@
   "generateNewKeyWarning": "Esto generará un nuevo par de claves y reemplazará tu identidad actual. Si no has respaldado tu clave privada actual, la perderás de forma permanente. Esta acción no se puede deshacer.",
   "generate": "Generar",
   "keyGeneratedSuccessfully": "Nuevo par de claves generado correctamente",
+  "failedToGenerateKey": "Error al generar la nueva clave. Por favor intenta de nuevo.",
   "yourNostrIdentity": "Tu identidad Nostr",
   "keypairDescription": "Este par de claves te identifica en la red",
   "publicKeyNpub": "Clave pública (npub)",

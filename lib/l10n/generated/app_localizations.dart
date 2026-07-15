@@ -216,6 +216,12 @@ abstract class AppLocalizations {
   /// **'New keypair generated successfully'**
   String get keyGeneratedSuccessfully;
 
+  /// Snackbar shown when generating a new keypair fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to generate new key. Please try again.'**
+  String get failedToGenerateKey;
+
   /// Account screen header title
   ///
   /// In en, this message translates to:

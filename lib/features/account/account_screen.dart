@@ -197,26 +197,50 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                     : () async {
                         setDialogState(() => dialogGenerating = true);
 
-                        final keyManager = ref.read(keyManagerProvider);
-                        await keyManager.generateNewKeypair();
+                        try {
+                          final keyManager = ref.read(keyManagerProvider);
+                          await keyManager.generateNewKeypair();
+                        } catch (_) {
+                          // Not logging the exception object: it was raised
+                          // while handling freshly generated key material, so
+                          // its message could carry that material into the log.
+                          debugPrint('AccountScreen: Error generating keypair');
+                          if (dialogBuildContext.mounted) {
+                            setDialogState(() => dialogGenerating = false);
+                          }
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.failedToGenerateKey),
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.error,
+                              ),
+                            );
+                          }
+                          return;
+                        }
 
-                        if (!mounted || !dialogBuildContext.mounted) return;
+                        // The new keypair is now the stored identity, so the
+                        // screen must refresh even if the dialog was dismissed
+                        // mid-flight. Closing the dialog is the only step that
+                        // depends on it still being on screen.
+                        if (dialogBuildContext.mounted) {
+                          Navigator.pop(dialogContext);
+                        }
+                        if (!mounted) return;
 
-                        Navigator.pop(dialogContext);
                         ref.invalidate(npubProvider);
                         ref.invalidate(nsecProvider);
                         setState(() => _isNsecVisible = false);
 
-                        if (mounted) {
-                          final primaryColor =
-                              Theme.of(context).colorScheme.primary;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(l10n.keyGeneratedSuccessfully),
-                              backgroundColor: primaryColor,
-                            ),
-                          );
-                        }
+                        final primaryColor =
+                            Theme.of(context).colorScheme.primary;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(l10n.keyGeneratedSuccessfully),
+                            backgroundColor: primaryColor,
+                          ),
+                        );
                       },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: tk.dangerFg,

@@ -68,6 +68,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Nuevo par de claves generado correctamente';
 
   @override
+  String get failedToGenerateKey =>
+      'Error al generar la nueva clave. Por favor intenta de nuevo.';
+
+  @override
   String get yourNostrIdentity => 'Tu identidad Nostr';
 
   @override

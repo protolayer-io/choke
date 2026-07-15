@@ -68,6 +68,10 @@ class AppLocalizationsPt extends AppLocalizations {
       'Novo par de chaves gerado com sucesso';
 
   @override
+  String get failedToGenerateKey =>
+      'Falha ao gerar a nova chave. Por favor, tente novamente.';
+
+  @override
   String get yourNostrIdentity => 'Sua identidade Nostr';
 
   @override

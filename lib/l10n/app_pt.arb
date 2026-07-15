@@ -19,6 +19,7 @@
   "generateNewKeyWarning": "Isso gerará um novo par de chaves e substituirá sua identidade atual. Se você não fez backup da sua chave privada atual, ela será perdida permanentemente. Esta ação não pode ser desfeita.",
   "generate": "Gerar",
   "keyGeneratedSuccessfully": "Novo par de chaves gerado com sucesso",
+  "failedToGenerateKey": "Falha ao gerar a nova chave. Por favor, tente novamente.",
   "yourNostrIdentity": "Sua identidade Nostr",
   "keypairDescription": "Este par de chaves identifica você na rede",
   "publicKeyNpub": "Chave pública (npub)",

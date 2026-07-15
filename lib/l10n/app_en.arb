@@ -76,6 +76,10 @@
   "@keyGeneratedSuccessfully": {
     "description": "Snackbar shown after a new keypair is generated"
   },
+  "failedToGenerateKey": "Failed to generate new key. Please try again.",
+  "@failedToGenerateKey": {
+    "description": "Snackbar shown when generating a new keypair fails"
+  },
   "yourNostrIdentity": "Your Nostr Identity",
   "@yourNostrIdentity": {
     "description": "Account screen header title"

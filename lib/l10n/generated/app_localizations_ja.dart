@@ -67,6 +67,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get keyGeneratedSuccessfully => '新しい鍵ペアが正常に生成されました';
 
   @override
+  String get failedToGenerateKey => '新しい鍵の生成に失敗しました。もう一度お試しください。';
+
+  @override
   String get yourNostrIdentity => 'あなたのNostr ID';
 
   @override

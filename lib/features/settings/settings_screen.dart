@@ -170,10 +170,10 @@ class SettingsScreen extends ConsumerWidget {
               tk: tk,
               icon: Icons.code,
               title: l10n.sourceCode,
-              subtitle: 'github.com/grunch/choke',
+              subtitle: 'github.com/protolayer-io/choke',
               trailingIcon: Icons.open_in_new,
               onTap: () => launchUrl(
-                Uri.parse('https://github.com/grunch/choke'),
+                Uri.parse('https://github.com/protolayer-io/choke'),
                 mode: LaunchMode.externalApplication,
               ),
             ),
@@ -188,7 +188,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 32),
 
-            // Built by Pana footer
+            // Built by ProtoLayer footer
             Consumer(
               builder: (context, ref, child) {
                 final packageInfo = ref.watch(packageInfoProvider);
@@ -204,31 +204,58 @@ class SettingsScreen extends ConsumerWidget {
                 return Center(
                   child: Column(
                     children: [
-                      Text(
-                        l10n.builtBy('Pana'),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.onSurface.withValues(alpha: 0.5),
+                      Semantics(
+                        link: true,
+                        child: InkWell(
+                          onTap: () => launchUrl(
+                            Uri.parse('https://protolayer.io'),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Text(
+                              l10n.builtBy('ProtoLayer'),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: tk.accent,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: isDark
-                            ? BoxDecoration(
-                                // Subtle lighter backdrop so the black belt
-                                // stays visible against the dark theme.
-                                color: colors.onSurface.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(16),
-                              )
-                            : null,
-                        child: Image.asset(
-                          'assets/branding/bjj_black_belt.webp',
-                          width: 120,
-                          fit: BoxFit.contain,
-                          semanticLabel: l10n.bjjBlackBelt,
+                      Semantics(
+                        link: true,
+                        child: InkWell(
+                          onTap: () => launchUrl(
+                            Uri.parse('https://protolayer.io'),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            decoration: isDark
+                                ? BoxDecoration(
+                                    // Subtle lighter backdrop so the black belt
+                                    // stays visible against the dark theme.
+                                    color:
+                                        colors.onSurface.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(16),
+                                  )
+                                : null,
+                            child: Image.asset(
+                              'assets/branding/bjj_black_belt.webp',
+                              width: 120,
+                              fit: BoxFit.contain,
+                              semanticLabel: l10n.bjjBlackBelt,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),

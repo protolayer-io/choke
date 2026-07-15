@@ -578,7 +578,7 @@
     "placeholders": {
       "name": {
         "type": "String",
-        "example": "Pana"
+        "example": "ProtoLayer"
       }
     }
   },

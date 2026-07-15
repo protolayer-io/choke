@@ -40,7 +40,7 @@ void main() {
 
       // Scroll to the bottom to find the footer
       await tester.scrollUntilVisible(
-        find.text('Built by Pana'),
+        find.text('Built by ProtoLayer'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
@@ -58,7 +58,7 @@ void main() {
       );
 
       // Creator credit (localized)
-      expect(find.text('Built by Pana'), findsOneWidget);
+      expect(find.text('Built by ProtoLayer'), findsOneWidget);
 
       // Version from packageInfoProvider
       expect(find.text('v1.2.3'), findsOneWidget);
@@ -89,7 +89,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.scrollUntilVisible(
-        find.text('Built by Pana'),
+        find.text('Built by ProtoLayer'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
@@ -105,7 +105,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('Built by Pana'), findsOneWidget);
+      expect(find.text('Built by ProtoLayer'), findsOneWidget);
 
       // Error fallback
       expect(find.text('—'), findsOneWidget);

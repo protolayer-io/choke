@@ -6,7 +6,7 @@ This document describes the implementation of the `Match` data model for the Cho
 
 ## Issue Reference
 
-- **Issue:** [#4 - Match data model and content schema](https://github.com/grunch/choke/issues/4)
+- **Issue:** [#4 - Match data model and content schema](https://github.com/protolayer-io/choke/issues/4)
 - **Status:** Implemented
 - **PR:** #20
 

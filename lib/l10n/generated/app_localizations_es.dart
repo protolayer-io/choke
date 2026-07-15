@@ -51,6 +51,23 @@ class AppLocalizationsEs extends AppLocalizations {
   String get importChangeKey => 'Importar/Cambiar clave';
 
   @override
+  String get generateNewKey => 'Generar nueva clave';
+
+  @override
+  String get generateNewKeyTitle => '¿Generar nuevo par de claves?';
+
+  @override
+  String get generateNewKeyWarning =>
+      'Esto generará un nuevo par de claves y reemplazará tu identidad actual. Si no has respaldado tu clave privada actual, la perderás de forma permanente. Esta acción no se puede deshacer.';
+
+  @override
+  String get generate => 'Generar';
+
+  @override
+  String get keyGeneratedSuccessfully =>
+      'Nuevo par de claves generado correctamente';
+
+  @override
   String get yourNostrIdentity => 'Tu identidad Nostr';
 
   @override

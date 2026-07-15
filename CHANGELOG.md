@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- feat(account): generate a new keypair from the account screen, guarded by a confirmation dialog that warns the current identity is lost if not backed up
+
 ## [v1.4.0] - 2026-07-14
 
 ### Added

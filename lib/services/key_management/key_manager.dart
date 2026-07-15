@@ -97,6 +97,15 @@ class KeyManager {
     return _encodeNsec(privateKeyHex);
   }
 
+  /// Generate a brand new keypair, replacing the current identity.
+  ///
+  /// WARNING: this discards the keypair currently in secure storage. If the
+  /// user has not backed up their nsec beforehand, the previous identity is
+  /// permanently lost. Callers must confirm intent before invoking this.
+  Future<void> generateNewKeypair() async {
+    await _generateAndStoreKeypair();
+  }
+
   /// Import a private key from nsec format
   /// Returns true if successful, false otherwise
   Future<bool> importFromNsec(String nsec) async {

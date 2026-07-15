@@ -155,6 +155,88 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     );
   }
 
+  Future<void> _showGenerateKeyDialog() async {
+    bool dialogGenerating = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogBuildContext, setDialogState) {
+          final l10n = AppLocalizations.of(dialogBuildContext);
+          final theme = Theme.of(dialogBuildContext);
+          final colors = theme.colorScheme;
+          final tk = ChokeTokens.of(dialogBuildContext);
+          return AlertDialog(
+            backgroundColor: colors.surface,
+            title: Row(
+              children: [
+                Icon(Icons.warning_amber, color: tk.dangerFg, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    l10n.generateNewKeyTitle,
+                    style: TextStyle(color: colors.onSurface),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              l10n.generateNewKeyWarning,
+              style: theme.textTheme.bodyMedium,
+            ),
+            actions: [
+              TextButton(
+                onPressed: dialogGenerating
+                    ? null
+                    : () => Navigator.pop(dialogContext),
+                child: Text(l10n.cancel),
+              ),
+              ElevatedButton(
+                onPressed: dialogGenerating
+                    ? null
+                    : () async {
+                        setDialogState(() => dialogGenerating = true);
+
+                        final keyManager = ref.read(keyManagerProvider);
+                        await keyManager.generateNewKeypair();
+
+                        if (!mounted || !dialogBuildContext.mounted) return;
+
+                        Navigator.pop(dialogContext);
+                        ref.invalidate(npubProvider);
+                        ref.invalidate(nsecProvider);
+                        setState(() => _isNsecVisible = false);
+
+                        if (mounted) {
+                          final primaryColor =
+                              Theme.of(context).colorScheme.primary;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(l10n.keyGeneratedSuccessfully),
+                              backgroundColor: primaryColor,
+                            ),
+                          );
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: tk.dangerFg,
+                  foregroundColor: BJJColors.white,
+                ),
+                child: dialogGenerating
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(l10n.generate),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final npubAsync = ref.watch(npubProvider);
@@ -182,10 +264,20 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(Icons.logout, color: tk.muted, size: 21),
-                    tooltip: l10n.importChangeKey,
-                    onPressed: _showImportDialog,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.autorenew, color: tk.muted, size: 21),
+                        tooltip: l10n.generateNewKey,
+                        onPressed: _showGenerateKeyDialog,
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.logout, color: tk.muted, size: 21),
+                        tooltip: l10n.importChangeKey,
+                        onPressed: _showImportDialog,
+                      ),
+                    ],
                   ),
                 ],
               ),

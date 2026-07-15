@@ -56,6 +56,26 @@
   "@importChangeKey": {
     "description": "Tooltip for import key button"
   },
+  "generateNewKey": "Generate New Key",
+  "@generateNewKey": {
+    "description": "Tooltip for generate new keypair button"
+  },
+  "generateNewKeyTitle": "Generate New Keypair?",
+  "@generateNewKeyTitle": {
+    "description": "Title of the generate new keypair confirmation dialog"
+  },
+  "generateNewKeyWarning": "This will generate a new keypair and replace your current identity. If you have not backed up your current private key, it will be lost permanently. This action cannot be undone.",
+  "@generateNewKeyWarning": {
+    "description": "Warning message in the generate new keypair dialog"
+  },
+  "generate": "Generate",
+  "@generate": {
+    "description": "Confirm button label in the generate new keypair dialog"
+  },
+  "keyGeneratedSuccessfully": "New keypair generated successfully",
+  "@keyGeneratedSuccessfully": {
+    "description": "Snackbar shown after a new keypair is generated"
+  },
   "yourNostrIdentity": "Your Nostr Identity",
   "@yourNostrIdentity": {
     "description": "Account screen header title"

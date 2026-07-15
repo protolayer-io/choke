@@ -176,6 +176,56 @@ void main() {
     });
   });
 
+  group('generating a fresh keypair', () {
+    test('replaces the current identity with a brand new one', () async {
+      // Arrange
+      final manager = subject();
+      await manager.initialize();
+      final npubBefore = await manager.getNpub();
+      final nsecBefore = await manager.getNsec();
+
+      // Act
+      await manager.generateNewKeypair();
+
+      // Assert — the old identity is gone, a valid new one has taken its place
+      final npubAfter = await manager.getNpub();
+      final nsecAfter = await manager.getNsec();
+      expect(npubAfter, isNot(npubBefore));
+      expect(nsecAfter, isNot(nsecBefore));
+      expect(npubAfter, startsWith('npub1'));
+      expect(nsecAfter, startsWith('nsec1'));
+    });
+
+    test('the new public key belongs to the new private key', () async {
+      // Arrange
+      final manager = subject();
+      await manager.initialize();
+
+      // Act
+      await manager.generateNewKeypair();
+
+      // Assert
+      final privateKey = (await manager.getPrivateKeyHex())!;
+      final derived = const RustNostrCrypto().getPublicKey(privateKey);
+      expect(await manager.getPublicKeyHex(), derived);
+    });
+
+    test('persists the new keypair so a later run reads it back', () async {
+      // Arrange
+      final manager = subject();
+      await manager.initialize();
+      await manager.generateNewKeypair();
+      final npubAfter = await manager.getNpub();
+
+      // Act — a later run reads the freshly generated identity
+      final reopened = subject();
+      await reopened.initialize();
+
+      // Assert
+      expect(await reopened.getNpub(), npubAfter);
+    });
+  });
+
   test('deleting keys leaves nothing behind', () async {
     // Arrange
     final manager = subject();

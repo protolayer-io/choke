@@ -51,6 +51,22 @@ class AppLocalizationsJa extends AppLocalizations {
   String get importChangeKey => '鍵のインポート/変更';
 
   @override
+  String get generateNewKey => '新しい鍵を生成';
+
+  @override
+  String get generateNewKeyTitle => '新しい鍵ペアを生成しますか？';
+
+  @override
+  String get generateNewKeyWarning =>
+      '新しい鍵ペアを生成し、現在のIDを置き換えます。現在の秘密鍵をバックアップしていない場合、完全に失われます。この操作は取り消せません。';
+
+  @override
+  String get generate => '生成';
+
+  @override
+  String get keyGeneratedSuccessfully => '新しい鍵ペアが正常に生成されました';
+
+  @override
   String get yourNostrIdentity => 'あなたのNostr ID';
 
   @override

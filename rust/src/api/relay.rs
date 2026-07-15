@@ -66,6 +66,54 @@ fn configured() -> &'static std::sync::Mutex<std::collections::BTreeSet<String>>
     CONFIGURED.get_or_init(|| std::sync::Mutex::new(std::collections::BTreeSet::new()))
 }
 
+/// Serializes add, remove and reconnect, whole operations at a time.
+///
+/// Locking only the registry accesses is not enough: reconnect snapshots the
+/// registry and then spends seconds rebuilding relays, and a `relay_remove`
+/// landing inside that window would be undone — the rebuild re-adds the URL
+/// the user just deleted, from its stale snapshot. Whole-operation
+/// serialization makes the interleaving impossible instead of unlikely.
+///
+/// Ordering: this lock is taken first, and the `configured()` mutex is only
+/// ever taken while holding it (and never across an await), so there is no
+/// path to a deadlock. The public wrappers lock; `*_locked` variants do not,
+/// and exist for reconnect to compose.
+static OPS: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+
+fn ops() -> &'static tokio::sync::Mutex<()> {
+    OPS.get_or_init(|| tokio::sync::Mutex::new(()))
+}
+
+/// Which incarnation of each URL's relay is the live one.
+///
+/// Rebuilding a relay replaces its watcher, but tasks do not die in order: the
+/// OLD watcher can still be draining its backlog — a `Terminated` from the
+/// relay that was just torn down — after the NEW relay has already reported
+/// `Connected`. Forwarded, that late word would clear the caller's connected
+/// view of a relay that is in fact healthy, and nothing would correct it until
+/// the relay next changed state. So every watcher is stamped with the
+/// generation it was born under, and a watcher whose generation has passed
+/// says nothing and exits.
+static GENERATION: OnceLock<std::sync::Mutex<std::collections::HashMap<String, u64>>> =
+    OnceLock::new();
+
+fn generation() -> &'static std::sync::Mutex<std::collections::HashMap<String, u64>> {
+    GENERATION.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Invalidate every watcher spawned for [url] so far; returns the new
+/// generation, for the watcher about to be spawned.
+fn bump_generation(url: &str) -> u64 {
+    let mut map = generation().lock().unwrap();
+    let next = map.get(url).copied().unwrap_or(0) + 1;
+    map.insert(url.to_string(), next);
+    next
+}
+
+fn current_generation(url: &str) -> u64 {
+    generation().lock().unwrap().get(url).copied().unwrap_or(0)
+}
+
 /// A NIP-01 `REQ` filter. Empty vectors and `None` mean "unconstrained" — the
 /// same shape the Dart `Filter` has, so the mapping stays honest.
 pub struct FilterData {
@@ -79,6 +127,12 @@ pub struct FilterData {
 
 /// Register a relay with the pool and dial it.
 pub async fn relay_add(url: String) -> Result<(), String> {
+    let _ops = ops().lock().await;
+    relay_add_locked(url).await
+}
+
+/// The body of [relay_add], for callers already holding [ops].
+async fn relay_add_locked(url: String) -> Result<(), String> {
     client().add_relay(&url).await.map_err(|e| e.to_string())?;
 
     // Watch this relay's status so the caller learns when it (re)connects.
@@ -88,6 +142,12 @@ pub async fn relay_add(url: String) -> Result<(), String> {
     // drops it, so `Closed` would never arrive: every resume (which rebuilds
     // relays) would leak one more immortal watcher, each still forwarding a
     // dead relay's word under a live relay's URL.
+    //
+    // It is also stamped with its generation, and checks it before every send:
+    // watchers do not die in order, and one draining the torn-down relay's
+    // backlog must not speak — its `Terminated` arriving after the replacement
+    // relay's `Connected` would clear the caller's view of a healthy relay.
+    let generation = bump_generation(&url);
     let mut notifications = client()
         .relay(&url)
         .await
@@ -96,8 +156,14 @@ pub async fn relay_add(url: String) -> Result<(), String> {
     let relay_url = url.clone();
     tokio::spawn(async move {
         loop {
+            if current_generation(&relay_url) != generation {
+                break; // superseded: a newer incarnation is being watched
+            }
             match notifications.recv().await {
                 Ok(RelayNotification::RelayStatus { status }) => {
+                    if current_generation(&relay_url) != generation {
+                        break;
+                    }
                     // No receivers yet is not an error: Dart may not have
                     // opened the stream, and the relay's status is what it is
                     // regardless.
@@ -113,6 +179,9 @@ pub async fn relay_add(url: String) -> Result<(), String> {
                 // the current status (looked up fresh, so a removed relay ends
                 // the watch instead of being resurrected), and keep watching.
                 Err(broadcast::error::RecvError::Lagged(_)) => {
+                    if current_generation(&relay_url) != generation {
+                        break;
+                    }
                     match client().relay(&relay_url).await {
                         Ok(current) => {
                             let _ = status_tx().send(RelayStatusData {
@@ -142,9 +211,12 @@ pub async fn relay_add(url: String) -> Result<(), String> {
 }
 
 pub async fn relay_remove(url: String) -> Result<(), String> {
-    // Out of the registry first, so a concurrent reconnect cannot resurrect a
-    // relay the user just removed.
+    let _ops = ops().lock().await;
+    // Out of the registry first, so a reconnect can never resurrect a relay
+    // the user just removed — and the generation bump silences its watcher
+    // before the teardown notifications it is about to receive.
     configured().lock().unwrap().remove(&url);
+    bump_generation(&url);
     client().remove_relay(&url).await.map_err(|e| e.to_string())
 }
 
@@ -187,12 +259,21 @@ pub async fn relay_disconnect() {
 /// subscriptions survive by design: a newly added relay inherits them
 /// (`nostr-relay-pool` inherits pool subscriptions on `add_relay`).
 pub async fn relay_reconnect_all() {
+    // Held for the WHOLE rebuild: a remove landing between the snapshot below
+    // and the re-adds would otherwise be undone — the user deletes a relay,
+    // and the resume resurrects it from a stale snapshot.
+    let _ops = ops().lock().await;
+
     // Rebuild from what was ASKED FOR, not from what the pool currently holds:
     // a relay whose previous re-add failed is absent from the pool, and a pool
     // snapshot would silently abandon it forever.
     let urls: Vec<String> = configured().lock().unwrap().iter().cloned().collect();
 
     for url in &urls {
+        // Silence the outgoing watcher before the teardown it is about to
+        // observe; the registry keeps the URL — this removal is a rebuild,
+        // not a goodbye.
+        bump_generation(url);
         let _ = client().remove_relay(url).await;
     }
     for url in urls {
@@ -201,7 +282,7 @@ pub async fn relay_reconnect_all() {
         // a URL that still fails stays in the registry — the next resume tries
         // again, instead of the relay being quietly gone until app restart.
         for attempt in 0..3u8 {
-            match relay_add(url.clone()).await {
+            match relay_add_locked(url.clone()).await {
                 Ok(()) => break,
                 // Still failing after the retries is not a dead end: the URL
                 // is in the registry, so the next resume starts over with it.
@@ -343,6 +424,14 @@ pub async fn relay_event_stream(sink: StreamSink<SignedEventData>) {
             // live REQ makes them resend what they hold, and for addressable
             // events the latest state is the only state that matters. What
             // must not happen is the old behavior: the stream dying here.
+            //
+            // Taking one filter per subscription is exact, not lossy: every
+            // subscription in this pool is single-filter by construction —
+            // [relay_subscribe] is the only writer, and `subscribe_with_id`
+            // takes exactly one `Filter` — and pool-level subscriptions carry
+            // that same filter to every relay. (Re-issuing per filter with the
+            // same id would be wrong anyway: a repeated REQ id REPLACES, so
+            // only the last filter would survive.)
             Err(broadcast::error::RecvError::Lagged(_)) => {
                 for (id, per_relay) in client().subscriptions().await {
                     if let Some(filter) = per_relay.into_values().flatten().next() {

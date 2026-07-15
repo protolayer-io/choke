@@ -209,6 +209,31 @@ void runConvergenceDrills(
       await eventually(() => relayA.received.isNotEmpty);
     });
 
+    test('a score given right after resume lands anyway', () async {
+      // Arrange — a healthy relay, and the app freshly resumed. This is the
+      // literal sequence from the bug report: reopen the app (the lifecycle
+      // hook fires reconnectAll) and immediately create a match.
+      await service.addRelay(relayA.url);
+      await connected(relayA.url);
+      await service.reconnectAll();
+
+      // Act — publish with no settling delay. Mid-rebuild there may be no
+      // connected relay yet, and then the publish throws; that is the honest
+      // answer at that instant, and the referee sees a retry option. What must
+      // NOT happen is the score silently never arriving.
+      try {
+        await service.publishEvent(score(1700000000, 'f1 leads'));
+      } catch (_) {
+        // Registered as pending before the throw; the reconnect listener
+        // delivers it the moment the rebuilt relay comes up.
+      }
+
+      // Assert — the score lands without the referee doing anything else.
+      await eventually(() => relayA.received.isNotEmpty,
+          timeout: const Duration(seconds: 20));
+      expect(relayA.received.last['content'], 'f1 leads');
+    });
+
     test('with nothing reachable, the score survives until the relay returns',
         () async {
       // Arrange — airplane mode: the app knows its relay, and nothing answers

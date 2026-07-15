@@ -138,6 +138,13 @@ Choke uses Nostr addressable events for match data.
 
 See [AGENTS.md](AGENTS.md) for development conventions.
 
+### Translations
+
+Choke is fully localized (English, Spanish, Portuguese, Japanese). Want to fix
+wording or add your own language? See the
+[Translations & i18n guide](docs/translations.md) — no Dart experience needed to
+translate.
+
 ## License
 
 MIT License — see LICENSE file for details.

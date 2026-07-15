@@ -93,6 +93,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Cargokit cross-compiles the crate for three Android ABIs and, together
+      # with the Android SDK/NDK and Gradle caches, exhausts the ~14 GB free on
+      # the runner ("No space left on device"). Reclaim space from preinstalled
+      # toolchains this job never uses.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/share/swift /usr/local/share/powershell \
+            /usr/local/share/chromium /usr/local/lib/node_modules
+          sudo apt-get clean
+          df -h /
+
       - name: Setup Rust
         run: rustup show
 

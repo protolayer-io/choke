@@ -6,13 +6,12 @@ import '../../match/providers/match_providers.dart';
 import '../../../services/nostr/nostr_service.dart';
 
 /// Status filter: which statuses to show on the home screen.
-/// All statuses shown by default (24h window already limits the list).
+/// Only active matches (waiting + in progress) are shown by default; the user
+/// can reveal finished and canceled matches by tapping their filter chips.
 final statusFilterProvider = StateProvider<Set<MatchStatus>>((ref) {
   return {
     MatchStatus.waiting,
     MatchStatus.inProgress,
-    MatchStatus.finished,
-    MatchStatus.canceled,
   };
 });
 

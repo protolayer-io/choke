@@ -54,6 +54,34 @@ with your `.arb` changes — they are tracked in the repo. (A plain
 is set in `pubspec.yaml`, but run the command explicitly so the diff is part of
 your commit.)
 
+### Which files do I commit?
+
+**Both** — the `.arb` file you edited **and** every file that changed under
+`lib/l10n/generated/`. In this repo the generated Dart is versioned (it is *not*
+in `.gitignore`), so it must stay in sync with the source `.arb`.
+
+For example, if you fix a Spanish string, `flutter gen-l10n` updates
+`lib/l10n/generated/app_localizations_es.dart`, and you commit:
+
+```bash
+git add lib/l10n/app_es.arb lib/l10n/generated/
+git status --short   # make sure no generated/ file is left unstaged
+```
+
+Why not just the `.arb`?
+
+- The app is compiled from the generated **Dart**, not the `.arb`. Because
+  `generate: true` is set, your own `flutter run` / `flutter build` regenerates
+  it locally, so *your* build looks correct even if you forget to commit it —
+  which is exactly why it's easy to miss.
+- But the committed `app_localizations_es.dart` would then be **out of sync**
+  with the `.arb`: anyone reading the diff, and any process that doesn't
+  regenerate before reading it, sees the old translation. Committing both keeps
+  the source and the generated output consistent.
+
+If you changed the **template** (`app_en.arb`) — adding or removing keys — several
+files under `lib/l10n/generated/` are regenerated at once; stage all of them.
+
 ---
 
 ## Change an existing translation

@@ -53,6 +53,19 @@ pub struct RelayStatusData {
     pub connected: bool,
 }
 
+/// Every URL the caller has asked for, whether or not the pool holds it.
+///
+/// The pool is not this list: a relay whose re-add failed mid-reconnect is
+/// gone from the pool, and a reconnect that rebuilds "whatever the pool has"
+/// would never try it again — the relay would be silently gone until the
+/// process restarts. This registry is what was *asked for*; the pool is what
+/// *succeeded*. Reconnect rebuilds from the former.
+static CONFIGURED: OnceLock<std::sync::Mutex<std::collections::BTreeSet<String>>> = OnceLock::new();
+
+fn configured() -> &'static std::sync::Mutex<std::collections::BTreeSet<String>> {
+    CONFIGURED.get_or_init(|| std::sync::Mutex::new(std::collections::BTreeSet::new()))
+}
+
 /// A NIP-01 `REQ` filter. Empty vectors and `None` mean "unconstrained" — the
 /// same shape the Dart `Filter` has, so the mapping stays honest.
 pub struct FilterData {
@@ -69,8 +82,17 @@ pub async fn relay_add(url: String) -> Result<(), String> {
     client().add_relay(&url).await.map_err(|e| e.to_string())?;
 
     // Watch this relay's status so the caller learns when it (re)connects.
-    let relay = client().relay(&url).await.map_err(|e| e.to_string())?;
-    let mut notifications = relay.notifications();
+    //
+    // The task holds the RECEIVER only, never the `Relay` itself. Capturing the
+    // relay would keep its notification channel's senders alive after the pool
+    // drops it, so `Closed` would never arrive: every resume (which rebuilds
+    // relays) would leak one more immortal watcher, each still forwarding a
+    // dead relay's word under a live relay's URL.
+    let mut notifications = client()
+        .relay(&url)
+        .await
+        .map_err(|e| e.to_string())?
+        .notifications();
     let relay_url = url.clone();
     tokio::spawn(async move {
         loop {
@@ -88,12 +110,18 @@ pub async fn relay_add(url: String) -> Result<(), String> {
                 // Fell behind and skipped notifications. `while let Ok` here
                 // used to KILL the watcher — and a dead watcher is a Dart-side
                 // connection view frozen until the process restarts. Report
-                // the status we may have skipped past, and keep watching.
+                // the current status (looked up fresh, so a removed relay ends
+                // the watch instead of being resurrected), and keep watching.
                 Err(broadcast::error::RecvError::Lagged(_)) => {
-                    let _ = status_tx().send(RelayStatusData {
-                        url: relay_url.clone(),
-                        connected: relay.status() == RelayStatus::Connected,
-                    });
+                    match client().relay(&relay_url).await {
+                        Ok(current) => {
+                            let _ = status_tx().send(RelayStatusData {
+                                url: relay_url.clone(),
+                                connected: current.status() == RelayStatus::Connected,
+                            });
+                        }
+                        Err(_) => break,
+                    }
                 }
                 // The relay was removed from the pool; the watch is over.
                 Err(broadcast::error::RecvError::Closed) => break,
@@ -106,10 +134,17 @@ pub async fn relay_add(url: String) -> Result<(), String> {
         .connect_relay(&url)
         .await
         .map_err(|e| e.to_string())?;
+
+    // Registered only on success: a URL that never made it into the pool is
+    // the caller's error to hear about, not something to keep redialing.
+    configured().lock().unwrap().insert(url);
     Ok(())
 }
 
 pub async fn relay_remove(url: String) -> Result<(), String> {
+    // Out of the registry first, so a concurrent reconnect cannot resurrect a
+    // relay the user just removed.
+    configured().lock().unwrap().remove(&url);
     client().remove_relay(&url).await.map_err(|e| e.to_string())
 }
 
@@ -152,16 +187,30 @@ pub async fn relay_disconnect() {
 /// subscriptions survive by design: a newly added relay inherits them
 /// (`nostr-relay-pool` inherits pool subscriptions on `add_relay`).
 pub async fn relay_reconnect_all() {
-    let urls = relay_urls().await;
+    // Rebuild from what was ASKED FOR, not from what the pool currently holds:
+    // a relay whose previous re-add failed is absent from the pool, and a pool
+    // snapshot would silently abandon it forever.
+    let urls: Vec<String> = configured().lock().unwrap().iter().cloned().collect();
 
     for url in &urls {
         let _ = client().remove_relay(url).await;
     }
     for url in urls {
-        // Re-registers the status watcher too. If an add fails outright the
-        // relay is gone from the pool; the caller's own relay list still holds
-        // it, and the next resume retries the add.
-        let _ = relay_add(url).await;
+        // Re-registers the status watcher too. A failed add is retried here a
+        // couple of times (resume often races the network coming back up), and
+        // a URL that still fails stays in the registry — the next resume tries
+        // again, instead of the relay being quietly gone until app restart.
+        for attempt in 0..3u8 {
+            match relay_add(url.clone()).await {
+                Ok(()) => break,
+                // Still failing after the retries is not a dead end: the URL
+                // is in the registry, so the next resume starts over with it.
+                Err(_) if attempt == 2 => {}
+                Err(_) => {
+                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                }
+            }
+        }
     }
 }
 
@@ -289,9 +338,18 @@ pub async fn relay_event_stream(sink: StreamSink<SignedEventData>) {
                 }
             }
             Ok(_) => {}
-            // Skipped events are tolerable — subscriptions redeliver and the
-            // resend sweep converges — but a dead stream is forever.
-            Err(broadcast::error::RecvError::Lagged(_)) => {}
+            // Fell behind: some events were skipped and a broadcast channel
+            // cannot replay them. The relays can, though — re-issuing every
+            // live REQ makes them resend what they hold, and for addressable
+            // events the latest state is the only state that matters. What
+            // must not happen is the old behavior: the stream dying here.
+            Err(broadcast::error::RecvError::Lagged(_)) => {
+                for (id, per_relay) in client().subscriptions().await {
+                    if let Some(filter) = per_relay.into_values().flatten().next() {
+                        let _ = client().subscribe_with_id(id, filter, None).await;
+                    }
+                }
+            }
             Err(broadcast::error::RecvError::Closed) => break,
         }
     }
@@ -311,11 +369,24 @@ pub async fn relay_status_stream(sink: StreamSink<RelayStatusData>) {
                     break;
                 }
             }
-            // Missed some transitions. The per-relay watchers re-report after
-            // their own lag, and the reconnect verifier re-nudges stragglers —
-            // what must not happen here is the stream dying and taking Dart's
-            // connection view with it.
-            Err(broadcast::error::RecvError::Lagged(_)) => {}
+            // Missed some transitions — and this channel's lag is independent
+            // of the per-relay watchers' lag, so nobody else re-reports them.
+            // Skipping here would leave Dart's connection view wrong until a
+            // relay happens to change state again; instead, send the current
+            // status of every registered relay straight into the sink. It is
+            // the same truth the missed notifications were carrying, minus the
+            // history nobody needs.
+            Err(broadcast::error::RecvError::Lagged(_)) => {
+                for (url, relay) in client().relays().await {
+                    let snapshot = RelayStatusData {
+                        url: url.to_string(),
+                        connected: relay.status() == RelayStatus::Connected,
+                    };
+                    if sink.add(snapshot).is_err() {
+                        return;
+                    }
+                }
+            }
             Err(broadcast::error::RecvError::Closed) => break,
         }
     }

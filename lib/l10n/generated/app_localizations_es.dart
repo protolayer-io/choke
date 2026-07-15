@@ -435,13 +435,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get licenseText =>
-      'Licencia MIT\n\nCopyright (c) 2026 Negrunch\n\nSe otorga permiso, gratis, a cualquier persona que obtenga una copia de este software y de los archivos de documentación asociados (el \"Software\"), para usar, copiar, modificar, fusionar, publicar, distribuir, sublicenciar y/o vender copias del Software, y a las personas a quienes se proporciona el Software a hacerlo, sujeto a las siguientes condiciones:\n\nEl aviso de copyright anterior y este aviso de permiso se incluirán en todas las copias o porciones sustanciales del Software.\n\nEL SOFTWARE SE PROPORCIONA \"TAL CUAL\", SIN GARANTÍA DE NINGÚN TIPO, EXPRESA O IMPLÍCITA, INCLUYENDO PERO NO LIMITANDO LAS GARANTÍAS DE COMERCIABILIDAD, IDONEIDAD PARA UN FIN PARTICULAR Y NO INFRACCIÓN. EN NINGÚN EVENTO LOS AUTORES O TITULARES DE LOS DERECHOS DE AUTOR SERÁN RESPONSABLES POR NINGÚN RECLAMO, DAÑO U OTRA RESPONSABILIDAD, YA SEA EN UNA ACCIÓN DE CONTRATO, DELITO O DE OTRO TIPO, QUE SURGA DE, O EN CONEXIÓN CON, EL SOFTWARE O EL USO U OTROS TRATOS EN EL SOFTWARE.';
+      'Choke\nCopyright (C) 2026 ProtoLayer OÜ\n\nEste programa es software libre: puedes redistribuirlo y/o modificarlo bajo los términos de la Licencia Pública General GNU publicada por la Free Software Foundation, ya sea la versión 3 de la Licencia o (a tu elección) cualquier versión posterior.\n\nEste programa se distribuye con la esperanza de que sea útil, pero SIN NINGUNA GARANTÍA; ni siquiera la garantía implícita de COMERCIABILIDAD o IDONEIDAD PARA UN FIN PARTICULAR. Consulta la Licencia Pública General GNU para más detalles.\n\nDeberías haber recibido una copia de la Licencia Pública General GNU junto con este programa. Si no, visita <https://www.gnu.org/licenses/>.';
 
   @override
   String get licenseLabel => 'Licencia';
 
   @override
-  String get licenseSubtitle => 'Licencia MIT';
+  String get licenseSubtitle => 'GNU GPL v3.0';
 
   @override
   String get relayErrorLoadFailed =>

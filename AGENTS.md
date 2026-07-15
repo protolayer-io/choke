@@ -149,5 +149,5 @@ class MatchScreen extends ConsumerWidget {
 
 ## Contact
 
-- Repo: https://github.com/grunch/choke
+- Repo: https://github.com/protolayer-io/choke
 - Nostr: npub14e8x7ggcvgy4j0wcsqh6kv4pfmtax7rkryenux9u7ytemjcuce7q9qpjtk

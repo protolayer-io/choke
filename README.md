@@ -54,7 +54,7 @@ See [BJJ_STYLE_GUIDE.md](BJJ_STYLE_GUIDE.md) for complete style guide.
 
 ```bash
 # Clone the repository
-git clone https://github.com/grunch/choke.git
+git clone https://github.com/protolayer-io/choke.git
 cd choke
 
 # Install dependencies
@@ -147,11 +147,13 @@ translate.
 
 ## License
 
-MIT License — see LICENSE file for details.
+GNU General Public License v3.0 — see the [LICENSE](LICENSE) file for details.
+
+Copyright (C) 2026 ProtoLayer OÜ.
 
 ## Connect
 
-- GitHub: [@grunch/choke](https://github.com/grunch/choke)
+- GitHub: [@protolayer-io/choke](https://github.com/protolayer-io/choke)
 - Nostr: `npub14e8x7ggcvgy4j0wcsqh6kv4pfmtax7rkryenux9u7ytemjcuce7q9qpjtk`
 
 ---

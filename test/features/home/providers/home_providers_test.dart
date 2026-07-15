@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:choke/features/home/providers/home_providers.dart';
 import 'package:choke/features/match/models/match.dart';
@@ -99,6 +100,68 @@ void main() {
 
       // Assert
       expect(feed.state.single.f1Pt2, 3);
+    });
+  });
+
+  group('statusFilter default', () {
+    test('shows only active matches (waiting + in progress) by default', () {
+      // Arrange
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      // Assert
+      expect(
+        container.read(statusFilterProvider),
+        {MatchStatus.waiting, MatchStatus.inProgress},
+      );
+    });
+
+    test('filtered list hides finished and canceled matches by default', () {
+      // Arrange — one match of every status is available
+      final container = ProviderContainer(
+        overrides: [
+          recentMatchListProvider.overrideWithValue([
+            _match(status: MatchStatus.waiting),
+            _match(status: MatchStatus.inProgress),
+            _match(status: MatchStatus.finished),
+            _match(status: MatchStatus.canceled),
+          ]),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Act
+      final visible = container.read(filteredMatchListProvider);
+
+      // Assert — finished/canceled are hidden until the user opts in
+      expect(
+        visible.map((m) => m.status).toSet(),
+        {MatchStatus.waiting, MatchStatus.inProgress},
+      );
+    });
+
+    test('tapping a hidden filter reveals its matches', () {
+      // Arrange — only a finished match exists, hidden by default
+      final container = ProviderContainer(
+        overrides: [
+          recentMatchListProvider.overrideWithValue([
+            _match(status: MatchStatus.finished),
+          ]),
+        ],
+      );
+      addTearDown(container.dispose);
+      expect(container.read(filteredMatchListProvider), isEmpty);
+
+      // Act — the user taps the "finished" filter chip
+      container.read(statusFilterProvider.notifier).update(
+            (selected) => {...selected, MatchStatus.finished},
+          );
+
+      // Assert
+      expect(
+        container.read(filteredMatchListProvider).single.status,
+        MatchStatus.finished,
+      );
     });
   });
 }

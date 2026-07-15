@@ -137,28 +137,12 @@ class HomeScreen extends ConsumerWidget {
     List<Match> allMatches,
     ChokeTokens tk,
   ) {
-    final statuses = MatchStatus.values;
-
-    return Column(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: [
-        for (var row = 0; row < statuses.length; row += 2) ...[
-          if (row > 0) const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatusCard(
-                    context, ref, statuses[row], selected, allMatches, tk),
-              ),
-              if (row + 1 < statuses.length) ...[
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatusCard(context, ref, statuses[row + 1],
-                      selected, allMatches, tk),
-                ),
-              ],
-            ],
-          ),
-        ],
+        for (final status in MatchStatus.values)
+          _buildStatusCard(context, ref, status, selected, allMatches, tk),
       ],
     );
   }
@@ -191,48 +175,38 @@ class HomeScreen extends ConsumerWidget {
           ref.read(statusFilterProvider.notifier).state = current;
         },
         child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected ? color.withOpacity(.12) : tk.card,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isSelected ? color.withOpacity(.5) : tk.cardBorder,
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration:
-                        BoxDecoration(color: color, shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      _statusLabel(l10n, status),
-                      style: TextStyle(
-                        color: isSelected ? color : tk.muted,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(width: 8),
+              Text(
+                _statusLabel(l10n, status),
+                style: TextStyle(
+                  color: isSelected ? color : tk.muted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 6),
               Text(
                 '$count',
                 style: TextStyle(
                   color: count > 0 ? color : tk.faint,
-                  fontSize: 30,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  height: 1,
                 ),
               ),
             ],

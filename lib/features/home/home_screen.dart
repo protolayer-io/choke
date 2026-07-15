@@ -175,6 +175,9 @@ class HomeScreen extends ConsumerWidget {
           ref.read(statusFilterProvider.notifier).state = current;
         },
         child: Container(
+          // Enforce the 44px minimum interactive height for an accessible tap
+          // target; the visible layout and styling stay compact.
+          constraints: const BoxConstraints(minHeight: 44),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected ? color.withOpacity(.12) : tk.card,

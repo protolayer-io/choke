@@ -170,10 +170,10 @@ class SettingsScreen extends ConsumerWidget {
               tk: tk,
               icon: Icons.code,
               title: l10n.sourceCode,
-              subtitle: 'github.com/grunch/choke',
+              subtitle: 'github.com/protolayer-io/choke',
               trailingIcon: Icons.open_in_new,
               onTap: () => launchUrl(
-                Uri.parse('https://github.com/grunch/choke'),
+                Uri.parse('https://github.com/protolayer-io/choke'),
                 mode: LaunchMode.externalApplication,
               ),
             ),
@@ -188,7 +188,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 32),
 
-            // Built by Pana footer
+            // Built by ProtoLayer footer
             Consumer(
               builder: (context, ref, child) {
                 final packageInfo = ref.watch(packageInfoProvider);
@@ -204,10 +204,18 @@ class SettingsScreen extends ConsumerWidget {
                 return Center(
                   child: Column(
                     children: [
-                      Text(
-                        l10n.builtBy('Pana'),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.onSurface.withValues(alpha: 0.5),
+                      GestureDetector(
+                        onTap: () => launchUrl(
+                          Uri.parse('https://protolayer.io'),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                        child: Text(
+                          l10n.builtBy('ProtoLayer'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: tk.accent,
+                            decoration: TextDecoration.underline,
+                            decorationColor: tk.accent.withValues(alpha: 0.5),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),

@@ -204,17 +204,27 @@ class SettingsScreen extends ConsumerWidget {
                 return Center(
                   child: Column(
                     children: [
-                      GestureDetector(
-                        onTap: () => launchUrl(
-                          Uri.parse('https://protolayer.io'),
-                          mode: LaunchMode.externalApplication,
-                        ),
-                        child: Text(
-                          l10n.builtBy('ProtoLayer'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: tk.accent,
-                            decoration: TextDecoration.underline,
-                            decorationColor: tk.accent.withValues(alpha: 0.5),
+                      Semantics(
+                        link: true,
+                        child: InkWell(
+                          onTap: () => launchUrl(
+                            Uri.parse('https://protolayer.io'),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Text(
+                              l10n.builtBy('ProtoLayer'),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: tk.accent,
+                                decoration: TextDecoration.underline,
+                                decorationColor: tk.accent.withValues(alpha: 0.5),
+                              ),
+                            ),
                           ),
                         ),
                       ),

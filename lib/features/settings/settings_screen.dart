@@ -221,32 +221,41 @@ class SettingsScreen extends ConsumerWidget {
                               l10n.builtBy('ProtoLayer'),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: tk.accent,
-                                decoration: TextDecoration.underline,
-                                decorationColor: tk.accent.withValues(alpha: 0.5),
                               ),
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: isDark
-                            ? BoxDecoration(
-                                // Subtle lighter backdrop so the black belt
-                                // stays visible against the dark theme.
-                                color: colors.onSurface.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(16),
-                              )
-                            : null,
-                        child: Image.asset(
-                          'assets/branding/bjj_black_belt.webp',
-                          width: 120,
-                          fit: BoxFit.contain,
-                          semanticLabel: l10n.bjjBlackBelt,
+                      Semantics(
+                        link: true,
+                        child: InkWell(
+                          onTap: () => launchUrl(
+                            Uri.parse('https://protolayer.io'),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            decoration: isDark
+                                ? BoxDecoration(
+                                    // Subtle lighter backdrop so the black belt
+                                    // stays visible against the dark theme.
+                                    color:
+                                        colors.onSurface.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(16),
+                                  )
+                                : null,
+                            child: Image.asset(
+                              'assets/branding/bjj_black_belt.webp',
+                              width: 120,
+                              fit: BoxFit.contain,
+                              semanticLabel: l10n.bjjBlackBelt,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),

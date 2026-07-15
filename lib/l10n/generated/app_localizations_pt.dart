@@ -51,6 +51,27 @@ class AppLocalizationsPt extends AppLocalizations {
   String get importChangeKey => 'Importar/Alterar chave';
 
   @override
+  String get generateNewKey => 'Gerar nova chave';
+
+  @override
+  String get generateNewKeyTitle => 'Gerar novo par de chaves?';
+
+  @override
+  String get generateNewKeyWarning =>
+      'Isso gerará um novo par de chaves e substituirá sua identidade atual. Se você não fez backup da sua chave privada atual, ela será perdida permanentemente. Esta ação não pode ser desfeita.';
+
+  @override
+  String get generate => 'Gerar';
+
+  @override
+  String get keyGeneratedSuccessfully =>
+      'Novo par de chaves gerado com sucesso';
+
+  @override
+  String get failedToGenerateKey =>
+      'Falha ao gerar a nova chave. Por favor, tente novamente.';
+
+  @override
   String get yourNostrIdentity => 'Sua identidade Nostr';
 
   @override

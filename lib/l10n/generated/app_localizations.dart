@@ -186,6 +186,42 @@ abstract class AppLocalizations {
   /// **'Import/Change Key'**
   String get importChangeKey;
 
+  /// Tooltip for generate new keypair button
+  ///
+  /// In en, this message translates to:
+  /// **'Generate New Key'**
+  String get generateNewKey;
+
+  /// Title of the generate new keypair confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Generate New Keypair?'**
+  String get generateNewKeyTitle;
+
+  /// Warning message in the generate new keypair dialog
+  ///
+  /// In en, this message translates to:
+  /// **'This will generate a new keypair and replace your current identity. If you have not backed up your current private key, it will be lost permanently. This action cannot be undone.'**
+  String get generateNewKeyWarning;
+
+  /// Confirm button label in the generate new keypair dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Generate'**
+  String get generate;
+
+  /// Snackbar shown after a new keypair is generated
+  ///
+  /// In en, this message translates to:
+  /// **'New keypair generated successfully'**
+  String get keyGeneratedSuccessfully;
+
+  /// Snackbar shown when generating a new keypair fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to generate new key. Please try again.'**
+  String get failedToGenerateKey;
+
   /// Account screen header title
   ///
   /// In en, this message translates to:

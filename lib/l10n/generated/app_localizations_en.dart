@@ -51,6 +51,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importChangeKey => 'Import/Change Key';
 
   @override
+  String get generateNewKey => 'Generate New Key';
+
+  @override
+  String get generateNewKeyTitle => 'Generate New Keypair?';
+
+  @override
+  String get generateNewKeyWarning =>
+      'This will generate a new keypair and replace your current identity. If you have not backed up your current private key, it will be lost permanently. This action cannot be undone.';
+
+  @override
+  String get generate => 'Generate';
+
+  @override
+  String get keyGeneratedSuccessfully => 'New keypair generated successfully';
+
+  @override
+  String get failedToGenerateKey =>
+      'Failed to generate new key. Please try again.';
+
+  @override
   String get yourNostrIdentity => 'Your Nostr Identity';
 
   @override

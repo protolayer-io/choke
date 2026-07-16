@@ -228,7 +228,15 @@ class HomeScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('🥋', style: TextStyle(fontSize: 64)),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Image.asset(
+              'assets/branding/home-mascot.png',
+              width: 96,
+              height: 96,
+              fit: BoxFit.cover,
+            ),
+          ),
           const SizedBox(height: 16),
           Text(
             l10n.noMatchesYet,

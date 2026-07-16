@@ -670,7 +670,10 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
           Expanded(
             flex: 5,
             child: HoldButton(
-              enabled: state.isRunning,
+              // Cancelling is allowed before the match starts too, so a match
+              // created with a wrong name, color or duration can be scrapped
+              // without having to start it first.
+              enabled: state.isRunning || state.isWaiting,
               accentColor: colors.error,
               backgroundColor: Colors.transparent,
               border: Border.all(color: colors.error.withOpacity(.5)),

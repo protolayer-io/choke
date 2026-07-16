@@ -312,6 +312,29 @@ void main() {
     expect(find.byIcon(Icons.pause), findsOneWidget);
   });
 
+  testWidgets('a waiting match can be cancelled without starting it',
+      (tester) async {
+    // Arrange — a match created with wrong details, not yet started
+    final waiting = _runningMatch().copyWith(
+      status: MatchStatus.waiting,
+      startAt: null,
+    );
+    await pumpScreen(tester, waiting);
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Act — hold the Cancel button as a referee would
+    final label = '${l10n.cancel} · ${l10n.holdHint}';
+    final gesture =
+        await tester.startGesture(tester.getCenter(find.text(label)));
+    await tester.pump(); // first ticker frame (t = 0)
+    await tester.pump(const Duration(milliseconds: 1100));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // Assert — cancelled without ever starting
+    expect(notifier.state.match.status, MatchStatus.canceled);
+  });
+
   testWidgets('running match offers a pause button next to the clock',
       (tester) async {
     // Arrange + Act

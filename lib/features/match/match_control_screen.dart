@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:choke/l10n/generated/app_localizations.dart';
 import '../../shared/theme/app_theme.dart';
 import 'models/match.dart';
-import 'models/match_outcome.dart';
 import 'providers/match_control_provider.dart';
 import 'widgets/hold_button.dart';
 import 'widgets/match_outcome_sheet.dart';
@@ -169,7 +168,6 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
                       ],
                     ),
                   ),
-                  if (state.isWaiting) _buildWaitingOverlay(context, notifier),
                 ],
               );
             },
@@ -408,7 +406,7 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (state.isRunning) ...[
+                if (state.isRunning || state.isWaiting) ...[
                   _buildClockButton(context, state, notifier),
                   const SizedBox(width: 10),
                 ],
@@ -490,9 +488,18 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
   ) {
     final l10n = AppLocalizations.of(context);
     final tk = ChokeTokens.of(context);
+    final waiting = state.isWaiting;
     final paused = state.isPaused;
-    final accent = paused ? tk.goldFg : tk.accent;
-    final label = paused ? l10n.resume : l10n.pause;
+    // Before the match starts this same control begins it; once running it
+    // pauses and resumes the clock. This lets the referee review the match
+    // (fighter names, duration) before starting instead of a blocking overlay.
+    final isPlay = waiting || paused;
+    final accent = isPlay ? tk.goldFg : tk.accent;
+    final label =
+        waiting ? l10n.startMatch : (paused ? l10n.resume : l10n.pause);
+    final onTap = waiting
+        ? notifier.startMatch
+        : (paused ? notifier.resumeMatch : notifier.pauseMatch);
 
     return Semantics(
       button: true,
@@ -500,7 +507,7 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
       child: Tooltip(
         message: label,
         child: InkWell(
-          onTap: paused ? notifier.resumeMatch : notifier.pauseMatch,
+          onTap: onTap,
           borderRadius: BorderRadius.circular(11),
           child: Container(
             width: 38,
@@ -511,7 +518,7 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
               border: Border.all(color: accent.withOpacity(.45)),
             ),
             child: Icon(
-              paused ? Icons.play_arrow : Icons.pause,
+              isPlay ? Icons.play_arrow : Icons.pause,
               color: accent,
               size: 22,
             ),
@@ -686,60 +693,6 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
     );
   }
 
-  // ─── Overlays ──────────────────────────────────────────────────────────
-
-  Widget _buildWaitingOverlay(
-      BuildContext context, MatchControlNotifier notifier) {
-    final l10n = AppLocalizations.of(context);
-    final tk = ChokeTokens.of(context);
-
-    return _overlay(
-      context,
-      children: [
-        Align(
-          alignment: Alignment.topLeft,
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ),
-        Center(
-          child: Container(
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: tk.gradient,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: tk.gradTop.withValues(alpha: .35),
-                  blurRadius: 22,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: ElevatedButton.icon(
-              onPressed: notifier.startMatch,
-              icon: Icon(Icons.play_arrow, color: tk.onGrad),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                foregroundColor: tk.onGrad,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              label: Text(
-                l10n.startMatch,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   /// Shown in place of the scoring controls once a match is finished or
   /// canceled. It says *how* it ended — a score row alone would show the loser
   /// of a submission with the bigger numbers — and offers to correct it.
@@ -811,16 +764,6 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _overlay(BuildContext context, {required List<Widget> children}) {
-    final colors = Theme.of(context).colorScheme;
-    return Positioned.fill(
-      child: Container(
-        color: colors.surface.withOpacity(.88),
-        child: Stack(children: children),
       ),
     );
   }

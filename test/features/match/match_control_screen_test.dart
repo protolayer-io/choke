@@ -273,8 +273,9 @@ void main() {
     expect(find.text('P:3'), findsOneWidget);
   });
 
-  testWidgets('waiting match shows start overlay', (tester) async {
-    // Arrange
+  testWidgets('waiting match shows an inline start button, not a blocking overlay',
+      (tester) async {
+    // Arrange — a freshly created match, not yet started
     final waiting = _runningMatch().copyWith(
       status: MatchStatus.waiting,
       startAt: null,
@@ -284,8 +285,54 @@ void main() {
     await pumpScreen(tester, waiting);
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
 
+    // Assert — the blocking overlay is gone (no full "Start match" text button);
+    // instead the clock's play button offers the start, and the match content
+    // stays visible so the referee can review the fighters before starting.
+    expect(find.text(l10n.startMatch), findsNothing);
+    expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+    expect(find.byIcon(Icons.pause), findsNothing);
+    expect(find.text('Pana'), findsWidgets);
+    expect(find.text('Buchecha'), findsWidgets);
+  });
+
+  testWidgets('tapping the play button starts a waiting match', (tester) async {
+    // Arrange
+    final waiting = _runningMatch().copyWith(
+      status: MatchStatus.waiting,
+      startAt: null,
+    );
+    await pumpScreen(tester, waiting);
+
+    // Act — the same control used for pause/resume starts the match
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await tester.pump();
+
     // Assert
-    expect(find.text(l10n.startMatch), findsOneWidget);
+    expect(notifier.state.match.status, MatchStatus.inProgress);
+    expect(find.byIcon(Icons.pause), findsOneWidget);
+  });
+
+  testWidgets('a waiting match can be cancelled without starting it',
+      (tester) async {
+    // Arrange — a match created with wrong details, not yet started
+    final waiting = _runningMatch().copyWith(
+      status: MatchStatus.waiting,
+      startAt: null,
+    );
+    await pumpScreen(tester, waiting);
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Act — hold the Cancel button as a referee would
+    final label = '${l10n.cancel} · ${l10n.holdHint}';
+    final gesture =
+        await tester.startGesture(tester.getCenter(find.text(label)));
+    await tester.pump(); // first ticker frame (t = 0)
+    await tester.pump(const Duration(milliseconds: 1100));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // Assert — cancelled without ever starting
+    expect(notifier.state.match.status, MatchStatus.canceled);
   });
 
   testWidgets('running match offers a pause button next to the clock',

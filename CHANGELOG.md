@@ -1,5 +1,16 @@
 # Changelog
 
+## [v1.5.1] - 2026-07-16
+
+### Added
+- feat: allow cancelling a waiting match before it starts (24877ee)
+- feat: review a match before starting; start via the clock button (032aacf)
+- feat: replace home empty-state icon with mascot image (f410fc7)
+
+### Changed
+- chore: update changelog and version for v1.5.0 (aebfc08)
+
+
 ## [v1.5.0] - 2026-07-15
 
 ### Added

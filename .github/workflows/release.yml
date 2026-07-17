@@ -19,9 +19,19 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          TAG=${GITHUB_REF#refs/tags/v}
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "full_tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          FULL_TAG=${GITHUB_REF#refs/tags/}
+          # Refuse anything that isn't a plain vX.Y.Z tag. Tag refs can legally
+          # contain shell metacharacters, and this value flows into later `run:`
+          # steps — validating it here neutralizes template injection at the
+          # source. Pre-release/build suffixes are rejected on purpose: the
+          # version-bump step appends its own +<build>, so a suffixed tag (e.g.
+          # v1.2.3+ci) would produce a malformed pubspec version.
+          if ! printf '%s' "$FULL_TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Refusing to release: tag '$FULL_TAG' is not a plain vX.Y.Z tag."
+            exit 1
+          fi
+          echo "tag=${FULL_TAG#v}" >> $GITHUB_OUTPUT
+          echo "full_tag=$FULL_TAG" >> $GITHUB_OUTPUT
 
           # Get the previous tag for changelog range
           PREV_TAG=$(git tag --sort=-v:refname | grep '^v' | sed -n '2p')
@@ -35,11 +45,13 @@ jobs:
 
       - name: Generate changelog
         id: changelog
+        # Pass tag-derived values through env, never interpolated into shell
+        # source (template-injection hardening).
+        env:
+          TAG: ${{ steps.version.outputs.full_tag }}
+          PREV_TAG: ${{ steps.version.outputs.prev_tag }}
+          IS_FIRST: ${{ steps.version.outputs.is_first }}
         run: |
-          TAG=${{ steps.version.outputs.full_tag }}
-          PREV_TAG=${{ steps.version.outputs.prev_tag }}
-          IS_FIRST=${{ steps.version.outputs.is_first }}
-
           if [ "$IS_FIRST" = "true" ]; then
             # First release — all commits
             COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges)
@@ -130,8 +142,9 @@ jobs:
           mv CHANGELOG_NEW.md CHANGELOG.md
 
       - name: Update version in pubspec.yaml
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
         run: |
-          VERSION=${{ steps.version.outputs.tag }}
           # Extract build number: count total commits
           BUILD=$(git rev-list --count HEAD)
           sed -i "s/^version: .*/version: ${VERSION}+${BUILD}/" pubspec.yaml
@@ -139,15 +152,30 @@ jobs:
           grep "^version:" pubspec.yaml
 
       - name: Commit changelog and version bump
+        env:
+          FULL_TAG: ${{ steps.version.outputs.full_tag }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           git checkout main
-          git merge --ff-only ${{ steps.version.outputs.full_tag }} || true
+          git merge --ff-only "$FULL_TAG" || true
           git add CHANGELOG.md pubspec.yaml
-          git commit -m "chore: update changelog and version for ${{ steps.version.outputs.full_tag }}"
+          git commit -m "chore: update changelog and version for $FULL_TAG"
           git push origin main
+
+      # The App Bundle packs native code for every ABI, so Cargokit
+      # cross-compiles the Rust crate three times (arm, arm64, x86_64). Together
+      # with the APK build, the NDK, and the Gradle/cargo caches this exhausts
+      # the ~14 GB free on the runner ("No space left on device"). Reclaim space
+      # from preinstalled toolchains this job never uses.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/share/swift /usr/local/share/powershell \
+            /usr/local/share/chromium /usr/local/lib/node_modules
+          sudo apt-get clean
+          df -h /
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -232,16 +260,30 @@ jobs:
         run: flutter build apk --release --target-platform android-arm64
 
       - name: Rename APK
-        run: |
-          VERSION=${{ steps.version.outputs.full_tag }}
-          cp build/app/outputs/flutter-apk/app-release.apk "choke-${VERSION}.apk"
+        env:
+          FULL_TAG: ${{ steps.version.outputs.full_tag }}
+        run: cp build/app/outputs/flutter-apk/app-release.apk "choke-${FULL_TAG}.apk"
+
+      # The Android App Bundle for Google Play. Unlike the sideload APK above,
+      # this deliberately keeps ALL ABIs (the default): Play generates optimized
+      # per-device APKs from the bundle, so every user still downloads only their
+      # own architecture — including all ABIs here costs nothing at install time
+      # and is what lets Play serve arm64, armeabi-v7a, and x86_64 devices.
+      # It is signed with the same upload key as the APK via android/key.properties.
+      - name: Build App Bundle (AAB for Google Play)
+        run: flutter build appbundle --release
+
+      - name: Rename AAB
+        env:
+          FULL_TAG: ${{ steps.version.outputs.full_tag }}
+        run: cp build/app/outputs/bundle/release/app-release.aab "choke-${FULL_TAG}.aab"
 
       - name: Generate release description
         id: description
+        env:
+          TAG: ${{ steps.version.outputs.full_tag }}
+          VERSION: ${{ steps.version.outputs.tag }}
         run: |
-          TAG=${{ steps.version.outputs.full_tag }}
-          VERSION=${{ steps.version.outputs.tag }}
-
           # Read the categorized changes
           FEATURES=$(cat RELEASE_NOTES.md | sed -n '/### ✨/,/^###\|^$/p' | grep "^-" || true)
           FIXES=$(cat RELEASE_NOTES.md | sed -n '/### 🐛/,/^###\|^$/p' | grep "^-" || true)
@@ -283,7 +325,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body_path: RELEASE_BODY.md
-          files: choke-${{ steps.version.outputs.full_tag }}.apk
+          files: |
+            choke-${{ steps.version.outputs.full_tag }}.apk
+            choke-${{ steps.version.outputs.full_tag }}.aab
           generate_release_notes: false
           draft: false
           prerelease: false

@@ -1,5 +1,20 @@
 # Changelog
 
+## [v1.5.2] - 2026-07-17
+
+### Documentation
+- docs: rewrite AGENTS.md and require English across the repo (191814a)
+
+### Changed
+- ci: pin upload-google-play to a full commit SHA (e9e00a0)
+- ci: auto-upload the .aab to Google Play on release (4d61bee)
+- ci: restrict release tag validation to plain vX.Y.Z (44a0e19)
+- ci: harden release workflow against tag template injection (d307186)
+- ci: also build a signed .aab for Google Play in the release workflow (e8eb413)
+- ci: skip Android APK build on merge to main (ed1f7c2)
+- chore: update changelog and version for v1.5.1 (ffedd79)
+
+
 ## [v1.5.1] - 2026-07-16
 
 ### Added

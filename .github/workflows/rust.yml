@@ -90,6 +90,11 @@ jobs:
   android:
     name: Android build (proves the crate links into the APK)
     runs-on: ubuntu-latest
+    # Only on PRs. This APK-link check gates code before it reaches main; the
+    # crate + bridge tests already re-run on push:main to guard against semantic
+    # merge conflicts, and the release workflow builds the real APK on a tag, so
+    # re-linking a debug APK on every merge would be redundant CPU.
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 

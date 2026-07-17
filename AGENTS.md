@@ -1,33 +1,75 @@
 # AGENTS.md — Choke Development Guidelines
 
-This file contains conventions and guidelines for AI agents working on the Choke project.
+Conventions and guidelines for humans and AI agents working on the Choke
+project. Read this before making changes.
+
+## Language: English only (non-negotiable)
+
+**Everything produced in this repository MUST be written in English**, with no
+exceptions:
+
+- Source code — identifiers, function/variable/class names
+- Comments and docstrings
+- Commit messages
+- Branch names
+- Pull request titles and descriptions
+- Issue titles and descriptions, and issue comments
+- Documentation, READMEs, and specs
+- Code review comments
+
+The **only** exception is user-facing product copy, which is localized through
+the l10n system (`lib/l10n/*.arb`) and legitimately contains other languages
+(English, Spanish, Portuguese, Japanese). Everything a developer writes stays in
+English regardless of the contributor's native language.
 
 ## Project Overview
 
-Choke is a modern decentralized BJJ (Brazilian Jiu-Jitsu) match scoring and publishing app built with Flutter and Nostr.
+Choke is a modern decentralized BJJ (Brazilian Jiu-Jitsu) match scoring and
+publishing app. It creates, scores, and publishes matches in real time over
+Nostr — every scoring action is broadcast as a Nostr event (kind `31415`,
+addressable) so match data is open, verifiable, and readable by any compatible
+dashboard.
+
+Built with **Flutter** (Android & iOS) on top of a native **Rust** crate that
+provides the entire Nostr stack.
 
 ## Architecture
 
-### Feature-Based Structure
+Feature-based structure:
 
-```
+```text
 lib/
-├── features/
+├── main.dart
+├── features/          # Feature modules
 │   ├── home/          # Home screen and dashboard
-│   ├── match/         # Match scoring and management
+│   ├── match/         # Match scoring, timer, and management
 │   ├── account/       # User profile and keys
-│   └── settings/      # App configuration
-├── data/
-│   ├── models/        # Data models (Freezed)
-│   └── repositories/  # Data access layer
-├── services/
-│   ├── nostr/         # Nostr protocol integration
-│   └── key_management/# Secure key storage
-└── shared/
-    ├── widgets/       # Reusable UI components
-    ├── utils/         # Helper functions
-    └── theme/         # App theme and colors
+│   └── settings/      # App configuration and relays
+├── services/          # Cross-feature services
+├── shared/            # Reusable widgets, theme, utilities
+├── l10n/              # Localization (.arb) — the ONLY non-English content
+└── src/rust/          # Generated Dart bindings for the Rust crate (do not edit)
 ```
+
+The native Nostr surface lives outside `lib/`:
+
+| Path | What it is |
+|---|---|
+| `rust/` | the crate — key handling, NIP-19, event signing, relay pool |
+| `lib/src/rust/` | generated Dart bindings (committed; never edit by hand) |
+| `rust_builder/` | Cargokit glue that builds the crate for each platform |
+
+## Tech Stack
+
+- **Mobile**: Flutter (Android & iOS)
+- **State Management**: Riverpod (`flutter_riverpod`, `riverpod_annotation`)
+- **Navigation**: `go_router`
+- **Protocol**: Nostr via the Rust [`nostr`](https://crates.io/crates/nostr) and
+  [`nostr-sdk`](https://crates.io/crates/nostr-sdk) crates, bridged with
+  `flutter_rust_bridge`
+- **Native**: Rust crate (`rust/`) — required to build or test the app
+- **Security**: `flutter_secure_storage` for key management
+- **Codegen**: `freezed`, `json_serializable`, `riverpod_generator`
 
 ## Design System
 
@@ -40,7 +82,8 @@ lib/
 | Championship Gold | `#F5B800` | Accents, badges, awards |
 | Pure White | `#FFFFFF` | Text on dark, cards |
 
-**Always use colors from `AppTheme` or `BJJColors`, never hardcode.**
+**Always use colors from `AppTheme` or `BJJColors`, never hardcode hex values.**
+See [BJJ_STYLE_GUIDE.md](BJJ_STYLE_GUIDE.md) for the full style guide.
 
 ### Typography
 
@@ -49,105 +92,113 @@ lib/
 - Labels/Tags: Green (`BJJColors.green`)
 - Stats/Numbers: Gold (`BJJColors.gold`)
 
-## Dependencies
-
-### Core
-- `flutter_riverpod` — State management
-- `go_router` — Navigation (to be implemented)
-- `nostr_tools` — Nostr protocol
-- `flutter_secure_storage` — Key storage
-
-### Code Generation
-- `freezed` — Immutable data classes
-- `json_serializable` — JSON serialization
-- `riverpod_generator` — Riverpod code gen
-
-**Always run `flutter pub run build_runner build` after modifying models.**
-
 ## Code Style
 
-### Flutter/Dart
+### Flutter / Dart
 
-1. **Format:** `dart format .`
-2. **Analyze:** `flutter analyze`
-3. **Test:** `flutter test`
+Run the full check chain before every commit:
 
-**Chain:** `flutter pub get && dart format . && flutter analyze && flutter test`
+```bash
+flutter pub get && dart format . && flutter analyze && flutter test
+```
 
 ### Naming Conventions
 
 - Files: `snake_case.dart`
-- Classes: `PascalCase`
-- Variables/functions: `camelCase`
+- Classes / types: `PascalCase`
+- Variables / functions: `camelCase`
 - Constants: `kConstantName` or `CONSTANT_NAME`
 
 ### Widget Guidelines
 
 - Use `const` constructors when possible
-- Extract reusable widgets to `shared/widgets/`
+- Extract reusable widgets to `shared/`
 - Keep widgets small and focused
 - Use Riverpod for state management
-- **Never hardcode color hex values in widgets** — always use `BJJColors` or `AppTheme`
-- **Never expose raw exceptions in the UI** — use generic user-friendly messages, log details with `debugPrint`
+- **Never hardcode color hex values** — always use `BJJColors` or `AppTheme`
+- **Never expose raw exceptions in the UI** — show generic, user-friendly
+  messages and log details with `debugPrint`
 
-## State Management (Riverpod)
+### Code Generation
 
-```dart
-// Provider
-final matchProvider = StateNotifierProvider<MatchNotifier, MatchState>((ref) {
-  return MatchNotifier();
-});
+Run after modifying models, providers, or Freezed classes:
 
-// Usage
-class MatchScreen extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final match = ref.watch(matchProvider);
-    // ...
-  }
-}
+```bash
+dart run build_runner build --delete-conflicting-outputs
+```
+
+## The Rust Crate
+
+Building the app compiles the crate automatically — no separate step needed.
+Two cases do need a command:
+
+```bash
+# After changing anything under rust/src/api/, regenerate the bindings.
+# The codegen CLI version must match flutter_rust_bridge in pubspec.yaml and
+# rust/Cargo.toml — all three are pinned together.
+cargo install flutter_rust_bridge_codegen --version 2.12.0 --locked
+flutter_rust_bridge_codegen generate
+
+# Tests that exercise crypto or the relay pool need the native library on disk.
+# Without it they skip themselves silently, so build the crate first:
+cargo build --manifest-path rust/Cargo.toml
+flutter test --tags rust
+```
+
+Crate quality gate (mirrors CI in `.github/workflows/rust.yml`):
+
+```bash
+cargo fmt --manifest-path rust/Cargo.toml --all -- --check
+cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings
+cargo test --manifest-path rust/Cargo.toml
 ```
 
 ## Nostr Integration
 
-- Use `nostr_tools` package
-- All events should be kind 31415 (addressable events)
-- Store keys securely with `flutter_secure_storage`
+- Match data is published as Nostr addressable events, kind `31415`.
+- Key handling, NIP-19, signing, and the relay pool all live in the Rust crate —
+  reach them through the generated bindings, never reimplement crypto in Dart.
 
 ## Security
 
-- NEVER log private keys
-- NEVER expose nsec in UI
-- Use ephemeral keys for match scoring
-- Implement key backup/restore with encryption
-
-## Git Workflow
-
-1. Create feature branch: `git checkout -b feature/name`
-2. Make changes following conventions
-3. Run full check chain before commit
-4. Commit with conventional messages
-5. Push and create PR
+- **NEVER** log private keys.
+- **NEVER** expose `nsec` in the UI.
+- Use ephemeral match keys for team scoring (delegation without sharing `nsec`).
+- Store keys with `flutter_secure_storage`; back up and restore encrypted.
 
 ## Testing
 
 - Unit tests for models and logic
 - Widget tests for UI components
 - Integration tests for critical flows
+- Tests that need the native library are tagged `rust` — see the crate section
+
+## Git Workflow
+
+1. Never commit directly to `main`; branch first: `git checkout -b feat/name`.
+2. Make changes following these conventions.
+3. Run the full check chain before committing.
+4. Commit with [Conventional Commits](https://www.conventionalcommits.org):
+   `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
+5. Push and open a PR. On merge, only the tests re-run on `main`; the APK build
+   runs on PRs. Releases are built from `v*` tags by `.github/workflows/release.yml`.
+
+All commits, branches, PRs, and issues are written in **English** (see the top
+of this file).
 
 ## Markdown
 
-- Always add a language identifier to fenced code blocks (MD040 compliance)
+- Always add a language identifier to fenced code blocks (MD040):
   - ✅ ` ```dart ` / ` ```json ` / ` ```text `
   - ❌ ` ``` ` (bare fence)
 
 ## Documentation
 
-- Document all public APIs
-- Add inline comments for complex logic
-- Update README.md for new features
+- Document all public APIs.
+- Add inline comments for non-obvious logic (why, not what).
+- Update `README.md` and relevant specs under `docs/` for new features.
 
 ## Contact
 
-- Repo: https://github.com/protolayer-io/choke
-- Nostr: npub14e8x7ggcvgy4j0wcsqh6kv4pfmtax7rkryenux9u7ytemjcuce7q9qpjtk
+- Repo: <https://github.com/protolayer-io/choke>
+- Nostr: `npub14e8x7ggcvgy4j0wcsqh6kv4pfmtax7rkryenux9u7ytemjcuce7q9qpjtk`

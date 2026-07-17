@@ -11,6 +11,11 @@ permissions:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    # Exposes "is the Play service-account secret configured?" to step-level
+    # `if:`, since the secrets context can't be read directly there. Lets the
+    # Play upload skip cleanly (e.g. on forks) instead of failing the release.
+    env:
+      HAS_PLAY_SA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -331,3 +336,25 @@ jobs:
           generate_release_notes: false
           draft: false
           prerelease: false
+
+      # Publish the signed bundle to Google Play's internal testing track.
+      # Skipped when PLAY_SERVICE_ACCOUNT_JSON is not set, so the GitHub release
+      # still succeeds. Requirements before the first automated upload works:
+      #   1. Create the app in the Play Console and upload one build manually
+      #      (Play won't accept API uploads until the listing exists).
+      #   2. Create a Google Cloud service account, grant it access in the Play
+      #      Console (Users & permissions), and store its JSON key as the
+      #      PLAY_SERVICE_ACCOUNT_JSON repo secret.
+      # Change `track` to `production` (or alpha/beta) once you're ready to ship
+      # to users; `internal` is the safe default for automated releases.
+      - name: Publish to Google Play (internal track)
+        if: env.HAS_PLAY_SA == 'true'
+        # Pinned to a full commit SHA (supply-chain hardening for a third-party
+        # action); the trailing comment tracks the human-readable version.
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: io.protolayer.choke
+          releaseFiles: choke-${{ steps.version.outputs.full_tag }}.aab
+          track: internal
+          status: completed

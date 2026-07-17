@@ -20,12 +20,14 @@ jobs:
         id: version
         run: |
           FULL_TAG=${GITHUB_REF#refs/tags/}
-          # Refuse anything that isn't a clean semver tag (vX.Y.Z, optional
-          # pre-release/build suffix). Tag refs can legally contain shell
-          # metacharacters, and this value flows into later `run:` steps — so
-          # validating it here neutralizes template injection at the source.
-          if ! printf '%s' "$FULL_TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$'; then
-            echo "::error::Refusing to release: tag '$FULL_TAG' is not a clean vX.Y.Z tag."
+          # Refuse anything that isn't a plain vX.Y.Z tag. Tag refs can legally
+          # contain shell metacharacters, and this value flows into later `run:`
+          # steps — validating it here neutralizes template injection at the
+          # source. Pre-release/build suffixes are rejected on purpose: the
+          # version-bump step appends its own +<build>, so a suffixed tag (e.g.
+          # v1.2.3+ci) would produce a malformed pubspec version.
+          if ! printf '%s' "$FULL_TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Refusing to release: tag '$FULL_TAG' is not a plain vX.Y.Z tag."
             exit 1
           fi
           echo "tag=${FULL_TAG#v}" >> $GITHUB_OUTPUT

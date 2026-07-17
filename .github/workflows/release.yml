@@ -149,6 +149,19 @@ jobs:
           git commit -m "chore: update changelog and version for ${{ steps.version.outputs.full_tag }}"
           git push origin main
 
+      # The App Bundle packs native code for every ABI, so Cargokit
+      # cross-compiles the Rust crate three times (arm, arm64, x86_64). Together
+      # with the APK build, the NDK, and the Gradle/cargo caches this exhausts
+      # the ~14 GB free on the runner ("No space left on device"). Reclaim space
+      # from preinstalled toolchains this job never uses.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/share/swift /usr/local/share/powershell \
+            /usr/local/share/chromium /usr/local/lib/node_modules
+          sudo apt-get clean
+          df -h /
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -236,6 +249,20 @@ jobs:
           VERSION=${{ steps.version.outputs.full_tag }}
           cp build/app/outputs/flutter-apk/app-release.apk "choke-${VERSION}.apk"
 
+      # The Android App Bundle for Google Play. Unlike the sideload APK above,
+      # this deliberately keeps ALL ABIs (the default): Play generates optimized
+      # per-device APKs from the bundle, so every user still downloads only their
+      # own architecture — including all ABIs here costs nothing at install time
+      # and is what lets Play serve arm64, armeabi-v7a, and x86_64 devices.
+      # It is signed with the same upload key as the APK via android/key.properties.
+      - name: Build App Bundle (AAB for Google Play)
+        run: flutter build appbundle --release
+
+      - name: Rename AAB
+        run: |
+          VERSION=${{ steps.version.outputs.full_tag }}
+          cp build/app/outputs/bundle/release/app-release.aab "choke-${VERSION}.aab"
+
       - name: Generate release description
         id: description
         run: |
@@ -283,7 +310,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body_path: RELEASE_BODY.md
-          files: choke-${{ steps.version.outputs.full_tag }}.apk
+          files: |
+            choke-${{ steps.version.outputs.full_tag }}.apk
+            choke-${{ steps.version.outputs.full_tag }}.aab
           generate_release_notes: false
           draft: false
           prerelease: false

@@ -19,9 +19,17 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          TAG=${GITHUB_REF#refs/tags/v}
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "full_tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          FULL_TAG=${GITHUB_REF#refs/tags/}
+          # Refuse anything that isn't a clean semver tag (vX.Y.Z, optional
+          # pre-release/build suffix). Tag refs can legally contain shell
+          # metacharacters, and this value flows into later `run:` steps — so
+          # validating it here neutralizes template injection at the source.
+          if ! printf '%s' "$FULL_TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$'; then
+            echo "::error::Refusing to release: tag '$FULL_TAG' is not a clean vX.Y.Z tag."
+            exit 1
+          fi
+          echo "tag=${FULL_TAG#v}" >> $GITHUB_OUTPUT
+          echo "full_tag=$FULL_TAG" >> $GITHUB_OUTPUT
 
           # Get the previous tag for changelog range
           PREV_TAG=$(git tag --sort=-v:refname | grep '^v' | sed -n '2p')
@@ -35,11 +43,13 @@ jobs:
 
       - name: Generate changelog
         id: changelog
+        # Pass tag-derived values through env, never interpolated into shell
+        # source (template-injection hardening).
+        env:
+          TAG: ${{ steps.version.outputs.full_tag }}
+          PREV_TAG: ${{ steps.version.outputs.prev_tag }}
+          IS_FIRST: ${{ steps.version.outputs.is_first }}
         run: |
-          TAG=${{ steps.version.outputs.full_tag }}
-          PREV_TAG=${{ steps.version.outputs.prev_tag }}
-          IS_FIRST=${{ steps.version.outputs.is_first }}
-
           if [ "$IS_FIRST" = "true" ]; then
             # First release — all commits
             COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges)
@@ -130,8 +140,9 @@ jobs:
           mv CHANGELOG_NEW.md CHANGELOG.md
 
       - name: Update version in pubspec.yaml
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
         run: |
-          VERSION=${{ steps.version.outputs.tag }}
           # Extract build number: count total commits
           BUILD=$(git rev-list --count HEAD)
           sed -i "s/^version: .*/version: ${VERSION}+${BUILD}/" pubspec.yaml
@@ -139,14 +150,16 @@ jobs:
           grep "^version:" pubspec.yaml
 
       - name: Commit changelog and version bump
+        env:
+          FULL_TAG: ${{ steps.version.outputs.full_tag }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           git checkout main
-          git merge --ff-only ${{ steps.version.outputs.full_tag }} || true
+          git merge --ff-only "$FULL_TAG" || true
           git add CHANGELOG.md pubspec.yaml
-          git commit -m "chore: update changelog and version for ${{ steps.version.outputs.full_tag }}"
+          git commit -m "chore: update changelog and version for $FULL_TAG"
           git push origin main
 
       # The App Bundle packs native code for every ABI, so Cargokit
@@ -245,9 +258,9 @@ jobs:
         run: flutter build apk --release --target-platform android-arm64
 
       - name: Rename APK
-        run: |
-          VERSION=${{ steps.version.outputs.full_tag }}
-          cp build/app/outputs/flutter-apk/app-release.apk "choke-${VERSION}.apk"
+        env:
+          FULL_TAG: ${{ steps.version.outputs.full_tag }}
+        run: cp build/app/outputs/flutter-apk/app-release.apk "choke-${FULL_TAG}.apk"
 
       # The Android App Bundle for Google Play. Unlike the sideload APK above,
       # this deliberately keeps ALL ABIs (the default): Play generates optimized
@@ -259,16 +272,16 @@ jobs:
         run: flutter build appbundle --release
 
       - name: Rename AAB
-        run: |
-          VERSION=${{ steps.version.outputs.full_tag }}
-          cp build/app/outputs/bundle/release/app-release.aab "choke-${VERSION}.aab"
+        env:
+          FULL_TAG: ${{ steps.version.outputs.full_tag }}
+        run: cp build/app/outputs/bundle/release/app-release.aab "choke-${FULL_TAG}.aab"
 
       - name: Generate release description
         id: description
+        env:
+          TAG: ${{ steps.version.outputs.full_tag }}
+          VERSION: ${{ steps.version.outputs.tag }}
         run: |
-          TAG=${{ steps.version.outputs.full_tag }}
-          VERSION=${{ steps.version.outputs.tag }}
-
           # Read the categorized changes
           FEATURES=$(cat RELEASE_NOTES.md | sed -n '/### ✨/,/^###\|^$/p' | grep "^-" || true)
           FIXES=$(cat RELEASE_NOTES.md | sed -n '/### 🐛/,/^###\|^$/p' | grep "^-" || true)

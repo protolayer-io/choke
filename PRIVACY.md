@@ -48,7 +48,7 @@ We may update this policy. Any changes will be posted at this URL.
 
 ## Contact
 
+- Email: contact@protolayer.io
 - GitHub: <https://github.com/protolayer-io/choke>
-- Nostr: `npub14e8x7ggcvgy4j0wcsqh6kv4pfmtax7rkryenux9u7ytemjcuce7q9qpjtk`
 
 ProtoLayer OÜ

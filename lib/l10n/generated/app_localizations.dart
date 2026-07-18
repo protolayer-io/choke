@@ -258,6 +258,18 @@ abstract class AppLocalizations {
   /// **'Show QR'**
   String get showQr;
 
+  /// Button and share-sheet subject for sharing the bjjscore.live live board link
+  ///
+  /// In en, this message translates to:
+  /// **'Share live board'**
+  String get shareLiveBoard;
+
+  /// Message shown before the shared bjjscore.live link in the share sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Follow my BJJ matches live on bjjscore.live:'**
+  String get shareLiveBoardMessage;
+
   /// Message when key is not available
   ///
   /// In en, this message translates to:

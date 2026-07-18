@@ -26,6 +26,8 @@
   "generating": "Gerando...",
   "copy": "Copiar",
   "showQr": "Mostrar QR",
+  "shareLiveBoard": "Compartilhar placar",
+  "shareLiveBoardMessage": "Acompanhe minhas lutas de BJJ ao vivo no bjjscore.live:",
   "keyUnavailable": "Chave indisponível",
   "errorLoadingKey": "Erro ao carregar chave",
   "privateKeyNsec": "Chave privada (nsec)",

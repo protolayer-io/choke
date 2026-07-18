@@ -2,9 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:choke/l10n/generated/app_localizations.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../services/key_management/key_manager.dart';
+
+/// Base of the public live board. A shared link carries the organizer's npub in
+/// the query string (`?npub=…`), so opening it drops the spectator straight onto
+/// this user's matches with nothing to paste. Must match the reader in
+/// choke-scoreboard (`buildShareLink` / `readSharedPubkey`).
+const String kLiveBoardBaseUrl = 'https://bjjscore.live';
+
+/// Build the share link for an organizer's npub.
+String liveBoardShareUrl(String npub) => '$kLiveBoardBaseUrl/?npub=$npub';
 
 class AccountScreen extends ConsumerStatefulWidget {
   const AccountScreen({super.key});
@@ -36,6 +46,24 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         ),
       );
     }
+  }
+
+  /// Open the platform share sheet with a bjjscore.live link for this npub, so
+  /// a spectator only has to tap it — no key to copy or paste on the web.
+  Future<void> _shareLiveBoard(String npub) async {
+    final l10n = AppLocalizations.of(context);
+    final url = liveBoardShareUrl(npub);
+
+    // iPad requires a non-null origin to anchor the share popover; the screen's
+    // render box is a safe fallback on phones.
+    final box = context.findRenderObject() as RenderBox?;
+    final origin = box != null ? box.localToGlobal(Offset.zero) & box.size : null;
+
+    await Share.share(
+      '${l10n.shareLiveBoardMessage}\n$url',
+      subject: l10n.shareLiveBoard,
+      sharePositionOrigin: origin,
+    );
   }
 
   Future<void> _showImportDialog() async {
@@ -391,25 +419,36 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                             ),
                             const SizedBox(height: 12),
                             if (npub != null)
-                              Row(
+                              Column(
                                 children: [
-                                  Expanded(
-                                    child: _buildActionButton(
-                                      context: context,
-                                      icon: Icons.copy,
-                                      label: l10n.copy,
-                                      onTap: () => _copyToClipboard(
-                                          npub, l10n.publicKey),
-                                    ),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildActionButton(
+                                          context: context,
+                                          icon: Icons.copy,
+                                          label: l10n.copy,
+                                          onTap: () => _copyToClipboard(
+                                              npub, l10n.publicKey),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 9),
+                                      Expanded(
+                                        child: _buildActionButton(
+                                          context: context,
+                                          icon: Icons.qr_code,
+                                          label: l10n.showQr,
+                                          onTap: () =>
+                                              _showQRCode(context, npub),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 9),
-                                  Expanded(
-                                    child: _buildActionButton(
-                                      context: context,
-                                      icon: Icons.qr_code,
-                                      label: l10n.showQr,
-                                      onTap: () => _showQRCode(context, npub),
-                                    ),
+                                  const SizedBox(height: 9),
+                                  _buildShareButton(
+                                    context: context,
+                                    label: l10n.shareLiveBoard,
+                                    onTap: () => _shareLiveBoard(npub),
                                   ),
                                 ],
                               )
@@ -622,6 +661,47 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: tk.accent,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The share CTA: filled accent, full width, sitting just under Copy/QR — the
+  /// one action that hands someone else the live board rather than the raw key.
+  Widget _buildShareButton({
+    required BuildContext context,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final tk = ChokeTokens.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(11),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        decoration: BoxDecoration(
+          color: tk.accent,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.ios_share, color: BJJColors.white, size: 16),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: BJJColors.white,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
                 ),

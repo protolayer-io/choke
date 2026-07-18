@@ -104,6 +104,14 @@
   "@showQr": {
     "description": "Show QR code button label"
   },
+  "shareLiveBoard": "Share live board",
+  "@shareLiveBoard": {
+    "description": "Button and share-sheet subject for sharing the bjjscore.live live board link"
+  },
+  "shareLiveBoardMessage": "Follow my BJJ matches live on bjjscore.live:",
+  "@shareLiveBoardMessage": {
+    "description": "Message shown before the shared bjjscore.live link in the share sheet"
+  },
   "keyUnavailable": "Key unavailable",
   "@keyUnavailable": {
     "description": "Message when key is not available"

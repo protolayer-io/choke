@@ -1,5 +1,16 @@
 # Changelog
 
+## [v1.6.1] - 2026-07-18
+
+### Fixed
+- fix(create-match): show all durations at once, no horizontal scroll (e7fb968)
+
+### Changed
+- ci: complete the Linux toolchain, avoid tarbomb, document Linux install (dcfe073)
+- ci: also build and publish a Linux x64 bundle on release (e70eac8)
+- chore: update changelog and version for v1.6.0 (9802340)
+
+
 ## [v1.6.0] - 2026-07-18
 
 ### Added

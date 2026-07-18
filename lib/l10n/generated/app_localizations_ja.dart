@@ -335,6 +335,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get version => 'バージョン';
 
   @override
+  String get website => 'ウェブサイト';
+
+  @override
   String get sourceCode => 'ソースコード';
 
   @override

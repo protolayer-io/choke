@@ -350,6 +350,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get version => 'Versão';
 
   @override
+  String get website => 'Site';
+
+  @override
   String get sourceCode => 'Código-fonte';
 
   @override

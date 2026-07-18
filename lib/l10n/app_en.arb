@@ -438,6 +438,7 @@
   "@version": {
     "description": "Version tile title"
   },
+  "website": "Website",
   "sourceCode": "Source Code",
   "@sourceCode": {
     "description": "Source code tile title"

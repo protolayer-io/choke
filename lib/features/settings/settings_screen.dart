@@ -168,6 +168,19 @@ class SettingsScreen extends ConsumerWidget {
             _buildListRow(
               context: context,
               tk: tk,
+              icon: Icons.language,
+              title: l10n.website,
+              subtitle: 'protolayer.io/choke',
+              trailingIcon: Icons.open_in_new,
+              onTap: () => launchUrl(
+                Uri.parse('https://protolayer.io/choke'),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildListRow(
+              context: context,
+              tk: tk,
               icon: Icons.code,
               title: l10n.sourceCode,
               subtitle: 'github.com/protolayer-io/choke',

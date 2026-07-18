@@ -348,6 +348,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get version => 'Version';
 
   @override
+  String get website => 'Website';
+
+  @override
   String get sourceCode => 'Source Code';
 
   @override

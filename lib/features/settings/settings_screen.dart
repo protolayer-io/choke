@@ -242,10 +242,13 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                             decoration: isDark
                                 ? BoxDecoration(
-                                    // Subtle lighter backdrop so the black belt
-                                    // stays visible against the dark theme.
+                                    // Lighter backdrop so the black belt reads
+                                    // against the dark theme. At 0.08 the belt
+                                    // was all but invisible on the ink
+                                    // scaffold; past ~0.32 the tile becomes a
+                                    // grey block that pulls focus.
                                     color:
-                                        colors.onSurface.withValues(alpha: 0.08),
+                                        colors.onSurface.withValues(alpha: 0.24),
                                     borderRadius: BorderRadius.circular(16),
                                   )
                                 : null,

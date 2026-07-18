@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="splash_bg">#121A2E</color>
-    <color name="ic_launcher_background">#121A2E</color>
+    <!-- Light grey backing: the C mark's lower arc is near-black and would be
+         invisible on the app's dark navy. Matches the tile used on protolayer.io/choke. -->
+    <color name="splash_bg">#D6DAE2</color>
+    <color name="ic_launcher_background">#D6DAE2</color>
 </resources>

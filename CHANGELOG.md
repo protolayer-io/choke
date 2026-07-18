@@ -1,5 +1,29 @@
 # Changelog
 
+## [v1.6.0] - 2026-07-18
+
+### Added
+- feat: add Website link to the top of Settings > About (2f3a815)
+- feat: show brand C logo in the home header (67c9f8b)
+- feat(linux): add desktop entry and window icon (510d597)
+- feat: adopt the Choke C mark as the app icon and launch logo (a79b9ae)
+- feat(account): share a bjjscore.live live-board link (530a168)
+
+### Fixed
+- fix: use original C logo on a light gray tile, no recolor (f300485)
+- fix(settings): lighten the black belt backdrop in dark theme (c473cde)
+- fix(account): handle share sheet failure (9b8613d)
+
+### Documentation
+- docs: document the Linux desktop build requirements (46752e9)
+- docs: use privacy@ contact email in privacy policy (90b5fa0)
+- docs: use contact email instead of npub in privacy policy (acdcb6a)
+- docs: add privacy policy for Google Play (4c596ae)
+
+### Changed
+- chore: update changelog and version for v1.5.2 (caace2c)
+
+
 ## [v1.5.2] - 2026-07-17
 
 ### Documentation

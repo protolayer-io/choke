@@ -49,6 +49,8 @@ See [BJJ_STYLE_GUIDE.md](BJJ_STYLE_GUIDE.md) for complete style guide.
 - **Rust** — the app links a native crate. Install [rustup](https://rustup.rs);
   the pinned version and Android targets are installed for you from
   `rust-toolchain.toml`.
+- **Linux desktop builds need a complete Clang toolchain** — see
+  [Building for Linux desktop](#building-for-linux-desktop).
 
 ### Installation
 
@@ -99,6 +101,63 @@ cargo build --manifest-path rust/Cargo.toml
 flutter test --tags rust
 ```
 
+### Building for Linux desktop
+
+Linux needs more setup than the other targets, and the reason is the Rust crate.
+Because the app ships a native library, Flutter builds it through its
+**native-assets** path, which requires a complete Clang toolchain rather than
+just a working compiler. Flutter locates `clang++` on your `PATH`, resolves any
+symlinks, and then insists that `clang`, `llvm-ar`, and a linker (`ld.lld`,
+falling back to `ld`) all live in **that same directory**.
+
+Targets without native assets never take this path, so a machine that builds
+other Flutter Linux apps fine can still fail here.
+
+```bash
+# Flutter's own Linux desktop requirements
+sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev
+
+# Additionally required by this project
+sudo apt install lld libstdc++-14-dev
+```
+
+Those last two are the ones people hit, because a stock install has neither:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Failed to find any of [ld.lld, ld] in /usr/lib/llvm-N/bin` | Clang ships without a linker; the system `ld` lives in `/usr/bin`, not next to `clang` | `lld` (must match your Clang's major version) |
+| `'type_traits' file not found` | Clang selects the newest GCC it can find; if that GCC's libstdc++ headers are missing, every C++ compile fails | the matching `libstdc++-N-dev` |
+
+The second one is worth explaining, since the error looks unrelated to your
+setup. Clang picks the highest-numbered GCC installation present, but a GCC
+*runtime* can be installed without its C++ *headers* — so Clang selects a
+toolchain whose headers do not exist. Check which one it chose:
+
+```bash
+clang++ -v 2>&1 | grep 'Selected GCC installation'
+# .../lib/gcc/x86_64-linux-gnu/14  ->  install libstdc++-14-dev
+```
+
+Verify the toolchain is complete before building:
+
+```bash
+# All four must resolve, and the linker must sit beside clang
+CLANG_DIR=$(dirname "$(readlink -f "$(which clang++)")")
+ls "$CLANG_DIR"/{clang,llvm-ar,ld.lld}
+echo '#include <type_traits>
+int main() { return 0; }' | clang++ -x c++ - -o /dev/null && echo "C++ toolchain OK"
+```
+
+Then:
+
+```bash
+flutter build linux --release
+```
+
+The build produces a relocatable bundle under
+`build/linux/x64/release/bundle/`, with the executable at its root and the
+desktop entry plus hicolor icons in `share/`.
+
 ### Build for Production
 
 ```bash
@@ -108,6 +167,9 @@ flutter build appbundle --release
 
 # iOS
 flutter build ios --release
+
+# Linux — see Building for Linux desktop above for required packages
+flutter build linux --release
 ```
 
 ## Architecture

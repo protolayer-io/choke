@@ -396,48 +396,45 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
   }
 
   Widget _buildDurationSelector(BuildContext context, ChokeTokens tk) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: defaultDurationOptions.map((seconds) {
-          final isSelected = seconds == _duration;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => setState(() => _duration = seconds),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
-                decoration: BoxDecoration(
-                  gradient: isSelected ? tk.gradient : null,
-                  borderRadius: BorderRadius.circular(12),
-                  border: isSelected
-                      ? null
-                      : Border.all(color: tk.cardBorder, width: 1),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: tk.gradTop.withOpacity(.3),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Text(
-                  _formatDuration(seconds),
-                  style: TextStyle(
-                    color: isSelected ? tk.onGrad : tk.muted,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                    fontSize: 15,
-                    fontFamily: 'monospace',
-                  ),
-                ),
+    // Wrap (not a horizontal scroller) so every duration up to 10:00 is on
+    // screen at once — the user never has to scroll to reach the last option.
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: defaultDurationOptions.map((seconds) {
+        final isSelected = seconds == _duration;
+        return GestureDetector(
+          onTap: () => setState(() => _duration = seconds),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+            decoration: BoxDecoration(
+              gradient: isSelected ? tk.gradient : null,
+              borderRadius: BorderRadius.circular(12),
+              border: isSelected
+                  ? null
+                  : Border.all(color: tk.cardBorder, width: 1),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: tk.gradTop.withOpacity(.3),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Text(
+              _formatDuration(seconds),
+              style: TextStyle(
+                color: isSelected ? tk.onGrad : tk.muted,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                fontSize: 15,
+                fontFamily: 'monospace',
               ),
             ),
-          );
-        }).toList(),
-      ),
+          ),
+        );
+      }).toList(),
     );
   }
 

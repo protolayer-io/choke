@@ -96,7 +96,46 @@ void main() {
       expect(backend.fastAsked, isTrue);
       expect(backend.stuckAsked, isTrue);
     });
+
+    test('a relay that never answers cannot hang the publish queue', () async {
+      // Arrange — every relay stays silent, which is exactly what a socket
+      // that died behind a NAT looks like. Before publishTimeout existed this
+      // await hung forever, wedging the scoreboard's serialized publish queue
+      // (reconnects could not unwedge it: _drainOutbox early-returns while a
+      // send is in flight).
+      final service = NostrService(
+        KeyManager(crypto: FakeNostrCrypto()),
+        crypto: FakeNostrCrypto(),
+        backend: _AllStuckBackend(),
+        publishTimeout: const Duration(milliseconds: 100),
+      );
+      final event = NostrEvent(
+        id: 'e2',
+        pubkey: 'pk',
+        createdAt: 1,
+        kind: 31415,
+        tags: const [],
+        content: '{}',
+        sig: 'sig',
+      );
+
+      // Act + Assert — must fail promptly instead of hanging forever.
+      await expectLater(
+        service.publishEvent(event).timeout(const Duration(seconds: 5)),
+        throwsA(isA<Exception>()),
+      );
+    });
   });
+}
+
+/// Every relay accepts the connection but never delivers a verdict.
+class _AllStuckBackend extends FakeRelayBackend {
+  @override
+  List<String> get connectedRelays => const ['wss://stuck.example'];
+
+  @override
+  Future<bool> publish(String relayUrl, NostrEvent event) =>
+      Completer<bool>().future;
 }
 
 /// Two connected relays: `fast` acks instantly, `stuck` never answers.

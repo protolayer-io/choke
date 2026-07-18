@@ -111,11 +111,18 @@ class NostrService {
   /// (because they rejected it) are retried.
   final Duration resendInterval;
 
+  /// How long a single relay gets to deliver its verdict before the attempt
+  /// counts as failed. A socket can die silently (NAT drop while the mat is
+  /// quiet) and never answer; without a cap that await hangs, and the
+  /// scoreboard's serialized publish queue wedges behind it.
+  final Duration publishTimeout;
+
   NostrService(
     this._keyManager, {
     required NostrCrypto crypto,
     required NostrRelayBackend backend,
     this.resendInterval = const Duration(seconds: 5),
+    this.publishTimeout = const Duration(seconds: 5),
   })  : _crypto = crypto,
         _backend = backend {
     _backendEvents = _backend.events.listen(_handleIncomingEvent);
@@ -266,9 +273,15 @@ class NostrService {
       unawaited(() async {
         var accepted = false;
         try {
-          accepted = await _backend.publish(url, event);
+          accepted = await _backend.publish(url, event).timeout(publishTimeout);
           debugPrint('NostrService: [$url] accepted=$accepted');
           if (accepted) _markAccepted(dTag, event, url);
+        } on TimeoutException {
+          // Never heard from it — dead socket or a relay that went silent.
+          // Counts as a failure; the resend sweep converges it later.
+          debugPrint(
+              'NostrService: [$url] no verdict within '
+              '${publishTimeout.inSeconds}s');
         } catch (e) {
           debugPrint('NostrService: [$url] publish error: $e');
         }

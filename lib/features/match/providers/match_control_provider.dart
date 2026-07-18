@@ -479,6 +479,12 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
         // would hold the NEW state hostage to a delay meant for the stale one.
         // Send it now; only an unchanged outbox waits out the backoff.
         if (!identical(_outbox, match)) continue;
+        // Two failures in a row usually mean sockets that look open but are
+        // dead (dropped silently while the mat was quiet). Recycle them; the
+        // reconnect listener drains the outbox as soon as a relay is back.
+        if (_retryAttempt >= 2) {
+          unawaited(_nostrService.reconnectAll());
+        }
         final delay = _retryBaseDelay * (1 << (_retryAttempt - 1).clamp(0, 4));
         _retryTimer = Timer(
           delay > _retryMaxDelay ? _retryMaxDelay : delay,

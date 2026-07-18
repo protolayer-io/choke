@@ -252,29 +252,43 @@ class NostrService {
       throw Exception('No connected relays');
     }
 
-    final results = await Future.wait(
-      connected.map((url) async {
+    // Await the FIRST acceptance, not the slowest relay: one ack is enough to
+    // succeed (per this method's contract), and the scoreboard's publish queue
+    // is serialized behind this future — gating it on every relay's verdict
+    // holds up the next scoring action for as long as the slowest relay takes.
+    // Stragglers keep working in the background: their acks still land in
+    // _markAccepted, and the resend sweep covers whatever they missed.
+    final firstAck = Completer<void>();
+    var pending = connected.length;
+    var successCount = 0;
+
+    for (final url in connected) {
+      unawaited(() async {
+        var accepted = false;
         try {
-          final accepted = await _backend.publish(url, event);
+          accepted = await _backend.publish(url, event);
           debugPrint('NostrService: [$url] accepted=$accepted');
           if (accepted) _markAccepted(dTag, event, url);
-          return accepted;
         } catch (e) {
           debugPrint('NostrService: [$url] publish error: $e');
-          return false;
         }
-      }),
-    );
-
-    final successCount = results.where((r) => r).length;
-    debugPrint(
-        'NostrService: published to $successCount/${connected.length} relays');
-
-    _scheduleResendSweep();
-
-    if (successCount == 0) {
-      throw Exception('Event rejected by all relays');
+        if (accepted) {
+          successCount++;
+          if (!firstAck.isCompleted) firstAck.complete();
+        }
+        pending--;
+        if (pending == 0) {
+          debugPrint(
+              'NostrService: published to $successCount/${connected.length} relays');
+          _scheduleResendSweep();
+          if (!firstAck.isCompleted) {
+            firstAck.completeError(Exception('Event rejected by all relays'));
+          }
+        }
+      }());
     }
+
+    await firstAck.future;
   }
 
   static String? _dTagOf(NostrEvent event) {

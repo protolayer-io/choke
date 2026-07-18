@@ -474,6 +474,11 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
         debugPrint(
             'MatchControl: publish failed (attempt ${_retryAttempt + 1}): $e');
         _retryAttempt++;
+        // A fresh action landed while this send was in flight: its retry-reset
+        // in _publishState was a no-op (we were mid-await), so backing off here
+        // would hold the NEW state hostage to a delay meant for the stale one.
+        // Send it now; only an unchanged outbox waits out the backoff.
+        if (!identical(_outbox, match)) continue;
         final delay = _retryBaseDelay * (1 << (_retryAttempt - 1).clamp(0, 4));
         _retryTimer = Timer(
           delay > _retryMaxDelay ? _retryMaxDelay : delay,

@@ -97,6 +97,9 @@ class AppLocalizationsPt extends AppLocalizations {
       'Acompanhe minhas lutas de BJJ ao vivo no bjjscore.live:';
 
   @override
+  String get shareFailed => 'Não foi possível abrir o menu de compartilhamento';
+
+  @override
   String get keyUnavailable => 'Chave indisponível';
 
   @override

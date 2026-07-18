@@ -270,6 +270,12 @@ abstract class AppLocalizations {
   /// **'Follow my BJJ matches live on bjjscore.live:'**
   String get shareLiveBoardMessage;
 
+  /// Error snackbar when the platform share sheet fails to open
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the share sheet'**
+  String get shareFailed;
+
   /// Message when key is not available
   ///
   /// In en, this message translates to:

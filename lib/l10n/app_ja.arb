@@ -28,6 +28,7 @@
   "showQr": "QR表示",
   "shareLiveBoard": "スコアボードを共有",
   "shareLiveBoardMessage": "bjjscore.live で私のBJJの試合をライブでフォロー：",
+  "shareFailed": "共有メニューを開けませんでした",
   "keyUnavailable": "鍵が利用できません",
   "errorLoadingKey": "鍵の読み込みエラー",
   "privateKeyNsec": "秘密鍵（nsec）",

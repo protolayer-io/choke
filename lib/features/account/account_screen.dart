@@ -59,11 +59,26 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     final box = context.findRenderObject() as RenderBox?;
     final origin = box != null ? box.localToGlobal(Offset.zero) & box.size : null;
 
-    await Share.share(
-      '${l10n.shareLiveBoardMessage}\n$url',
-      subject: l10n.shareLiveBoard,
-      sharePositionOrigin: origin,
-    );
+    try {
+      await Share.share(
+        '${l10n.shareLiveBoardMessage}\n$url',
+        subject: l10n.shareLiveBoard,
+        sharePositionOrigin: origin,
+      );
+    } on PlatformException catch (e) {
+      // The platform share sheet can fail to open (no handler registered, a
+      // transient platform error). Surface it instead of letting the failure
+      // escape this tap callback as an unhandled async error. Only the code is
+      // logged — never the message, which could echo shared content back out.
+      debugPrint('AccountScreen: share sheet failed (${e.code})');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.shareFailed),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
   }
 
   Future<void> _showImportDialog() async {

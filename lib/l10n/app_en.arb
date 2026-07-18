@@ -112,6 +112,10 @@
   "@shareLiveBoardMessage": {
     "description": "Message shown before the shared bjjscore.live link in the share sheet"
   },
+  "shareFailed": "Couldn't open the share sheet",
+  "@shareFailed": {
+    "description": "Error snackbar when the platform share sheet fails to open"
+  },
   "keyUnavailable": "Key unavailable",
   "@keyUnavailable": {
     "description": "Message when key is not available"

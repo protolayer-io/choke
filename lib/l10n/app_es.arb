@@ -28,6 +28,7 @@
   "showQr": "Mostrar QR",
   "shareLiveBoard": "Compartir marcador",
   "shareLiveBoardMessage": "Sigue mis combates de BJJ en vivo en bjjscore.live:",
+  "shareFailed": "No se pudo abrir el menú de compartir",
   "keyUnavailable": "Clave no disponible",
   "errorLoadingKey": "Error al cargar la clave",
   "privateKeyNsec": "Clave privada (nsec)",

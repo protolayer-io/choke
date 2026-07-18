@@ -96,6 +96,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Follow my BJJ matches live on bjjscore.live:';
 
   @override
+  String get shareFailed => 'Couldn\'t open the share sheet';
+
+  @override
   String get keyUnavailable => 'Key unavailable';
 
   @override

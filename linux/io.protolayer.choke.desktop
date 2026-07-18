@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Choke
+GenericName=BJJ Scoreboard
+Comment=A modern decentralized BJJ match scoring and publishing app via Nostr.
+Exec=choke
+Icon=io.protolayer.choke
+Terminal=false
+Categories=Utility;
+Keywords=BJJ;jiu-jitsu;grappling;scoreboard;scoring;nostr;
+StartupNotify=true
+StartupWMClass=io.protolayer.choke

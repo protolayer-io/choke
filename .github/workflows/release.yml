@@ -292,6 +292,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libsecret-1-dev
+          # The Rust crate rides Flutter's native-assets path, which needs a
+          # COMPLETE Clang toolchain (README "Building for Linux desktop"):
+          # a linker sitting beside clang, and the libstdc++ headers matching
+          # the GCC installation Clang selects — the runtime can be present
+          # with the headers missing, and then every C++ compile fails.
+          sudo apt-get install -y lld
+          GCC_VER=$(clang++ -v 2>&1 | grep -oP 'Selected GCC installation:.*/\K[0-9]+' || true)
+          sudo apt-get install -y "libstdc++-${GCC_VER:-14}-dev"
+
+      # Fail here, with a readable error, rather than minutes later inside
+      # flutter build linux. Mirrors the README's own verification commands.
+      - name: Preflight the Clang toolchain
+        run: |
+          CLANG_DIR=$(dirname "$(readlink -f "$(which clang++)")")
+          ls "$CLANG_DIR"/clang "$CLANG_DIR"/llvm-ar "$CLANG_DIR"/ld.lld
+          printf '#include <type_traits>\nint main() { return 0; }\n' > /tmp/probe.cc
+          clang++ -c /tmp/probe.cc -o /tmp/probe.o
+          echo "Toolchain preflight OK"
 
       - name: Build Linux bundle
         env:
@@ -299,9 +317,11 @@ jobs:
         run: |
           flutter config --enable-linux-desktop
           flutter build linux --release
-          # Package the self-contained bundle as a tarball for distribution.
+          # Wrap the bundle in a versioned top-level directory so extraction
+          # yields one folder instead of spraying files into the user's cwd.
+          mv build/linux/x64/release/bundle "choke-${FULL_TAG}-linux-x64"
           tar -czf "choke-${FULL_TAG}-linux-x64.tar.gz" \
-            -C build/linux/x64/release/bundle .
+            "choke-${FULL_TAG}-linux-x64"
 
       - name: Generate release description
         id: description
@@ -338,7 +358,14 @@ jobs:
             echo "---"
             echo ""
             echo "### 📥 Install"
-            echo "Download \`choke-${TAG}.apk\` below and install on your Android device."
+            echo "**Android:** download \`choke-${TAG}.apk\` below and install it on your device."
+            echo ""
+            echo "**Linux (x64):** download \`choke-${TAG}-linux-x64.tar.gz\`, extract, and run:"
+            echo '```bash'
+            echo "tar -xzf choke-${TAG}-linux-x64.tar.gz"
+            echo "./choke-${TAG}-linux-x64/choke"
+            echo '```'
+            echo "Requires \`libgtk-3\` and \`libsecret-1\` at runtime (preinstalled on most desktops)."
             echo ""
             echo "### 📋 Full Changelog"
             echo "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for the complete history."

@@ -19,9 +19,27 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
+// Make the Choke mark the window icon. The relocatable bundle ships its
+// hicolor icons in share/icons next to the executable, which is not on GTK's
+// default search path, so add it before resolving the icon by name. A system
+// install needs no help here, since /usr/share/icons is already searched.
+static void setup_window_icon() {
+  g_autofree gchar* exe_path = g_file_read_link("/proc/self/exe", nullptr);
+  if (exe_path != nullptr) {
+    g_autofree gchar* exe_dir = g_path_get_dirname(exe_path);
+    g_autofree gchar* icon_dir =
+        g_build_filename(exe_dir, "share", "icons", nullptr);
+    gtk_icon_theme_append_search_path(gtk_icon_theme_get_default(), icon_dir);
+  }
+  gtk_window_set_default_icon_name(APPLICATION_ID);
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
+
+  setup_window_icon();
+
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 

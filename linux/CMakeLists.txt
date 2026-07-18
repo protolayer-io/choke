@@ -126,3 +126,15 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Desktop integration. The hicolor icons land next to the executable so the
+# relocatable bundle can find them (my_application.cc appends this directory to
+# the GTK icon theme search path); a system install to /usr puts them on the
+# standard search path instead, where the .desktop entry also picks them up.
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/icons/"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/icons"
+  COMPONENT Runtime)
+
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/${APPLICATION_ID}.desktop"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/applications"
+  COMPONENT Runtime)

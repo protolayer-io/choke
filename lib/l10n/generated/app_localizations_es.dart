@@ -90,6 +90,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get showQr => 'Mostrar QR';
 
   @override
+  String get shareLiveBoard => 'Compartir marcador';
+
+  @override
+  String get shareLiveBoardMessage =>
+      'Sigue mis combates de BJJ en vivo en bjjscore.live:';
+
+  @override
+  String get shareFailed => 'No se pudo abrir el menú de compartir';
+
+  @override
   String get keyUnavailable => 'Clave no disponible';
 
   @override

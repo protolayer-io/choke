@@ -88,6 +88,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get showQr => 'QR表示';
 
   @override
+  String get shareLiveBoard => 'スコアボードを共有';
+
+  @override
+  String get shareLiveBoardMessage => 'bjjscore.live で私のBJJの試合をライブでフォロー：';
+
+  @override
+  String get shareFailed => '共有メニューを開けませんでした';
+
+  @override
   String get keyUnavailable => '鍵が利用できません';
 
   @override

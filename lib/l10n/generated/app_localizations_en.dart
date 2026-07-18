@@ -89,6 +89,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get showQr => 'Show QR';
 
   @override
+  String get shareLiveBoard => 'Share live board';
+
+  @override
+  String get shareLiveBoardMessage =>
+      'Follow my BJJ matches live on bjjscore.live:';
+
+  @override
+  String get shareFailed => 'Couldn\'t open the share sheet';
+
+  @override
   String get keyUnavailable => 'Key unavailable';
 
   @override

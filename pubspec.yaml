@@ -45,6 +45,9 @@ dependencies:
   # URL launcher
   url_launcher: ^6.2.0
 
+  # Native share sheet (share the bjjscore.live live-board link)
+  share_plus: ^10.1.4
+
   # Still used to ping relays from the Settings screen when the user adds one.
   # Not the app's Nostr transport any more — that is the Rust crate.
   web_socket_channel: ^2.4.0

@@ -58,10 +58,10 @@ class HomeScreen extends ConsumerWidget {
                     height: 46,
                     padding: const EdgeInsets.all(9),
                     decoration: BoxDecoration(
-                      color: BJJColors.greyDark,
+                      color: BJJColors.greyLight,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Image.asset('assets/branding/choke-c-mark.png'),
+                    child: Image.asset('assets/branding/choke-c-logo.png'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

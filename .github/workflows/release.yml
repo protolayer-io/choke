@@ -283,6 +283,26 @@ jobs:
           FULL_TAG: ${{ steps.version.outputs.full_tag }}
         run: cp build/app/outputs/bundle/release/app-release.aab "choke-${FULL_TAG}.aab"
 
+      # Linux desktop build. Choke ships the linux/ runner, so Flutter can
+      # produce a native x64 bundle. Needs the GTK + build toolchain, plus
+      # libsecret for flutter_secure_storage's Linux backend. The Rust crate is
+      # cross-compiled for the host target by Cargokit during the build.
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libsecret-1-dev
+
+      - name: Build Linux bundle
+        env:
+          FULL_TAG: ${{ steps.version.outputs.full_tag }}
+        run: |
+          flutter config --enable-linux-desktop
+          flutter build linux --release
+          # Package the self-contained bundle as a tarball for distribution.
+          tar -czf "choke-${FULL_TAG}-linux-x64.tar.gz" \
+            -C build/linux/x64/release/bundle .
+
       - name: Generate release description
         id: description
         env:
@@ -333,6 +353,7 @@ jobs:
           files: |
             choke-${{ steps.version.outputs.full_tag }}.apk
             choke-${{ steps.version.outputs.full_tag }}.aab
+            choke-${{ steps.version.outputs.full_tag }}-linux-x64.tar.gz
           generate_release_notes: false
           draft: false
           prerelease: false

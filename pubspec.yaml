@@ -73,6 +73,7 @@ flutter:
   assets:
     - assets/branding/bjj_black_belt.webp
     - assets/branding/home-mascot.png
+    - assets/branding/choke-c-mark.png
   fonts:
     - family: Space Grotesk
       fonts:

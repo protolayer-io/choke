@@ -47,24 +47,42 @@ class HomeScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: title + subtitle
+            // Header: logo + title + subtitle
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    l10n.appTitle,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontSize: 25,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -.5,
-                      height: 1.05,
+                  Container(
+                    width: 46,
+                    height: 46,
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: BJJColors.greyDark,
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    child: Image.asset('assets/branding/choke-c-mark.png'),
                   ),
-                  Text(
-                    l10n.homeSubtitle,
-                    style: TextStyle(fontSize: 12.5, color: tk.muted),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.appTitle,
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontSize: 25,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -.5,
+                            height: 1.05,
+                          ),
+                        ),
+                        Text(
+                          l10n.homeSubtitle,
+                          style: TextStyle(fontSize: 12.5, color: tk.muted),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

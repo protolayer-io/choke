@@ -107,6 +107,22 @@ class NostrService {
   final Map<String, Set<String>> _pendingAcks = {};
   Timer? _resendTimer;
 
+  /// Set by [dispose] before any resource is released. The publish attempts
+  /// spawned by [publishEvent] are unawaited and may still be running when the
+  /// caller goes away; this stops their completion from scheduling a resend
+  /// timer or touching a torn-down backend.
+  bool _disposed = false;
+
+  /// (relayUrl, eventId) pairs this service is currently publishing. A resend
+  /// consults this instead of the backend's [NostrRelayBackend.isAwaitingOk] to
+  /// avoid racing an in-flight frame — the crucial difference being that this
+  /// clears the moment our own [publishTimeout] fires, so a relay that went
+  /// silent becomes eligible for a resend again rather than a timed-out send
+  /// suppressing every future retry.
+  final Set<String> _inFlightPublishes = {};
+
+  static String _inFlightKey(String url, String eventId) => '$url $eventId';
+
   /// How often relays that are connected but still missing the latest event
   /// (because they rejected it) are retried.
   final Duration resendInterval;
@@ -270,12 +286,13 @@ class NostrService {
     var successCount = 0;
 
     for (final url in connected) {
+      final inFlightKey = _inFlightKey(url, event.id);
+      _inFlightPublishes.add(inFlightKey);
       unawaited(() async {
         var accepted = false;
         try {
           accepted = await _backend.publish(url, event).timeout(publishTimeout);
           debugPrint('NostrService: [$url] accepted=$accepted');
-          if (accepted) _markAccepted(dTag, event, url);
         } on TimeoutException {
           // Never heard from it — dead socket or a relay that went silent.
           // Counts as a failure; the resend sweep converges it later.
@@ -284,7 +301,10 @@ class NostrService {
               '${publishTimeout.inSeconds}s');
         } catch (e) {
           debugPrint('NostrService: [$url] publish error: $e');
+        } finally {
+          _inFlightPublishes.remove(inFlightKey);
         }
+        if (accepted && !_disposed) _markAccepted(dTag, event, url);
         if (accepted) {
           successCount++;
           if (!firstAck.isCompleted) firstAck.complete();
@@ -329,21 +349,35 @@ class NostrService {
 
   /// Send every pending latest event this relay has not accepted yet.
   Future<void> _resendPendingTo(String url) async {
+    if (_disposed) return;
     for (final dTag in _pendingLatest.keys.toList()) {
       final event = _pendingLatest[dTag];
       if (event == null) continue;
       final acked = _pendingAcks[dTag];
       if (acked == null || acked.contains(url)) continue;
-      // The original publish may still be waiting on this relay's OK — don't
-      // race it with a duplicate frame for the same event.
-      if (_backend.isAwaitingOk(url, event.id)) continue;
+      // A publish of this exact event to this relay is already in flight from
+      // us — don't race it with a duplicate frame. This clears when our
+      // publishTimeout fires, so unlike the backend's isAwaitingOk a relay that
+      // fell silent is retried on the next sweep instead of being suppressed.
+      final inFlightKey = _inFlightKey(url, event.id);
+      if (_inFlightPublishes.contains(inFlightKey)) continue;
+      _inFlightPublishes.add(inFlightKey);
       try {
-        final accepted = await _backend.publish(url, event);
+        // Same cap as the initial publish: relays are resent sequentially, so
+        // one connected-but-silent socket would otherwise wedge the sweep and
+        // starve every relay after it (the exact bug the first-ack path relies
+        // on this sweep to cover).
+        final accepted =
+            await _backend.publish(url, event).timeout(publishTimeout);
         debugPrint(
             'NostrService: resent ${event.id} to $url, accepted=$accepted');
-        if (accepted) _markAccepted(dTag, event, url);
+        if (accepted && !_disposed) _markAccepted(dTag, event, url);
+      } on TimeoutException {
+        debugPrint('NostrService: resend to $url timed out');
       } catch (e) {
         debugPrint('NostrService: resend to $url failed: $e');
+      } finally {
+        _inFlightPublishes.remove(inFlightKey);
       }
     }
     _scheduleResendSweep();
@@ -353,9 +387,10 @@ class NostrService {
   /// for relays that are connected but rejected it (rate limits and the like).
   /// Disconnected relays are handled by the reconnect listener instead.
   void _scheduleResendSweep() {
-    if (_pendingLatest.isEmpty) return;
+    if (_disposed || _pendingLatest.isEmpty) return;
     _resendTimer ??= Timer(resendInterval, () async {
       _resendTimer = null;
+      if (_disposed) return;
       for (final url in _backend.connectedRelays) {
         await _resendPendingTo(url);
       }
@@ -438,6 +473,10 @@ class NostrService {
   /// in the outbox is abandoned — the caller is going away, and there is nobody
   /// left to converge for.
   void dispose() {
+    // Flip this before releasing anything: publishEvent's attempts are
+    // unawaited and may still be in flight, and their completion must not
+    // schedule a resend timer or reach into a torn-down backend after this.
+    _disposed = true;
     _backendEvents?.cancel();
     _backendConnections?.cancel();
     _resendTimer?.cancel();

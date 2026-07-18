@@ -483,7 +483,12 @@ class MatchControlNotifier extends StateNotifier<MatchControlState> {
         // dead (dropped silently while the mat was quiet). Recycle them; the
         // reconnect listener drains the outbox as soon as a relay is back.
         if (_retryAttempt >= 2) {
-          unawaited(_nostrService.reconnectAll());
+          // Fire-and-forget, but a failed reconnect must not escape as an
+          // unhandled async error — the retry/backoff below still drives
+          // recovery whether or not the socket recycling succeeds.
+          unawaited(_nostrService.reconnectAll().catchError((Object e) {
+            debugPrint('MatchControl: reconnectAll failed: $e');
+          }));
         }
         final delay = _retryBaseDelay * (1 << (_retryAttempt - 1).clamp(0, 4));
         _retryTimer = Timer(

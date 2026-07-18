@@ -126,6 +126,50 @@ void main() {
       );
     });
   });
+
+  group('convergence after the first ack', () {
+    test(
+        'a rejected-then-accepting relay still gets the latest event even with '
+        'a silent relay in the set', () async {
+      // Arrange — A acks immediately (satisfies the caller, so publishEvent
+      // returns), B stays silent forever, C rejects its first frame then
+      // accepts. Convergence must not stall: B must not wedge the sequential
+      // resend sweep, and C must end up holding the event.
+      final backend = _AbcBackend();
+      final service = NostrService(
+        KeyManager(crypto: FakeNostrCrypto()),
+        crypto: FakeNostrCrypto(),
+        backend: backend,
+        publishTimeout: const Duration(milliseconds: 60),
+        resendInterval: const Duration(milliseconds: 60),
+      );
+      final event = NostrEvent(
+        id: 'e-abc',
+        pubkey: 'pk',
+        createdAt: 1,
+        kind: 31415,
+        tags: const [
+          ['d', 'match-1'],
+        ],
+        content: '{}',
+        sig: 'sig',
+      );
+
+      // Act — returns on A's ack; the rest converges in the background.
+      await service.publishEvent(event).timeout(const Duration(seconds: 5));
+
+      // Assert — give the resend sweep time to retry C past its first rejection.
+      // If B (silent) wedged the sweep, C would never be retried and this fails.
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      expect(
+        backend.acceptedBy('wss://c'),
+        contains('e-abc'),
+        reason: 'C must eventually receive the latest event',
+      );
+
+      service.dispose();
+    });
+  });
 }
 
 /// Every relay accepts the connection but never delivers a verdict.
@@ -156,5 +200,39 @@ class _OneFastOneStuckBackend extends FakeRelayBackend {
     stuckAsked = true;
     // Parked forever — a relay that connects but never sends its verdict.
     return Completer<bool>().future;
+  }
+}
+
+/// A/B/C for the convergence drill: `a` acks immediately, `b` never answers,
+/// `c` rejects the first frame for an event then accepts every later one.
+/// Records which event ids each relay accepted.
+class _AbcBackend extends FakeRelayBackend {
+  static const _relays = ['wss://a', 'wss://b', 'wss://c'];
+  final Map<String, List<String>> _accepted = {};
+  final Set<String> _cSeen = {};
+
+  List<String> acceptedBy(String url) => _accepted[url] ?? const [];
+
+  @override
+  List<String> get relayUrls => _relays;
+
+  @override
+  List<String> get connectedRelays => _relays;
+
+  @override
+  Future<bool> publish(String relayUrl, NostrEvent event) {
+    if (relayUrl == 'wss://a') return _accept(relayUrl, event);
+    if (relayUrl == 'wss://b') {
+      // Silent forever — connected, never delivers a verdict.
+      return Completer<bool>().future;
+    }
+    // C: reject the first attempt for this event, accept subsequent ones.
+    if (_cSeen.add(event.id)) return Future<bool>.value(false);
+    return _accept(relayUrl, event);
+  }
+
+  Future<bool> _accept(String url, NostrEvent event) {
+    (_accepted[url] ??= <String>[]).add(event.id);
+    return Future<bool>.value(true);
   }
 }

@@ -370,13 +370,25 @@ class RelayConfigNotifier extends StateNotifier<RelayConfigState> {
       return true;
     } on TimeoutException {
       debugPrint('RelayConfigNotifier: Connection timeout to $url');
-      await channel?.sink.close();
+      _closeQuietly(channel);
       return false;
     } catch (e) {
       debugPrint('RelayConfigNotifier: Connection failed to $url: $e');
-      await channel?.sink.close();
+      _closeQuietly(channel);
       return false;
     }
+  }
+
+  /// Best-effort close that never blocks.
+  ///
+  /// When the handshake never completed (connection refused, silent host),
+  /// the sink's close future never resolves — awaiting it here is what used
+  /// to hang addRelay forever behind the "Adding…" spinner. The failure paths
+  /// fire it and move on; there is nothing to wait for on a socket that
+  /// never existed.
+  void _closeQuietly(WebSocketChannel? channel) {
+    if (channel == null) return;
+    unawaited(channel.sink.close().catchError((_) {}));
   }
 }
 

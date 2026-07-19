@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../match/models/match.dart';
-import '../../match/providers/match_providers.dart';
 import '../../../services/nostr/nostr_service.dart';
 
 /// Status filter: which statuses to show on the home screen.
@@ -14,13 +13,6 @@ final statusFilterProvider = StateProvider<Set<MatchStatus>>((ref) {
     MatchStatus.inProgress,
   };
 });
-
-/// A match paired with its Nostr event created_at timestamp
-class _MatchEntry {
-  final Match match;
-  final int createdAt;
-  _MatchEntry(this.match, this.createdAt);
-}
 
 /// Collects matches from Nostr events + locally created matches.
 /// Deduplicates by match ID (latest created_at wins).

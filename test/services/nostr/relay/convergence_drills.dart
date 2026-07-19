@@ -148,7 +148,8 @@ void runConvergenceDrills(
       expect(relayB.received.single['content'], 'f1 leads');
     });
 
-    test('a relay that was down receives only the latest score, not the history',
+    test(
+        'a relay that was down receives only the latest score, not the history',
         () async {
       // Arrange — B is down while the referee runs up the score
       final portB = relayB.port;

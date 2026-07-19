@@ -36,7 +36,6 @@ void main() {
 
     // The identical suite NostrToolsCrypto passes, not one line changed.
     runNostrCryptoContract('RustNostrCrypto', RustNostrCrypto.new);
-
   });
 }
 

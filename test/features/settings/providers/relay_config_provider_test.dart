@@ -207,7 +207,8 @@ void main() {
 
     /// Builds a notifier over in-memory storage and waits for its async
     /// initialize to finish, so tests start from a settled state.
-    Future<void> build({List<RelayConfig>? initial, bool reachable = true}) async {
+    Future<void> build(
+        {List<RelayConfig>? initial, bool reachable = true}) async {
       storage = InMemorySecureStorage();
       if (initial != null) {
         storage.store['nostr_relays'] =
@@ -274,8 +275,7 @@ void main() {
         await build();
 
         // Act
-        final added =
-            await notifier.addRelay('  wss://relay.mostro.network ');
+        final added = await notifier.addRelay('  wss://relay.mostro.network ');
 
         // Assert
         expect(added, isFalse);
@@ -310,8 +310,7 @@ void main() {
         expect(notifier.state.relays.map((r) => r.url),
             contains('wss://new.example'));
         expect(notifier.state.error, isNull);
-        final persisted =
-            jsonDecode(storage.store['nostr_relays']!) as List;
+        final persisted = jsonDecode(storage.store['nostr_relays']!) as List;
         expect(persisted, hasLength(3));
       });
 
@@ -371,8 +370,7 @@ void main() {
         expect(removed, isTrue);
         expect(notifier.state.relays.map((r) => r.url),
             isNot(contains('wss://nos.lol')));
-        final persisted =
-            jsonDecode(storage.store['nostr_relays']!) as List;
+        final persisted = jsonDecode(storage.store['nostr_relays']!) as List;
         expect(persisted, hasLength(1));
       });
 
@@ -443,8 +441,8 @@ void main() {
 
         // Assert
         expect(toggled, isTrue);
-        final nosLol = notifier.state.relays
-            .firstWhere((r) => r.url == 'wss://nos.lol');
+        final nosLol =
+            notifier.state.relays.firstWhere((r) => r.url == 'wss://nos.lol');
         expect(nosLol.isEnabled, isFalse);
         final persisted = (jsonDecode(storage.store['nostr_relays']!) as List)
             .cast<Map<String, dynamic>>();
@@ -492,8 +490,8 @@ void main() {
         notifier.updateConnectionStatus('WSS://NOS.LOL', true);
 
         // Assert — matching is case-insensitive, like every other lookup
-        final nosLol = notifier.state.relays
-            .firstWhere((r) => r.url == 'wss://nos.lol');
+        final nosLol =
+            notifier.state.relays.firstWhere((r) => r.url == 'wss://nos.lol');
         expect(nosLol.isConnected, isTrue);
       });
 
@@ -545,13 +543,13 @@ void main() {
         }
         await server.close(force: true);
       });
-      final notifier =
-          RelayConfigNotifier(RelayConfigService(secureStorage: InMemorySecureStorage()));
+      final notifier = RelayConfigNotifier(
+          RelayConfigService(secureStorage: InMemorySecureStorage()));
       await pumpEventQueue();
 
       // Act
-      final reachable = await notifier
-          .testRelayConnectivity('ws://127.0.0.1:${server.port}');
+      final reachable =
+          await notifier.testRelayConnectivity('ws://127.0.0.1:${server.port}');
 
       // Assert
       expect(reachable, isTrue);
@@ -581,7 +579,8 @@ void main() {
       // failure path awaited `channel.sink.close()` on a socket whose
       // handshake never completed. The method must now RETURN false itself;
       // if the hang comes back, the test-level timeout fails this test.
-      final reachable = await notifier.testRelayConnectivity('ws://127.0.0.1:1');
+      final reachable =
+          await notifier.testRelayConnectivity('ws://127.0.0.1:1');
 
       // Assert
       expect(reachable, isFalse);
@@ -608,8 +607,8 @@ void main() {
       // Act — regression guard for the same hang: after the 5s ready timeout
       // fires, the method must return false on its own instead of wedging on
       // a close() that can never complete.
-      final reachable = await notifier
-          .testRelayConnectivity('ws://127.0.0.1:${server.port}');
+      final reachable =
+          await notifier.testRelayConnectivity('ws://127.0.0.1:${server.port}');
 
       // Assert
       expect(reachable, isFalse);

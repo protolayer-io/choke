@@ -116,7 +116,8 @@ void main() {
       // theme segment, so the subtitle check is scoped to the language row.
       await pumpScreen(tester);
       final languageRow = find
-          .ancestor(of: find.text(l10n.language), matching: find.byType(InkWell))
+          .ancestor(
+              of: find.text(l10n.language), matching: find.byType(InkWell))
           .first;
       expect(
         find.descendant(
@@ -160,7 +161,8 @@ void main() {
       // Assert — scoped to the row, since a theme segment says "System" too
       expect(containerOf(tester).read(localeProvider), isNull);
       final languageRow = find
-          .ancestor(of: find.text(l10n.language), matching: find.byType(InkWell))
+          .ancestor(
+              of: find.text(l10n.language), matching: find.byType(InkWell))
           .first;
       expect(
         find.descendant(
@@ -342,8 +344,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Assert
-      expect(launched,
-          ['https://protolayer.io', 'https://protolayer.io']);
+      expect(launched, ['https://protolayer.io', 'https://protolayer.io']);
     });
 
     testWidgets('dark theme gives the belt a lightened backdrop',

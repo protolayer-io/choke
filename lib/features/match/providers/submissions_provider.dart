@@ -148,7 +148,9 @@ class SubmissionsNotifier extends StateNotifier<SubmissionsState> {
   /// interleaving across concurrent edits.
   void _persist() {
     final snapshot = state;
-    _saves = _saves.then((_) => _write(snapshot)).catchError((Object e, StackTrace st) {
+    _saves = _saves
+        .then((_) => _write(snapshot))
+        .catchError((Object e, StackTrace st) {
       // A failed write must not poison the chain: the next edit still deserves
       // its chance to be saved. Losing a submission from a list is a nuisance;
       // silently refusing to save anything ever again is a broken app.

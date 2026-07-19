@@ -263,8 +263,8 @@ class SettingsScreen extends ConsumerWidget {
                                     // was all but invisible on the ink
                                     // scaffold; past ~0.32 the tile becomes a
                                     // grey block that pulls focus.
-                                    color:
-                                        colors.onSurface.withValues(alpha: 0.24),
+                                    color: colors.onSurface
+                                        .withValues(alpha: 0.24),
                                     borderRadius: BorderRadius.circular(16),
                                   )
                                 : null,

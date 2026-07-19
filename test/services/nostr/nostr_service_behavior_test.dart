@@ -219,8 +219,7 @@ void main() {
       // Arrange
       final seen = <NostrEvent>[];
       service.eventStream.listen(seen.add);
-      final future =
-          DateTime.now().millisecondsSinceEpoch ~/ 1000 + 3600;
+      final future = DateTime.now().millisecondsSinceEpoch ~/ 1000 + 3600;
 
       // Act
       backend.eventsController.add(_event(tags: [
@@ -247,8 +246,7 @@ void main() {
       expect(seen, hasLength(1));
     });
 
-    test('caches an addressable event and serves it back by address',
-        () async {
+    test('caches an addressable event and serves it back by address', () async {
       // Act
       backend.eventsController.add(_event(tags: [
         ['d', 'abcd'],
@@ -443,8 +441,7 @@ void main() {
       );
     });
 
-    test('refuses to publish an event that fails self-verification',
-        () async {
+    test('refuses to publish an event that fails self-verification', () async {
       // Arrange — a malformed signature must fail loudly here, not silently
       // at the relay
       final selfDoubting = NostrService(

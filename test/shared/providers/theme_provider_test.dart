@@ -42,8 +42,7 @@ void main() {
       expect(mode, ThemeMode.system);
     });
 
-    test('falls back to system when the saved value is unrecognized',
-        () async {
+    test('falls back to system when the saved value is unrecognized', () async {
       // Arrange — a value written by a future (or corrupted) version
       SharedPreferences.setMockInitialValues({themeModeKey: 'sepia'});
 

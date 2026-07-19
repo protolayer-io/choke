@@ -1246,7 +1246,8 @@ void _outcomeTests() {
       expect(match.method, isNull);
       expect(match.winner, isNull);
       expect(match.isLegacyResult, isTrue);
-      expect(match.f1EffectivePoints, 4, reason: 'raw score, no penalty points');
+      expect(match.f1EffectivePoints, 4,
+          reason: 'raw score, no penalty points');
     });
 
     test('an unknown method is a hard error, not a silent null', () {

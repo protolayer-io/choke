@@ -96,8 +96,7 @@ void main() {
     expect(find.text('wss://relay.mostro.network'), findsOneWidget);
     expect(find.text('wss://nos.lol'), findsOneWidget);
     expect(find.text(l10n.relayStatusConnectingDefault), findsNWidgets(2));
-    final switches =
-        tester.widgetList<Switch>(find.byType(Switch)).toList();
+    final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
     expect(switches, hasLength(2));
     expect(switches.every((s) => s.value), isTrue);
   });
@@ -203,8 +202,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Act
-      await tester.enterText(
-          find.byType(TextFormField), 'ws://plain.example');
+      await tester.enterText(find.byType(TextFormField), 'ws://plain.example');
       await tester.tap(find.text(l10n.add));
       await tester.pumpAndSettle();
 
@@ -231,8 +229,7 @@ void main() {
       expect(find.text('wss://new.example'), findsOneWidget);
       expect(find.text(l10n.relayAddedSuccessfully), findsOneWidget);
       expect(storage.store['nostr_relays'], contains('wss://new.example'));
-      final field =
-          tester.widget<TextFormField>(find.byType(TextFormField));
+      final field = tester.widget<TextFormField>(find.byType(TextFormField));
       expect(field.controller?.text, isEmpty);
     });
 
@@ -320,8 +317,7 @@ void main() {
 
       // Assert
       expect(find.text(l10n.relayStatusDisabled), findsOneWidget);
-      final switches =
-          tester.widgetList<Switch>(find.byType(Switch)).toList();
+      final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
       expect(switches.where((s) => s.value), hasLength(1));
     });
 

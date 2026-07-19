@@ -172,7 +172,48 @@ flutter build ios --release
 flutter build linux --release
 ```
 
+## Testing & Code Coverage
+
+Choke has a comprehensive test suite covering both the Dart/Flutter application logic and the Rust native crate.
+
+### Dart & Flutter Coverage
+
+The Dart codebase currently has **98.7%** line coverage (excluding generated code).
+
+To run the Dart tests and generate a filtered coverage report (excluding machine-generated files like `lib/src/rust/` and `lib/l10n/generated/`):
+
+```bash
+# Run the helper script which builds the native crate, runs tests, and filters coverage
+bash tool/coverage.sh
+```
+
+This will run all tests, generate `coverage/lcov.filtered.info`, and print a per-file summary along with the overall percentages:
+- **TOTAL (generated code excluded)**: ~98.7%
+- **TOTAL (raw, including generated)**: ~81.8%
+
+---
+
+### Rust Coverage
+
+The Rust unit tests cover the underlying Nostr cryptography library. 
+
+To run Rust unit tests and measure coverage, you will need the [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov) tool:
+
+```bash
+# Install cargo-llvm-cov if you haven't already
+cargo install cargo-llvm-cov --locked
+
+# Run Rust tests and generate a coverage report (ignoring generated bindings)
+cargo llvm-cov --manifest-path rust/Cargo.toml --all-targets --ignore-filename-regex "frb_generated"
+```
+
+Current Rust coverage stats:
+- **Overall Crate Coverage (excluding generated bindings)**: ~28.6%
+- **Nostr Cryptography (`crypto.rs`)**: ~94.8%
+- **Nostr Relay Client (`relay.rs`)**: 0.0% (Note: the relay client functions are heavily exercised by the Dart integration tests via the FFI bridge, but are not covered by Rust unit tests directly).
+
 ## Architecture
+
 
 ```
 lib/

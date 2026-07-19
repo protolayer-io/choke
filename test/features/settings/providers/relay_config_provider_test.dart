@@ -571,19 +571,17 @@ void main() {
       expect(reachable, isFalse);
     });
 
-    test('reports a refused connection as unreachable', () async {
+    test('reports a refused connection as unreachable, promptly', () async {
       // Arrange — port 1 on loopback: privileged, nothing listens there
       final notifier = RelayConfigNotifier(
           RelayConfigService(secureStorage: InMemorySecureStorage()));
       await pumpEventQueue();
 
-      // Act — BUG (documented in the suite report): after a failed connect,
-      // `channel.sink.close()` never completes, so testRelayConnectivity
-      // itself never returns. The outer timeout stands in for the return
-      // value the method should have produced.
-      final reachable = await notifier
-          .testRelayConnectivity('ws://127.0.0.1:1')
-          .timeout(const Duration(seconds: 8), onTimeout: () => false);
+      // Act — regression guard: this used to hang forever, because the
+      // failure path awaited `channel.sink.close()` on a socket whose
+      // handshake never completed. The method must now RETURN false itself;
+      // if the hang comes back, the test-level timeout fails this test.
+      final reachable = await notifier.testRelayConnectivity('ws://127.0.0.1:1');
 
       // Assert
       expect(reachable, isFalse);
@@ -607,11 +605,11 @@ void main() {
           RelayConfigService(secureStorage: InMemorySecureStorage()));
       await pumpEventQueue();
 
-      // Act — same close() hang as above once the timeout fires, so the
-      // outer timeout unblocks the test after the branch under test ran
+      // Act — regression guard for the same hang: after the 5s ready timeout
+      // fires, the method must return false on its own instead of wedging on
+      // a close() that can never complete.
       final reachable = await notifier
-          .testRelayConnectivity('ws://127.0.0.1:${server.port}')
-          .timeout(const Duration(seconds: 8), onTimeout: () => false);
+          .testRelayConnectivity('ws://127.0.0.1:${server.port}');
 
       // Assert
       expect(reachable, isFalse);

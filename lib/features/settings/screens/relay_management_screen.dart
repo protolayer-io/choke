@@ -101,8 +101,10 @@ class _RelayManagementScreenState extends ConsumerState<RelayManagementScreen> {
                   if (value == null || value.isEmpty) {
                     return l10n.pleaseEnterRelayUrl;
                   }
-                  if (!value.trim().startsWith('wss://') &&
-                      !value.trim().startsWith('ws://')) {
+                  // Same rule the notifier enforces: secure websockets only.
+                  // Accepting ws:// here would pass the field and then bounce
+                  // off addRelay with a mismatched snackbar.
+                  if (!value.trim().startsWith('wss://')) {
                     return l10n.relayUrlMustStartWithWss;
                   }
                   return null;

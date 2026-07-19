@@ -194,12 +194,11 @@ void main() {
       expect(notifier.connectivityChecks, 0);
     });
 
-    testWidgets(
-        'ws:// passes the form but the notifier still refuses it as invalid',
+    testWidgets('rejects ws:// at the field: secure websockets only',
         (tester) async {
-      // Arrange — the form validator accepts ws://, the notifier only wss://.
-      // The user sees the invalid-URL snackbar rather than a field error;
-      // this pins down the seam (and the inconsistency, noted for review).
+      // Arrange — the form enforces the same wss:// rule as the notifier, so
+      // an insecure URL fails at the field instead of passing the form and
+      // bouncing off addRelay with a mismatched snackbar.
       await pumpScreen(tester);
       await tester.pumpAndSettle();
 
@@ -209,9 +208,9 @@ void main() {
       await tester.tap(find.text(l10n.add));
       await tester.pumpAndSettle();
 
-      // Assert
-      expect(find.text(l10n.relayUrlMustStartWithWss), findsNothing);
-      expect(find.text(l10n.relayErrorInvalidUrl), findsOneWidget);
+      // Assert — field error, no snackbar, and no connectivity probe fired
+      expect(find.text(l10n.relayUrlMustStartWithWss), findsOneWidget);
+      expect(find.text(l10n.relayErrorInvalidUrl), findsNothing);
       expect(notifier.connectivityChecks, 0);
     });
   });

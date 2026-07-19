@@ -39,8 +39,14 @@ void main() {
 
   group('a failed save', () {
     test('does not poison the chain: the next edit is still saved', () async {
-      // Arrange — every write fails (disk full, broken channel)
+      // Arrange — every write fails (disk full, broken channel). Register the
+      // restore BEFORE swapping the store, so the real backend comes back even
+      // if the test exits early — leaving the failing store installed would
+      // poison every later test in the run.
       SharedPreferences.setMockInitialValues({});
+      final previousStore = SharedPreferencesStorePlatform.instance;
+      addTearDown(
+          () => SharedPreferencesStorePlatform.instance = previousStore);
       SharedPreferencesStorePlatform.instance = _FailingStore();
       final notifier = SubmissionsNotifier();
       addTearDown(notifier.dispose);

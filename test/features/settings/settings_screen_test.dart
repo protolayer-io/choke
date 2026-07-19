@@ -128,13 +128,13 @@ void main() {
       await tester.tap(find.text(l10n.language));
       await tester.pumpAndSettle();
       expect(find.text(l10n.selectLanguage), findsOneWidget);
-      await tester.tap(find.text('Español'));
+      await tester.tap(find.text(localeDisplayNames['es']!));
       await tester.pumpAndSettle();
 
       // Assert — provider updated, dialog closed, subtitle reflects it
       expect(containerOf(tester).read(localeProvider), const Locale('es'));
       expect(find.text(l10n.selectLanguage), findsNothing);
-      expect(find.text('Español'), findsOneWidget);
+      expect(find.text(localeDisplayNames['es']!), findsOneWidget);
     });
 
     testWidgets('a chosen language can be reset to system default',
@@ -143,7 +143,7 @@ void main() {
       await pumpScreen(tester, overrides: [
         localeProvider.overrideWith((ref) => const Locale('ja')),
       ]);
-      expect(find.text('日本語'), findsOneWidget);
+      expect(find.text(localeDisplayNames['ja']!), findsOneWidget);
 
       // Act — reopen and pick the system default entry (the picker shows a
       // second copy of that label inside the dialog)

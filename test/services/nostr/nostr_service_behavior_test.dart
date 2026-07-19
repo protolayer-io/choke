@@ -409,7 +409,10 @@ void main() {
         throw Exception('still broken');
       };
 
-      // Act — must not surface: convergence retries, it does not crash
+      // Act — must not surface: convergence retries, it does not crash.
+      // Keep the connected view consistent with the event we emit: a relay
+      // that announces itself connected must also report as connected.
+      backend.connected = ['wss://a', 'wss://b'];
       backend.connectedController.add('wss://b');
       await pumpEventQueue();
 

@@ -41,7 +41,10 @@ NostrEvent _event({
   int kind = 31415,
 }) {
   return NostrEvent(
-    id: 'e1',
+    // Unique per (match, timestamp): Nostr clients dedupe by event id, so a
+    // shared hardcoded id would make future id-based dedup silently drop
+    // events these tests rely on.
+    id: 'e-$dTag-$createdAt',
     pubkey: 'pk',
     createdAt: createdAt,
     kind: kind,

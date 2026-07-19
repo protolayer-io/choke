@@ -15,8 +15,11 @@ final packageInfoProvider = FutureProvider<PackageInfo>((ref) {
   return PackageInfo.fromPlatform();
 });
 
-/// Map of supported locales to their display names
-const _localeNames = {
+/// Map of supported locales to their display names.
+///
+/// Public so tests assert against the same source the UI renders from,
+/// instead of duplicating the localized labels.
+const localeDisplayNames = {
   'en': 'English',
   'es': 'Español',
   'pt': 'Português (Brasil)',
@@ -64,7 +67,7 @@ class SettingsScreen extends ConsumerWidget {
               icon: Icons.language,
               title: l10n.language,
               subtitle: currentLocale != null
-                  ? _localeNames[currentLocale.languageCode] ??
+                  ? localeDisplayNames[currentLocale.languageCode] ??
                       currentLocale.languageCode
                   : l10n.systemDefault,
               onTap: () => _showLanguagePicker(context, ref),
@@ -502,7 +505,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const Divider(),
             // Language options
-            ..._localeNames.entries.map((entry) {
+            ...localeDisplayNames.entries.map((entry) {
               final isSelected =
                   currentLocale != null && entry.key == currentCode;
               return ListTile(

@@ -44,8 +44,12 @@ void main() async {
   final keyManager = KeyManager(crypto: crypto);
   try {
     await keyManager.initialize();
-  } catch (e, st) {
-    debugPrint('KeyManager initialization failed: $e\n$st');
+  } catch (_) {
+    // Not logging the exception object: initialize() derives from stored key
+    // material, so its message can carry that material into the device log —
+    // and debugPrint is not stripped from release builds. KeyManager keeps
+    // this invariant everywhere else; this catch must not be the one leak.
+    debugPrint('KeyManager initialization failed');
   }
 
   // Load relay configuration

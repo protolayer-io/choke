@@ -44,6 +44,86 @@ class FakeNostrCrypto implements NostrCrypto {
   bool verifyEvent(NostrEvent event) => true;
 }
 
+/// A transport that records every call made to it, so a test can assert on
+/// what `NostrService` asked of its backend — which relays it added, what it
+/// subscribed to, where it published — without any sockets existing.
+///
+/// Incoming traffic is simulated by adding to [eventsController] (a relay
+/// delivered an event) or [connectedController] (a relay (re)connected).
+class RecordingRelayBackend implements NostrRelayBackend {
+  final eventsController = StreamController<NostrEvent>.broadcast();
+  final connectedController = StreamController<String>.broadcast();
+
+  final List<String> addedRelays = [];
+  final List<String> removedRelays = [];
+  final Map<String, Filter> subscriptions = {};
+  final List<String> unsubscribed = [];
+  final List<(String url, String eventId)> publishes = [];
+  int disconnectCalls = 0;
+  int reconnectCalls = 0;
+
+  /// What [relayUrls] and [connectedRelays] report; a test sets these to model
+  /// the pool's state.
+  List<String> configuredRelays = [];
+  List<String> connected = [];
+
+  /// The verdict [publish] returns per relay; defaults to accepting.
+  Future<bool> Function(String url, NostrEvent event)? onPublish;
+
+  @override
+  Stream<NostrEvent> get events => eventsController.stream;
+
+  @override
+  Stream<String> get onRelayConnected => connectedController.stream;
+
+  @override
+  List<String> get relayUrls => configuredRelays;
+
+  @override
+  List<String> get connectedRelays => connected;
+
+  @override
+  Future<void> addRelay(String url) async {
+    addedRelays.add(url);
+  }
+
+  @override
+  void removeRelay(String url) => removedRelays.add(url);
+
+  @override
+  Future<void> reconnectAll() async {
+    reconnectCalls++;
+  }
+
+  @override
+  void subscribe(String subscriptionId, Filter filter) {
+    subscriptions[subscriptionId] = filter;
+  }
+
+  @override
+  void unsubscribe(String subscriptionId) => unsubscribed.add(subscriptionId);
+
+  @override
+  Future<bool> publish(String relayUrl, NostrEvent event) {
+    publishes.add((relayUrl, event.id));
+    final handler = onPublish;
+    if (handler != null) return handler(relayUrl, event);
+    return Future.value(true);
+  }
+
+  @override
+  bool isAwaitingOk(String relayUrl, String eventId) => false;
+
+  @override
+  void disconnect() => disconnectCalls++;
+
+  @override
+  void dispose() {
+    eventsController.close();
+    connectedController.close();
+  }
+}
+
 /// A transport that is wired up and connected to nothing.
 class FakeRelayBackend implements NostrRelayBackend {
   final _events = StreamController<NostrEvent>.broadcast();

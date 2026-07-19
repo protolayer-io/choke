@@ -100,8 +100,8 @@ void main() {
       // Assert
       expect(notifier.state, defaultMatchDuration);
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt('choke:default-match-duration'),
-          defaultMatchDuration);
+      expect(
+          prefs.getInt('choke:default-match-duration'), defaultMatchDuration);
     });
   });
 

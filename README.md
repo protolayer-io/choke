@@ -187,7 +187,7 @@ To run the Dart tests and generate a filtered coverage report (excluding machine
 bash tool/coverage.sh
 ```
 
-This will run all tests, generate `coverage/lcov.filtered.info`, and print a per-file summary along with the overall percentages:
+This will run all Dart/Flutter tests, generate `coverage/lcov.filtered.info`, and print a per-file summary along with the overall percentages:
 - **TOTAL (generated code excluded)**: ~98.7%
 - **TOTAL (raw, including generated)**: ~81.8%
 

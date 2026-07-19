@@ -14,7 +14,8 @@ import '../../../support/nostr_fakes.dart';
 /// [failuresRemaining] makes the next N publishes throw (relay down).
 /// [gate] holds a publish in flight until completed (slow relay).
 class _FakeNostrService extends NostrService {
-  _FakeNostrService() : super(KeyManager(crypto: FakeNostrCrypto()),
+  _FakeNostrService()
+      : super(KeyManager(crypto: FakeNostrCrypto()),
             crypto: FakeNostrCrypto(), backend: FakeRelayBackend());
 
   int publishCount = 0;
@@ -28,8 +29,7 @@ class _FakeNostrService extends NostrService {
   @override
   Stream<String> get onRelayConnected => relayConnected.stream;
 
-  Match get lastPublishedMatch =>
-      Match.fromJsonString(publishedContents.last);
+  Match get lastPublishedMatch => Match.fromJsonString(publishedContents.last);
 
   @override
   Future<void> publishAddressableEvent({
@@ -252,7 +252,8 @@ void main() {
       expect(notifier.state.match.winner, isNull);
     });
 
-    test('the clock does not finish a match on points when someone has four '
+    test(
+        'the clock does not finish a match on points when someone has four '
         'penalties', () async {
       // Arrange — Pana is comfortably ahead, but has four penalties of his own
       nostr = _FakeNostrService();
@@ -669,7 +670,8 @@ void main() {
       expect(published.winner, MatchWinner.f2);
       expect(published.method, MatchMethod.submission);
       expect(published.submission, 'armbar');
-      expect(published.f1Score, 4, reason: 'the raw record is still the record');
+      expect(published.f1Score, 4,
+          reason: 'the raw record is still the record');
       expect(published.status, MatchStatus.finished);
       expect(published.endedAt, isNotNull);
     });

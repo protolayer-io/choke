@@ -113,8 +113,7 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
     // score, or a fighter on four penalties. Ask, rather than invent a winner.
     ref.listen(matchControlProvider, (previous, next) {
       if (next.awaitsOutcome && !(previous?.awaitsOutcome ?? false)) {
-        WidgetsBinding.instance
-            .addPostFrameCallback((_) => _askOutcome(next));
+        WidgetsBinding.instance.addPostFrameCallback((_) => _askOutcome(next));
       }
     });
     final match = state.match;
@@ -706,8 +705,8 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
     final accent = finished ? tk.statusFinishedFg : tk.dangerFg;
 
     final outcome = describeOutcome(l10n, state.match);
-    final label = outcome ??
-        (finished ? l10n.matchFinished : l10n.matchCanceled);
+    final label =
+        outcome ?? (finished ? l10n.matchFinished : l10n.matchCanceled);
 
     return SizedBox(
       height: 44,
@@ -716,8 +715,7 @@ class _MatchControlScreenState extends ConsumerState<MatchControlScreen> {
         children: [
           Flexible(
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(99),

@@ -45,14 +45,16 @@ class RustRelayBackend implements NostrRelayBackend {
 
   RustRelayBackend() {
     _events = rust.relayEventStream().listen(
-      (event) => _eventController.add(_toNostrEvent(event)),
-      onError: (Object e) => debugPrint('RustRelayBackend: event stream: $e'),
-    );
+          (event) => _eventController.add(_toNostrEvent(event)),
+          onError: (Object e) =>
+              debugPrint('RustRelayBackend: event stream: $e'),
+        );
 
     _status = rust.relayStatusStream().listen(
-      _onStatusChange,
-      onError: (Object e) => debugPrint('RustRelayBackend: status stream: $e'),
-    );
+          _onStatusChange,
+          onError: (Object e) =>
+              debugPrint('RustRelayBackend: status stream: $e'),
+        );
   }
 
   void _onStatusChange(rust.RelayStatusData change) {

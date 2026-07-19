@@ -235,7 +235,8 @@ void main() {
       expect(find.byType(MatchControlScreen), findsNothing);
     });
 
-    testWidgets('the back button asks before leaving a running match, '
+    testWidgets(
+        'the back button asks before leaving a running match, '
         'and Stay stays', (tester) async {
       // Arrange — leaving mid-match abandons a live scoreboard
       await pumpPushed(tester, _runningMatch());

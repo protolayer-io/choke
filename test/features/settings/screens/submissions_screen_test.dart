@@ -103,8 +103,7 @@ void main() {
     expect(find.text(l10n.submissionsRestore), findsNothing);
   });
 
-  testWidgets('hiding the whole catalog shows the empty state',
-      (tester) async {
+  testWidgets('hiding the whole catalog shows the empty state', (tester) async {
     // Arrange — everything hidden, nothing custom
     await pumpScreen(
       tester,

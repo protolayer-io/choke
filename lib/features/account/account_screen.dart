@@ -57,7 +57,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     // iPad requires a non-null origin to anchor the share popover; the screen's
     // render box is a safe fallback on phones.
     final box = context.findRenderObject() as RenderBox?;
-    final origin = box != null ? box.localToGlobal(Offset.zero) & box.size : null;
+    final origin =
+        box != null ? box.localToGlobal(Offset.zero) & box.size : null;
 
     try {
       await Share.share(

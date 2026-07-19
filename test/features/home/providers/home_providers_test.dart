@@ -11,7 +11,8 @@ import '../../../support/nostr_fakes.dart';
 
 /// NostrService whose event stream can be fed from the test (relay echoes).
 class _StreamNostrService extends NostrService {
-  _StreamNostrService() : super(KeyManager(crypto: FakeNostrCrypto()),
+  _StreamNostrService()
+      : super(KeyManager(crypto: FakeNostrCrypto()),
             crypto: FakeNostrCrypto(), backend: FakeRelayBackend());
 
   final controller = StreamController<NostrEvent>.broadcast();
@@ -88,8 +89,7 @@ void main() {
       expect(feed.state.single.f1Pt2, 2);
     });
 
-    test('an older relay event does not override newer local state',
-        () async {
+    test('an older relay event does not override newer local state', () async {
       // Arrange
       feed.addLocal(_match(f1Pt2: 3));
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;

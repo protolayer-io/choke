@@ -226,7 +226,8 @@ void runNostrCryptoContract(String name, NostrCrypto Function() create) {
         final publicKey = crypto.getPublicKey(privateKey);
         final input = unsigned(
           publicKey,
-          content: '{"f1":"Gonçalves 🥋","f2":"田中","n":"a \\"quote\\"\nnewline"}',
+          content:
+              '{"f1":"Gonçalves 🥋","f2":"田中","n":"a \\"quote\\"\nnewline"}',
         );
 
         // Act

@@ -15,7 +15,8 @@ import '../../support/nostr_fakes.dart';
 
 /// Fake NostrService that skips relay publishing entirely
 class _FakeNostrService extends NostrService {
-  _FakeNostrService() : super(KeyManager(crypto: FakeNostrCrypto()),
+  _FakeNostrService()
+      : super(KeyManager(crypto: FakeNostrCrypto()),
             crypto: FakeNostrCrypto(), backend: FakeRelayBackend());
 
   @override
@@ -273,7 +274,8 @@ void main() {
     expect(find.text('P:3'), findsOneWidget);
   });
 
-  testWidgets('waiting match shows an inline start button, not a blocking overlay',
+  testWidgets(
+      'waiting match shows an inline start button, not a blocking overlay',
       (tester) async {
     // Arrange — a freshly created match, not yet started
     final waiting = _runningMatch().copyWith(
@@ -467,8 +469,7 @@ void main() {
 
   testWidgets('a canceled match has nothing to amend', (tester) async {
     // Arrange — a canceled match is not a result; it is the absence of one
-    final canceled =
-        _runningMatch().copyWith(status: MatchStatus.canceled);
+    final canceled = _runningMatch().copyWith(status: MatchStatus.canceled);
     await pumpScreen(tester, canceled);
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
 
@@ -498,7 +499,8 @@ void main() {
     expect(find.text(l10n.outcomeTitle), findsOneWidget);
   });
 
-  testWidgets('an outcome chosen after the match finished behind the sheet is '
+  testWidgets(
+      'an outcome chosen after the match finished behind the sheet is '
       'not lost', (tester) async {
     // Arrange — the referee opens the sheet, and the clock runs out underneath
     // it: the notifier finishes the match on points, on its own, while the
@@ -529,5 +531,4 @@ void main() {
     expect(match.winner, MatchWinner.f2);
     expect(match.method, MatchMethod.submission);
   });
-
 }

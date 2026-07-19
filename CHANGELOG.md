@@ -1,5 +1,16 @@
 # Changelog
 
+## [v1.6.2] - 2026-07-19
+
+### Fixed
+- fix: address review — fail-closed coverage tooling, wss-only form, test hygiene (7297dcb)
+- fix(relays): unreachable relay no longer hangs addRelay forever (e795a14)
+
+### Changed
+- test: raise hand-written-code coverage from 59% to 98.6% (a1448bc)
+- chore: update changelog and version for v1.6.1 (a9ddcae)
+
+
 ## [v1.6.1] - 2026-07-18
 
 ### Fixed

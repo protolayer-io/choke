@@ -150,6 +150,13 @@ android {
                 signingConfigs.getByName("debug")
             }
 
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+
             // Release ships one architecture. `flutter build apk
             // --target-platform android-arm64` only narrows Flutter's own
             // libraries — it does not stop Cargokit from building the Rust

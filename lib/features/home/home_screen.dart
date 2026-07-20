@@ -56,7 +56,10 @@ class HomeScreen extends ConsumerWidget {
                   Container(
                     width: 46,
                     height: 46,
-                    padding: const EdgeInsets.all(9),
+                    // Tighter inset so the mark fills ~78% of the tile — the
+                    // usual icon-in-tile proportion. At the previous 9 it read
+                    // as a small mark floating in a large tile.
+                    padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
                       color: BJJColors.greyLight,
                       borderRadius: BorderRadius.circular(12),

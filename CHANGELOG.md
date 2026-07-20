@@ -1,5 +1,26 @@
 # Changelog
 
+## [v1.6.3] - 2026-07-20
+
+### Added
+- feat: put the splash mark on a light disc over the navy background (6a036bd)
+- feat: enlarge the C mark inside the home header tile (f0fb0ad)
+- feat: adopt the new Choke C mark as the app icon across all platforms (08e90f0)
+- feat: enable R8 minification and resource shrinking for release APK (2e357a4)
+
+### Fixed
+- fix: give the Android 12+ splash its own optically centred icon (55f0b21)
+- fix: nudge the splash mark 2% left for optical balance (cf4dc28)
+- fix: centre the splash mark on its ring, not its bounding box (598359c)
+
+### Documentation
+- docs: address CodeRabbit feedback on README, format codebase (f871227)
+- docs: add testing and code coverage documentation to README.md (d0e5560)
+
+### Changed
+- chore: update changelog and version for v1.6.2 (3aae894)
+
+
 ## [v1.6.2] - 2026-07-19
 
 ### Fixed

@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Light grey backing: the C mark's lower arc is near-black and would be
-         invisible on the app's dark navy. Matches the tile used on protolayer.io/choke. -->
-    <color name="splash_bg">#D6DAE2</color>
+    <!-- BJJColors.navy: the splash matches the app's own background, so the
+         launch screen hands off to the first frame without a colour flash. -->
+    <color name="splash_bg">#121A2E</color>
+    <!-- Light grey disc behind the mark. The C's lower arc is near-black and
+         would disappear straight into the navy. Matches the tile used on
+         protolayer.io/choke. -->
+    <color name="splash_icon_bg">#D6DAE2</color>
     <color name="ic_launcher_background">#D6DAE2</color>
 </resources>

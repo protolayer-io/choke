@@ -365,6 +365,10 @@ class AppLocalizationsPt extends AppLocalizations {
   String get selectLanguage => 'Selecionar idioma';
 
   @override
+  String get languageSaveFailed =>
+      'Não foi possível salvar o idioma. Tente novamente.';
+
+  @override
   String get relayManagement => 'Gerenciamento de relays';
 
   @override

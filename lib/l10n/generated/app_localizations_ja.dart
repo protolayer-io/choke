@@ -350,6 +350,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get selectLanguage => '言語を選択';
 
   @override
+  String get languageSaveFailed => '言語を保存できませんでした。もう一度お試しください。';
+
+  @override
   String get relayManagement => 'リレー管理';
 
   @override

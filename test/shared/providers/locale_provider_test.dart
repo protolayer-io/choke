@@ -2,7 +2,23 @@ import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 import 'package:choke/shared/providers/locale_provider.dart';
+
+/// A store whose writes always fail — a full disk, a broken platform channel.
+class _FailingStore extends InMemorySharedPreferencesStore {
+  _FailingStore() : super.empty();
+
+  @override
+  Future<bool> setValue(String valueType, String key, Object value) async {
+    throw Exception('disk full');
+  }
+
+  @override
+  Future<bool> remove(String key) async {
+    throw Exception('disk full');
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -88,6 +104,47 @@ void main() {
       expect(notifier.debugState, isNull);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString(localeKey), isNull);
+    });
+
+    test('leaves the locale alone when the write fails', () async {
+      // Arrange — every write fails. Register the restore BEFORE swapping the
+      // store, so the real backend comes back even if the test exits early.
+      SharedPreferences.setMockInitialValues({});
+      final previousStore = SharedPreferencesStorePlatform.instance;
+      addTearDown(
+          () => SharedPreferencesStorePlatform.instance = previousStore);
+      SharedPreferencesStorePlatform.instance = _FailingStore();
+      final notifier = LocaleNotifier();
+
+      // Act — the write blows up, and the caller is told
+      await expectLater(
+        notifier.setLocale(const Locale('en')),
+        throwsA(isA<Exception>()),
+      );
+
+      // Assert — state never moved. Committing it would show English now and
+      // hand back the system language on the next launch: the exact bug this
+      // provider exists to prevent.
+      expect(notifier.debugState, isNull);
+    });
+
+    test('keeps the stored locale when clearing it fails', () async {
+      // Arrange — Spanish stored, and every write fails
+      SharedPreferences.setMockInitialValues({localeKey: 'es'});
+      final previousStore = SharedPreferencesStorePlatform.instance;
+      addTearDown(
+          () => SharedPreferencesStorePlatform.instance = previousStore);
+      SharedPreferencesStorePlatform.instance = _FailingStore();
+      final notifier = LocaleNotifier()..hydrate(const Locale('es'));
+
+      // Act
+      await expectLater(
+        notifier.setLocale(null),
+        throwsA(isA<Exception>()),
+      );
+
+      // Assert — still Spanish, matching what a restart would restore
+      expect(notifier.debugState, const Locale('es'));
     });
 
     test('survives a restart: a saved choice reloads as the same locale',

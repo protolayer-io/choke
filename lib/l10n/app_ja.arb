@@ -112,6 +112,7 @@
   "sectionLanguage": "言語",
   "language": "言語",
   "selectLanguage": "言語を選択",
+  "languageSaveFailed": "言語を保存できませんでした。もう一度お試しください。",
   "relayManagement": "リレー管理",
   "refresh": "更新",
   "addCustomRelay": "カスタムリレーを追加",

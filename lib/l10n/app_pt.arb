@@ -112,6 +112,7 @@
   "sectionLanguage": "Idioma",
   "language": "Idioma",
   "selectLanguage": "Selecionar idioma",
+  "languageSaveFailed": "Não foi possível salvar o idioma. Tente novamente.",
   "relayManagement": "Gerenciamento de relays",
   "refresh": "Atualizar",
   "addCustomRelay": "Adicionar relay personalizado",

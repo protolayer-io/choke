@@ -82,7 +82,7 @@ void main() {
 
     // Assert — the list replaced the spinner
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('wss://relay.mostro.network'), findsOneWidget);
+    expect(find.text('wss://relay.primal.net'), findsOneWidget);
   });
 
   testWidgets('renders the default relays as connecting, with switches on',
@@ -93,7 +93,7 @@ void main() {
 
     // Assert — both defaults listed, each with an enabled switch, and the
     // status line says they are defaults still connecting
-    expect(find.text('wss://relay.mostro.network'), findsOneWidget);
+    expect(find.text('wss://relay.primal.net'), findsOneWidget);
     expect(find.text('wss://nos.lol'), findsOneWidget);
     expect(find.text(l10n.relayStatusConnectingDefault), findsNWidgets(2));
     final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
@@ -107,7 +107,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Act — the backend reports the socket opened
-    notifier.updateConnectionStatus('wss://relay.mostro.network', true);
+    notifier.updateConnectionStatus('wss://relay.primal.net', true);
     await tester.pump();
 
     // Assert — one connected, one still connecting
@@ -119,7 +119,7 @@ void main() {
       (tester) async {
     // Arrange — one custom relay alongside a default
     await pumpScreen(tester, initial: const [
-      RelayConfig(url: 'wss://relay.mostro.network'),
+      RelayConfig(url: 'wss://relay.primal.net'),
       RelayConfig(url: 'wss://custom.example'),
     ]);
     await tester.pumpAndSettle();
@@ -139,7 +139,7 @@ void main() {
       (tester) async {
     // Arrange
     await pumpScreen(tester, initial: const [
-      RelayConfig(url: 'wss://relay.mostro.network'),
+      RelayConfig(url: 'wss://relay.primal.net'),
       RelayConfig(url: 'wss://off.example', isEnabled: false),
     ]);
     await tester.pumpAndSettle();
@@ -295,7 +295,7 @@ void main() {
 
       // Act
       await tester.enterText(
-          find.byType(TextFormField), 'wss://relay.mostro.network');
+          find.byType(TextFormField), 'wss://relay.primal.net');
       await tester.tap(find.text(l10n.add));
       await tester.pumpAndSettle();
 
@@ -325,7 +325,7 @@ void main() {
         (tester) async {
       // Arrange — only one relay, enabled
       await pumpScreen(tester, initial: const [
-        RelayConfig(url: 'wss://relay.mostro.network'),
+        RelayConfig(url: 'wss://relay.primal.net'),
       ]);
       await tester.pumpAndSettle();
 
@@ -345,7 +345,7 @@ void main() {
     testWidgets('default relays cannot be swiped away', (tester) async {
       // Arrange — one default, one custom
       await pumpScreen(tester, initial: const [
-        RelayConfig(url: 'wss://relay.mostro.network'),
+        RelayConfig(url: 'wss://relay.primal.net'),
         custom,
       ]);
       await tester.pumpAndSettle();
@@ -365,7 +365,7 @@ void main() {
         (tester) async {
       // Arrange
       await pumpScreen(tester, initial: const [
-        RelayConfig(url: 'wss://relay.mostro.network'),
+        RelayConfig(url: 'wss://relay.primal.net'),
         custom,
       ]);
       await tester.pumpAndSettle();
@@ -386,7 +386,7 @@ void main() {
         (tester) async {
       // Arrange
       await pumpScreen(tester, initial: const [
-        RelayConfig(url: 'wss://relay.mostro.network'),
+        RelayConfig(url: 'wss://relay.primal.net'),
         custom,
       ]);
       await tester.pumpAndSettle();
@@ -444,7 +444,7 @@ void main() {
         (tester) async {
       // Arrange
       await pumpScreen(tester, initial: const [
-        RelayConfig(url: 'wss://relay.mostro.network'),
+        RelayConfig(url: 'wss://relay.primal.net'),
         RelayConfig(url: 'wss://custom.example'),
       ]);
       await tester.pumpAndSettle();
@@ -466,7 +466,7 @@ void main() {
         (tester) async {
       // Arrange — the custom relay is the only enabled one
       await pumpScreen(tester, initial: const [
-        RelayConfig(url: 'wss://relay.mostro.network', isEnabled: false),
+        RelayConfig(url: 'wss://relay.primal.net', isEnabled: false),
         RelayConfig(url: 'wss://custom.example'),
       ]);
       await tester.pumpAndSettle();

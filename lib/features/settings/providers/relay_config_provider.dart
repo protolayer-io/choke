@@ -62,9 +62,22 @@ class RelayConfig {
 /// Service for managing relay configuration persistence
 class RelayConfigService {
   static const String _relaysKey = 'nostr_relays';
+
+  /// Relays a fresh install starts with.
+  ///
+  /// `relay.mostro.network` used to be here and was removed: it answers
+  /// `rate-limited: allowed kinds: max 5 events per minute per IP`, and a match
+  /// publishes one addressable event per tap — a scoring burst blows through
+  /// five in seconds, after which the relay refuses everything and the remote
+  /// scoreboard stops moving. Measured, not guessed: 5 of 12 events accepted in
+  /// one burst. It is a Mostro P2P relay; a live scoreboard is not what it is
+  /// for.
+  ///
+  /// Existing installs keep whatever is in secure storage, so anyone who
+  /// already has mostro configured has to remove it in Relay Management.
   static const List<String> defaultRelays = [
-    'wss://relay.mostro.network',
     'wss://nos.lol',
+    'wss://relay.primal.net',
   ];
 
   final FlutterSecureStorage _secureStorage;

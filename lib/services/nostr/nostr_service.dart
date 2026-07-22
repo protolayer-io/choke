@@ -80,9 +80,12 @@ class NostrEvent {
 class NostrService {
   static const int _maxCachedEvents = 1000; // Max addressable events to cache
 
+  /// Fallback for [initialize] when no relays are configured. Kept in step
+  /// with [RelayConfigService.defaultRelays], which is where the reasoning for
+  /// this particular set lives.
   static const List<String> _defaultRelays = [
-    'wss://relay.mostro.network',
     'wss://nos.lol',
+    'wss://relay.primal.net',
   ];
 
   final KeyManager _keyManager;
@@ -108,21 +111,36 @@ class NostrService {
   Timer? _resendTimer;
 
   /// How often relays that are connected but still missing the latest event
-  /// (because they rejected it) are retried.
+  /// (because they rejected it) are retried — the pace of a sweep that is
+  /// getting somewhere.
   final Duration resendInterval;
+
+  /// The slowest the sweep may get after repeated refusals.
+  final Duration maxResendInterval;
+
+  /// Consecutive sweeps in which no relay accepted anything. Doubles the
+  /// interval; any acceptance resets it.
+  int _sweepFailures = 0;
 
   NostrService(
     this._keyManager, {
     required NostrCrypto crypto,
     required NostrRelayBackend backend,
     this.resendInterval = const Duration(seconds: 5),
+    this.maxResendInterval = const Duration(minutes: 1),
   })  : _crypto = crypto,
         _backend = backend {
     _backendEvents = _backend.events.listen(_handleIncomingEvent);
-    _backendConnections = _backend.onRelayConnected.listen((url) {
+    _backendConnections = _backend.onRelayConnected.listen((url) async {
       // A relay that just came back may have missed events while it was away —
       // bring it up to date now, rather than on the referee's next score.
-      _resendPendingTo(url);
+      //
+      // A reconnect is also new information: whatever the sweep had been
+      // backing off from, this relay has not refused anything yet, so the
+      // pace starts over.
+      _sweepFailures = 0;
+      await _resendPendingTo(url);
+      _scheduleResendSweep();
     });
   }
 
@@ -331,7 +349,11 @@ class NostrService {
   }
 
   /// Send every pending latest event this relay has not accepted yet.
-  Future<void> _resendPendingTo(String url) async {
+  ///
+  /// Returns whether the relay took anything, which is what tells the sweep
+  /// above whether to keep its pace or back off.
+  Future<bool> _resendPendingTo(String url) async {
+    var acceptedAny = false;
     for (final dTag in _pendingLatest.keys.toList()) {
       final event = _pendingLatest[dTag];
       if (event == null) continue;
@@ -344,24 +366,45 @@ class NostrService {
         final accepted = await _backend.publish(url, event);
         debugPrint(
             'NostrService: resent ${event.id} to $url, accepted=$accepted');
-        if (accepted) _markAccepted(dTag, event, url);
+        if (accepted) {
+          _markAccepted(dTag, event, url);
+          acceptedAny = true;
+        }
       } catch (e) {
         debugPrint('NostrService: resend to $url failed: $e');
       }
     }
-    _scheduleResendSweep();
+    return acceptedAny;
   }
 
-  /// While any relay is missing the latest state, keep a slow retry loop alive
-  /// for relays that are connected but rejected it (rate limits and the like).
-  /// Disconnected relays are handled by the reconnect listener instead.
+  /// While any relay is missing the latest state, keep a retry loop alive for
+  /// relays that are connected but rejected it. Disconnected relays are handled
+  /// by the reconnect listener instead.
+  ///
+  /// Relays are swept **concurrently**: one that never answers used to hold up
+  /// every relay behind it in the loop, for as long as the transport waits for
+  /// an OK.
+  ///
+  /// The interval **doubles** each time a whole sweep goes unaccepted, up to
+  /// [maxResendInterval]. A relay that refuses is usually refusing for a
+  /// reason that a fixed heartbeat cannot fix and can actively worsen: a rate
+  /// limit like `max 5 events per minute per IP` is spent by the very retries
+  /// meant to beat it. Any acceptance — here or on a reconnect — puts the pace
+  /// straight back to [resendInterval].
   void _scheduleResendSweep() {
     if (_pendingLatest.isEmpty) return;
-    _resendTimer ??= Timer(resendInterval, () async {
+
+    final backoff = resendInterval * (1 << _sweepFailures.clamp(0, 5));
+    final delay = backoff > maxResendInterval ? maxResendInterval : backoff;
+
+    _resendTimer ??= Timer(delay, () async {
       _resendTimer = null;
-      for (final url in _backend.connectedRelays) {
-        await _resendPendingTo(url);
-      }
+      final results = await Future.wait(
+        _backend.connectedRelays.map(_resendPendingTo),
+      );
+      _sweepFailures = results.any((accepted) => accepted)
+          ? 0
+          : (_sweepFailures + 1).clamp(0, 5);
       _scheduleResendSweep();
     });
   }

@@ -774,6 +774,12 @@ abstract class AppLocalizations {
   /// **'Select Language'**
   String get selectLanguage;
 
+  /// Error snackbar when the chosen language cannot be stored
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save the language. Please try again.'**
+  String get languageSaveFailed;
+
   /// Relay management screen title
   ///
   /// In en, this message translates to:

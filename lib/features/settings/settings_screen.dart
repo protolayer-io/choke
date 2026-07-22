@@ -498,10 +498,7 @@ class SettingsScreen extends ConsumerWidget {
               trailing: currentLocale == null
                   ? Icon(Icons.check, color: colors.primary)
                   : null,
-              onTap: () {
-                ref.read(localeProvider.notifier).state = null;
-                Navigator.pop(ctx);
-              },
+              onTap: () => _applyLocale(ctx, ref, null),
             ),
             const Divider(),
             // Language options
@@ -522,16 +519,46 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: isSelected
                     ? Icon(Icons.check, color: colors.primary)
                     : null,
-                onTap: () {
-                  ref.read(localeProvider.notifier).state = Locale(entry.key);
-                  Navigator.pop(ctx);
-                },
+                onTap: () => _applyLocale(ctx, ref, Locale(entry.key)),
               );
             }),
           ],
         ),
       ),
     );
+  }
+
+  /// Applies a language choice made in the picker.
+  ///
+  /// The picker closes only once the choice has been stored: a selection that
+  /// could not be written would come back as the system language on the next
+  /// launch, so dismissing on it would mime an acceptance that never happened.
+  /// On failure the dialog stays put and says so in the user's current
+  /// language — the cause is logged by the notifier, not shown here.
+  Future<void> _applyLocale(
+    BuildContext pickerContext,
+    WidgetRef ref,
+    Locale? locale,
+  ) async {
+    final l10n = AppLocalizations.of(pickerContext);
+    final messenger = ScaffoldMessenger.of(pickerContext);
+    final colors = Theme.of(pickerContext).colorScheme;
+
+    try {
+      await ref.read(localeProvider.notifier).setLocale(locale);
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.languageSaveFailed),
+          backgroundColor: colors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (!pickerContext.mounted) return;
+    Navigator.pop(pickerContext);
   }
 
   void _showLicenseScreen(BuildContext context) {

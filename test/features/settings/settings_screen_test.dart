@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 import 'package:choke/features/settings/screens/relay_management_screen.dart';
 import 'package:choke/features/settings/screens/submissions_screen.dart';
 import 'package:choke/features/settings/settings_screen.dart';
@@ -15,6 +16,16 @@ import 'package:choke/shared/providers/theme_provider.dart';
 import 'package:choke/shared/theme/app_theme.dart';
 
 import '../../support/relay_fakes.dart';
+
+/// A store whose writes always fail — a full disk, a broken platform channel.
+class _FailingStore extends InMemorySharedPreferencesStore {
+  _FailingStore() : super.empty();
+
+  @override
+  Future<bool> setValue(String valueType, String key, Object value) async {
+    throw Exception('disk full');
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -132,17 +143,22 @@ void main() {
       await tester.tap(find.text(localeDisplayNames['es']!));
       await tester.pumpAndSettle();
 
-      // Assert — provider updated, dialog closed, subtitle reflects it
+      // Assert — provider updated, dialog closed, subtitle reflects it, and
+      // the choice was persisted so it survives the app being closed
       expect(containerOf(tester).read(localeProvider), const Locale('es'));
       expect(find.text(l10n.selectLanguage), findsNothing);
       expect(find.text(localeDisplayNames['es']!), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('choke:locale'), 'es');
     });
 
     testWidgets('a chosen language can be reset to system default',
         (tester) async {
-      // Arrange — Japanese already selected
+      // Arrange — Japanese already selected and stored from a prior launch
+      SharedPreferences.setMockInitialValues({'choke:locale': 'ja'});
       await pumpScreen(tester, overrides: [
-        localeProvider.overrideWith((ref) => const Locale('ja')),
+        localeProvider.overrideWith(
+            (ref) => LocaleNotifier()..hydrate(const Locale('ja'))),
       ]);
       expect(find.text(localeDisplayNames['ja']!), findsOneWidget);
 
@@ -160,6 +176,8 @@ void main() {
 
       // Assert — scoped to the row, since a theme segment says "System" too
       expect(containerOf(tester).read(localeProvider), isNull);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('choke:locale'), isNull);
       final languageRow = find
           .ancestor(
               of: find.text(l10n.language), matching: find.byType(InkWell))
@@ -171,11 +189,36 @@ void main() {
       );
     });
 
+    testWidgets('a language that cannot be stored is reported, not accepted',
+        (tester) async {
+      // Arrange — every write fails. Register the restore BEFORE swapping the
+      // store, so the real backend comes back even if the test exits early.
+      SharedPreferences.setMockInitialValues({});
+      final previousStore = SharedPreferencesStorePlatform.instance;
+      addTearDown(
+          () => SharedPreferencesStorePlatform.instance = previousStore);
+      SharedPreferencesStorePlatform.instance = _FailingStore();
+      await pumpScreen(tester);
+
+      // Act — pick Spanish; the write blows up behind the scenes
+      await tester.tap(find.text(l10n.language));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(localeDisplayNames['es']!));
+      await tester.pumpAndSettle();
+
+      // Assert — the picker stays open rather than miming a saved choice,
+      // the locale is untouched, and the failure is said out loud
+      expect(containerOf(tester).read(localeProvider), isNull);
+      expect(find.text(l10n.selectLanguage), findsOneWidget);
+      expect(find.text(l10n.languageSaveFailed), findsOneWidget);
+    });
+
     testWidgets('an unknown locale code falls back to the raw code',
         (tester) async {
       // Arrange — a locale the display-name map has never heard of
       await pumpScreen(tester, overrides: [
-        localeProvider.overrideWith((ref) => const Locale('fr')),
+        localeProvider.overrideWith(
+            (ref) => LocaleNotifier()..hydrate(const Locale('fr'))),
       ]);
 
       // Assert — the subtitle shows the code rather than nothing

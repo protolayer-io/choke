@@ -81,11 +81,13 @@ void main() async {
 
   // Load saved preferences before first frame to avoid flash
   final savedThemeMode = await ThemeModeNotifier.loadSavedThemeMode();
+  final savedLocale = await LocaleNotifier.loadSavedLocale();
   final savedDuration = await MatchDurationNotifier.loadSavedDuration();
   final savedSubmissions = await SubmissionsNotifier.loadSaved();
 
   // Create notifiers with hydrated values (no flash on startup)
   final themeNotifier = ThemeModeNotifier()..hydrate(savedThemeMode);
+  final localeNotifier = LocaleNotifier()..hydrate(savedLocale);
   final durationNotifier = MatchDurationNotifier()..hydrate(savedDuration);
   final submissionsNotifier = SubmissionsNotifier()..hydrate(savedSubmissions);
 
@@ -97,6 +99,7 @@ void main() async {
         nostrServiceProvider.overrideWithValue(nostrService),
         relayConfigServiceProvider.overrideWithValue(relayConfigService),
         themeModeProvider.overrideWith((_) => themeNotifier),
+        localeProvider.overrideWith((_) => localeNotifier),
         matchDurationProvider.overrideWith((_) => durationNotifier),
         submissionsProvider.overrideWith((_) => submissionsNotifier),
       ],

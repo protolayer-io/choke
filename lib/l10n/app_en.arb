@@ -455,6 +455,10 @@
   "@selectLanguage": {
     "description": "Language picker dialog title"
   },
+  "languageSaveFailed": "Couldn't save the language. Please try again.",
+  "@languageSaveFailed": {
+    "description": "Error snackbar when the chosen language cannot be stored"
+  },
   "relayManagement": "Relay Management",
   "@relayManagement": {
     "description": "Relay management screen title"

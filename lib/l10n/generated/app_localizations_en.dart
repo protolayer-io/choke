@@ -363,6 +363,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectLanguage => 'Select Language';
 
   @override
+  String get languageSaveFailed =>
+      'Couldn\'t save the language. Please try again.';
+
+  @override
   String get relayManagement => 'Relay Management';
 
   @override

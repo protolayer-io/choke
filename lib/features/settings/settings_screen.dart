@@ -499,7 +499,7 @@ class SettingsScreen extends ConsumerWidget {
                   ? Icon(Icons.check, color: colors.primary)
                   : null,
               onTap: () {
-                ref.read(localeProvider.notifier).state = null;
+                ref.read(localeProvider.notifier).setLocale(null);
                 Navigator.pop(ctx);
               },
             ),
@@ -523,7 +523,9 @@ class SettingsScreen extends ConsumerWidget {
                     ? Icon(Icons.check, color: colors.primary)
                     : null,
                 onTap: () {
-                  ref.read(localeProvider.notifier).state = Locale(entry.key);
+                  ref
+                      .read(localeProvider.notifier)
+                      .setLocale(Locale(entry.key));
                   Navigator.pop(ctx);
                 },
               );

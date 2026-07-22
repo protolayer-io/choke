@@ -132,17 +132,22 @@ void main() {
       await tester.tap(find.text(localeDisplayNames['es']!));
       await tester.pumpAndSettle();
 
-      // Assert — provider updated, dialog closed, subtitle reflects it
+      // Assert — provider updated, dialog closed, subtitle reflects it, and
+      // the choice was persisted so it survives the app being closed
       expect(containerOf(tester).read(localeProvider), const Locale('es'));
       expect(find.text(l10n.selectLanguage), findsNothing);
       expect(find.text(localeDisplayNames['es']!), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('choke:locale'), 'es');
     });
 
     testWidgets('a chosen language can be reset to system default',
         (tester) async {
-      // Arrange — Japanese already selected
+      // Arrange — Japanese already selected and stored from a prior launch
+      SharedPreferences.setMockInitialValues({'choke:locale': 'ja'});
       await pumpScreen(tester, overrides: [
-        localeProvider.overrideWith((ref) => const Locale('ja')),
+        localeProvider.overrideWith(
+            (ref) => LocaleNotifier()..hydrate(const Locale('ja'))),
       ]);
       expect(find.text(localeDisplayNames['ja']!), findsOneWidget);
 
@@ -160,6 +165,8 @@ void main() {
 
       // Assert — scoped to the row, since a theme segment says "System" too
       expect(containerOf(tester).read(localeProvider), isNull);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('choke:locale'), isNull);
       final languageRow = find
           .ancestor(
               of: find.text(l10n.language), matching: find.byType(InkWell))
@@ -175,7 +182,8 @@ void main() {
         (tester) async {
       // Arrange — a locale the display-name map has never heard of
       await pumpScreen(tester, overrides: [
-        localeProvider.overrideWith((ref) => const Locale('fr')),
+        localeProvider.overrideWith(
+            (ref) => LocaleNotifier()..hydrate(const Locale('fr'))),
       ]);
 
       // Assert — the subtitle shows the code rather than nothing

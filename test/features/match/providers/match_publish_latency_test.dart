@@ -157,6 +157,7 @@ void main() {
     test('a burst of taps still leaves the relay holding the final score',
         () async {
       // Act — five penalties faster than any relay answers
+      final stopwatch = Stopwatch()..start();
       for (var i = 0; i < 5; i++) {
         notifier.scorePen(1);
       }
@@ -167,8 +168,13 @@ void main() {
       await eventually(() =>
           sentToFast.isNotEmpty &&
           Match.fromJsonString(sentToFast.last.content).f1Pen == 5);
+      stopwatch.stop();
+
       expect(Match.fromJsonString(sentToFast.last.content).f1Pen, 5);
       expect(notifier.state.match.f1Pen, 5);
+      // The whole burst clears in the same budget a single tap gets: nothing
+      // here may wait on the silent relay.
+      expect(stopwatch.elapsed, lessThan(const Duration(milliseconds: 500)));
     });
   });
 }

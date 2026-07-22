@@ -226,12 +226,17 @@ class NostrService {
     _eventController.add(event);
   }
 
-  /// Publish a signed event to all connected relays, waiting for each relay's
-  /// verdict.
+  /// Publish a signed event to every connected relay, returning as soon as the
+  /// **first** one accepts it.
   ///
-  /// Succeeds when at least one relay accepts, but keeps working after
-  /// returning: relays that were down, timed out, or rejected the event are
+  /// Completing means one relay has the event. It does *not* mean the pool has
+  /// converged: the other publishes are still in flight when this returns, and
+  /// relays that were down, silent, or that rejected the event keep being
   /// resent the latest state per d-tag until every configured relay has it.
+  /// Callers who need the referee's tap on the wire get it here; convergence
+  /// is the resend sweep's job, and it outlives this call.
+  ///
+  /// Throws only once every relay has answered and none of them accepted.
   Future<void> publishEvent(NostrEvent event) async {
     final dTag = _dTagOf(event);
     if (dTag != null) {

@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../../../shared/nostr_relays.dart';
+
 /// Error codes emitted by [RelayConfigNotifier].
 ///
 /// Mapped to localized user-facing strings in the UI layer.
@@ -63,22 +65,13 @@ class RelayConfig {
 class RelayConfigService {
   static const String _relaysKey = 'nostr_relays';
 
-  /// Relays a fresh install starts with.
-  ///
-  /// `relay.mostro.network` used to be here and was removed: it answers
-  /// `rate-limited: allowed kinds: max 5 events per minute per IP`, and a match
-  /// publishes one addressable event per tap — a scoring burst blows through
-  /// five in seconds, after which the relay refuses everything and the remote
-  /// scoreboard stops moving. Measured, not guessed: 5 of 12 events accepted in
-  /// one burst. It is a Mostro P2P relay; a live scoreboard is not what it is
-  /// for.
+  /// Relays a fresh install starts with; [defaultNostrRelays] says which ones,
+  /// and why.
   ///
   /// Existing installs keep whatever is in secure storage, so anyone who
-  /// already has mostro configured has to remove it in Relay Management.
-  static const List<String> defaultRelays = [
-    'wss://nos.lol',
-    'wss://relay.primal.net',
-  ];
+  /// already has a dropped relay configured has to remove it in Relay
+  /// Management.
+  static const List<String> defaultRelays = defaultNostrRelays;
 
   final FlutterSecureStorage _secureStorage;
 

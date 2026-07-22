@@ -442,6 +442,43 @@ void main() {
       expect(sweeps, greaterThan(0), reason: 'sweep never ran at all');
     });
 
+    test('a reconnect brings the backed-off sweep back to full pace', () async {
+      // Arrange — b refuses everything, so the sweep backs off: at a 100ms
+      // base the intervals run 100, 200, 400, and by ~750ms the next sweep is
+      // already 800ms away. a accepts, so the publish itself succeeds.
+      final sweeper = NostrService(
+        _FixedKeyManager(),
+        crypto: FakeNostrCrypto(),
+        backend: backend,
+        resendInterval: const Duration(milliseconds: 100),
+      );
+      addTearDown(sweeper.dispose);
+      backend.configuredRelays = ['wss://a', 'wss://b', 'wss://c'];
+      backend.connected = ['wss://a', 'wss://b', 'wss://c'];
+      backend.onPublish = (url, event) async => url != 'wss://b';
+
+      await sweeper.publishEvent(_event(tags: [
+        ['d', 'abcd'],
+      ]));
+      await Future<void>.delayed(const Duration(milliseconds: 750));
+      final beforeReconnect =
+          backend.publishes.where((p) => p.$1 == 'wss://b').length;
+
+      // Act — a DIFFERENT relay comes back, so what is measured is the
+      // rescheduled sweep rather than the reconnect's own immediate resend
+      backend.connectedController.add('wss://c');
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+
+      // Assert — b was swept again inside the window. Left at the old pace the
+      // next sweep would still be ~750ms out, and a relay that just came back
+      // would sit unserved through a backoff it had nothing to do with.
+      final sweepsAfter =
+          backend.publishes.where((p) => p.$1 == 'wss://b').length -
+              beforeReconnect;
+      expect(sweepsAfter, greaterThan(0),
+          reason: 'the pending timer kept the backed-off delay');
+    });
+
     test('sweeps relays at once, so a silent one cannot stall the others',
         () async {
       // Arrange — the silent relay is FIRST, so a sequential sweep never

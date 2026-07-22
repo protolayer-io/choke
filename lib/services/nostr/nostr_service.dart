@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../shared/nostr_relays.dart';
 import '../key_management/key_manager.dart';
 import 'crypto/nostr_crypto.dart';
 import 'relay/nostr_relay_backend.dart';
@@ -80,14 +81,6 @@ class NostrEvent {
 class NostrService {
   static const int _maxCachedEvents = 1000; // Max addressable events to cache
 
-  /// Fallback for [initialize] when no relays are configured. Kept in step
-  /// with [RelayConfigService.defaultRelays], which is where the reasoning for
-  /// this particular set lives.
-  static const List<String> _defaultRelays = [
-    'wss://nos.lol',
-    'wss://relay.primal.net',
-  ];
-
   final KeyManager _keyManager;
   final NostrRelayBackend _backend;
 
@@ -140,6 +133,18 @@ class NostrService {
       // pace starts over.
       _sweepFailures = 0;
       await _resendPendingTo(url);
+
+      // Resetting the counter is not enough on its own. Any sweep already
+      // scheduled was timed against the OLD, backed-off pace — up to
+      // [maxResendInterval] away — and [_scheduleResendSweep] keeps whatever
+      // timer it finds. The relay that just came back would then wait out a
+      // backoff earned by a relay that is still refusing. Drop the stale timer
+      // so the reschedule below uses the reset interval.
+      //
+      // Only this reconnect-driven reset cancels; publishes still reuse a
+      // pending timer, which is what keeps a burst of scores cheap.
+      _resendTimer?.cancel();
+      _resendTimer = null;
       _scheduleResendSweep();
     });
   }
@@ -156,7 +161,7 @@ class NostrService {
 
   /// Connect to configured relays on app start
   Future<void> initialize({List<String>? relayUrls}) async {
-    for (final url in relayUrls ?? _defaultRelays) {
+    for (final url in relayUrls ?? defaultNostrRelays) {
       await addRelay(url);
     }
   }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:choke/services/key_management/key_manager.dart';
@@ -355,6 +357,33 @@ void main() {
       ]));
 
       // Assert — both relays were attempted
+      expect(backend.publishes.map((p) => p.$1),
+          containsAll(['wss://a', 'wss://b']));
+    });
+
+    test('returns on the first acceptance, without waiting for a silent relay',
+        () async {
+      // Arrange — a accepts at once; b takes the event and never answers.
+      // A relay going quiet is not hypothetical: nostr-sdk waits a full 10s
+      // for an OK before giving up, and the referee's next tap queues behind
+      // this call.
+      backend.configuredRelays = ['wss://a', 'wss://b'];
+      backend.connected = ['wss://a', 'wss://b'];
+      final silent = Completer<bool>();
+      addTearDown(() => silent.complete(false));
+      backend.onPublish = (url, event) =>
+          url == 'wss://a' ? Future<bool>.value(true) : silent.future;
+
+      // Act + Assert — one acceptance is the documented success condition, so
+      // the call must come back on it rather than on the slowest relay
+      await service.publishEvent(_event(tags: [
+        ['d', 'abcd'],
+      ])).timeout(
+        const Duration(seconds: 1),
+        onTimeout: () => fail('publishEvent waited for the silent relay'),
+      );
+
+      // Assert — b was still asked; it is simply not waited on
       expect(backend.publishes.map((p) => p.$1),
           containsAll(['wss://a', 'wss://b']));
     });

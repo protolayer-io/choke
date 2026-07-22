@@ -226,12 +226,17 @@ class NostrService {
     _eventController.add(event);
   }
 
-  /// Publish a signed event to all connected relays, waiting for each relay's
-  /// verdict.
+  /// Publish a signed event to every connected relay, returning as soon as the
+  /// **first** one accepts it.
   ///
-  /// Succeeds when at least one relay accepts, but keeps working after
-  /// returning: relays that were down, timed out, or rejected the event are
+  /// Completing means one relay has the event. It does *not* mean the pool has
+  /// converged: the other publishes are still in flight when this returns, and
+  /// relays that were down, silent, or that rejected the event keep being
   /// resent the latest state per d-tag until every configured relay has it.
+  /// Callers who need the referee's tap on the wire get it here; convergence
+  /// is the resend sweep's job, and it outlives this call.
+  ///
+  /// Throws only once every relay has answered and none of them accepted.
   Future<void> publishEvent(NostrEvent event) async {
     final dTag = _dTagOf(event);
     if (dTag != null) {
@@ -252,29 +257,54 @@ class NostrService {
       throw Exception('No connected relays');
     }
 
-    final results = await Future.wait(
-      connected.map((url) async {
+    // Every relay is asked at once, and this returns on the FIRST acceptance —
+    // it does not wait for the rest.
+    //
+    // Waiting for all of them is what put the referee's taps behind the mat. A
+    // relay going quiet is not a rare failure: `nostr-sdk` allows a full 10s
+    // for an `OK` before giving up, and the publisher above sends one state at
+    // a time, so every tap during that window sat unsent. One slow relay
+    // delayed the scoreboard on the fast one.
+    //
+    // Nothing is lost by returning early: the stragglers keep running and
+    // still record their acks, and a relay that never accepts is picked up by
+    // the resend sweep — which is what convergence already means here.
+    final firstAcceptance = Completer<void>();
+    var outstanding = connected.length;
+
+    for (final url in connected) {
+      unawaited(() async {
+        var accepted = false;
         try {
-          final accepted = await _backend.publish(url, event);
+          accepted = await _backend.publish(url, event);
           debugPrint('NostrService: [$url] accepted=$accepted');
           if (accepted) _markAccepted(dTag, event, url);
-          return accepted;
         } catch (e) {
           debugPrint('NostrService: [$url] publish error: $e');
-          return false;
         }
-      }),
-    );
 
-    final successCount = results.where((r) => r).length;
-    debugPrint(
-        'NostrService: published to $successCount/${connected.length} relays');
+        if (accepted && !firstAcceptance.isCompleted) {
+          firstAcceptance.complete();
+        }
 
-    _scheduleResendSweep();
-
-    if (successCount == 0) {
-      throw Exception('Event rejected by all relays');
+        outstanding--;
+        if (outstanding == 0) {
+          // Everyone has answered. If nobody took it, the caller is still
+          // waiting to hear so — it retries with backoff.
+          if (!firstAcceptance.isCompleted) {
+            firstAcceptance
+                .completeError(Exception('Event rejected by all relays'));
+          }
+          _scheduleResendSweep();
+        }
+      }());
     }
+
+    await firstAcceptance.future;
+
+    // Relays still outstanding have not acked, so the state stays pending and
+    // the sweep goes on working at it after this returns.
+    _scheduleResendSweep();
   }
 
   static String? _dTagOf(NostrEvent event) {

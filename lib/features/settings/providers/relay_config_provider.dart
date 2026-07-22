@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../../../shared/nostr_relays.dart';
+
 /// Error codes emitted by [RelayConfigNotifier].
 ///
 /// Mapped to localized user-facing strings in the UI layer.
@@ -62,10 +64,14 @@ class RelayConfig {
 /// Service for managing relay configuration persistence
 class RelayConfigService {
   static const String _relaysKey = 'nostr_relays';
-  static const List<String> defaultRelays = [
-    'wss://relay.mostro.network',
-    'wss://nos.lol',
-  ];
+
+  /// Relays a fresh install starts with; [defaultNostrRelays] says which ones,
+  /// and why.
+  ///
+  /// Existing installs keep whatever is in secure storage, so anyone who
+  /// already has a dropped relay configured has to remove it in Relay
+  /// Management.
+  static const List<String> defaultRelays = defaultNostrRelays;
 
   final FlutterSecureStorage _secureStorage;
 

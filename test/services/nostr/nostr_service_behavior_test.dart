@@ -102,10 +102,11 @@ void main() {
       // Act
       await service.initialize();
 
-      // Assert — the two shipped defaults, in order
+      // Assert — the two shipped defaults, in order. Neither may be a relay
+      // that rate-limits a scoring burst; see RelayConfigService.defaultRelays.
       expect(backend.addedRelays, [
-        'wss://relay.mostro.network',
         'wss://nos.lol',
+        'wss://relay.primal.net',
       ]);
     });
 
@@ -376,12 +377,14 @@ void main() {
 
       // Act + Assert — one acceptance is the documented success condition, so
       // the call must come back on it rather than on the slowest relay
-      await service.publishEvent(_event(tags: [
-        ['d', 'abcd'],
-      ])).timeout(
-        const Duration(seconds: 1),
-        onTimeout: () => fail('publishEvent waited for the silent relay'),
-      );
+      await service
+          .publishEvent(_event(tags: [
+            ['d', 'abcd'],
+          ]))
+          .timeout(
+            const Duration(seconds: 1),
+            onTimeout: () => fail('publishEvent waited for the silent relay'),
+          );
 
       // Assert — b was still asked; it is simply not waited on
       expect(backend.publishes.map((p) => p.$1),
@@ -401,6 +404,113 @@ void main() {
         ])),
         throwsException,
       );
+    });
+  });
+
+  group('resend sweep', () {
+    test('backs off while a relay keeps refusing, instead of hammering it',
+        () async {
+      // Arrange — a relay that refuses everything, which is exactly what a
+      // rate-limited relay does: `max 5 events per minute per IP` is a fast,
+      // repeated no. Retrying it on a fixed heartbeat only spends the limit.
+      final sweeper = NostrService(
+        _FixedKeyManager(),
+        crypto: FakeNostrCrypto(),
+        backend: backend,
+        resendInterval: const Duration(milliseconds: 50),
+      );
+      addTearDown(sweeper.dispose);
+      backend.configuredRelays = ['wss://a', 'wss://b'];
+      backend.connected = ['wss://a', 'wss://b'];
+      // a accepts (so the publish succeeds), b never will — b keeps the state
+      // pending and the sweep alive.
+      backend.onPublish = (url, event) async => url == 'wss://a';
+
+      // Act — one publish, then let the sweep run for 400ms
+      await sweeper.publishEvent(_event(tags: [
+        ['d', 'abcd'],
+      ]));
+      final afterPublish = backend.publishes.length;
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+
+      // Assert — at a flat 50ms the sweep would have fired ~8 times; doubling
+      // (50, 100, 200, 400) gets through 3. The bound is loose enough to
+      // survive a slow machine and still fail a fixed heartbeat.
+      final sweeps = backend.publishes.length - afterPublish;
+      expect(sweeps, lessThanOrEqualTo(5),
+          reason: 'sweep did not back off: $sweeps resends in 400ms');
+      expect(sweeps, greaterThan(0), reason: 'sweep never ran at all');
+    });
+
+    test('a reconnect brings the backed-off sweep back to full pace', () async {
+      // Arrange — b refuses everything, so the sweep backs off: at a 100ms
+      // base the intervals run 100, 200, 400, and by ~750ms the next sweep is
+      // already 800ms away. a accepts, so the publish itself succeeds.
+      final sweeper = NostrService(
+        _FixedKeyManager(),
+        crypto: FakeNostrCrypto(),
+        backend: backend,
+        resendInterval: const Duration(milliseconds: 100),
+      );
+      addTearDown(sweeper.dispose);
+      backend.configuredRelays = ['wss://a', 'wss://b', 'wss://c'];
+      backend.connected = ['wss://a', 'wss://b', 'wss://c'];
+      backend.onPublish = (url, event) async => url != 'wss://b';
+
+      await sweeper.publishEvent(_event(tags: [
+        ['d', 'abcd'],
+      ]));
+      await Future<void>.delayed(const Duration(milliseconds: 750));
+      final beforeReconnect =
+          backend.publishes.where((p) => p.$1 == 'wss://b').length;
+
+      // Act — a DIFFERENT relay comes back, so what is measured is the
+      // rescheduled sweep rather than the reconnect's own immediate resend
+      backend.connectedController.add('wss://c');
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+
+      // Assert — b was swept again inside the window. Left at the old pace the
+      // next sweep would still be ~750ms out, and a relay that just came back
+      // would sit unserved through a backoff it had nothing to do with.
+      final sweepsAfter =
+          backend.publishes.where((p) => p.$1 == 'wss://b').length -
+              beforeReconnect;
+      expect(sweepsAfter, greaterThan(0),
+          reason: 'the pending timer kept the backed-off delay');
+    });
+
+    test('sweeps relays at once, so a silent one cannot stall the others',
+        () async {
+      // Arrange — the silent relay is FIRST, so a sequential sweep never
+      // reaches the second one
+      final silent = Completer<bool>();
+      addTearDown(() => silent.complete(false));
+      final sweeper = NostrService(
+        _FixedKeyManager(),
+        crypto: FakeNostrCrypto(),
+        backend: backend,
+        resendInterval: const Duration(milliseconds: 50),
+      );
+      addTearDown(sweeper.dispose);
+      backend.configuredRelays = ['wss://silent', 'wss://slowpoke', 'wss://c'];
+      backend.connected = ['wss://silent', 'wss://slowpoke', 'wss://c'];
+      backend.onPublish = (url, event) {
+        if (url == 'wss://silent') return silent.future;
+        // c accepts, so the publish itself succeeds; slowpoke refuses, which
+        // keeps the state pending and the sweep running.
+        return Future<bool>.value(url == 'wss://c');
+      };
+
+      // Act
+      await sweeper.publishEvent(_event(tags: [
+        ['d', 'abcd'],
+      ]));
+      final afterPublish = backend.publishes.length;
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      // Assert — slowpoke was reached even though silent never answered
+      final resent = backend.publishes.skip(afterPublish).map((p) => p.$1);
+      expect(resent, contains('wss://slowpoke'));
     });
   });
 

@@ -275,7 +275,7 @@ void main() {
         await build();
 
         // Act
-        final added = await notifier.addRelay('  wss://relay.mostro.network ');
+        final added = await notifier.addRelay('  wss://relay.primal.net ');
 
         // Assert
         expect(added, isFalse);
